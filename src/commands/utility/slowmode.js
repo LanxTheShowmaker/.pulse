@@ -1,8 +1,10 @@
-import { SlashCommandBuilder } from "discord.js";
-import { defer } from "../moderation/shared.js";
-import { embeds } from "../../design/embeds.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { defer } from "../../commands/moderation/shared.js";
+import { containerReply, containerEdit } from "../../design/containers/base.js";
+import { errorPanel, successPanel } from "../../design/containers/panels.js";
 import { isStaff } from "../../core/services.js";
 import { logger } from "../../core/logger.js";
+
 export default {
     data: new SlashCommandBuilder()
         .setName("slowmode")
@@ -19,18 +21,15 @@ export default {
         const config = await client.services.settings.get(guild.id).catch(() => null);
         const hasChannelPerm = member.permissions.has("ManageChannels");
         if (!isStaff(member, config) && !hasChannelPerm) {
-            await interaction.editReply({ embeds: [embeds.error("Missing permission", "You need staff role or Manage Channels permission.")] });
-            return;
+            return containerEdit(interaction, errorPanel("Missing permission", "You need staff role or Manage Channels permission."));
         }
         try {
             await channel.setRateLimitPerUser(seconds);
-            await interaction.editReply({
-                embeds: [embeds.success("Slowmode updated", seconds === 0 ? "Slowmode disabled." : `Slowmode set to **${seconds}** second(s).`)],
-            });
+            await containerEdit(interaction, successPanel("Slowmode updated", seconds === 0 ? "Slowmode disabled." : `Slowmode set to **${seconds}** second(s).`));
         }
         catch (e) {
             logger.error("utility", "slowmode failed", e);
-            await interaction.editReply({ embeds: [embeds.error("Slowmode failed", "Could not update the channel slowmode.")] });
+            await containerEdit(interaction, errorPanel("Slowmode failed", "Could not update the channel slowmode."));
         }
     },
 };

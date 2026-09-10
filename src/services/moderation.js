@@ -30,11 +30,11 @@ export class ModerationService {
         });
         await this.logging.logCase(created).catch((e) => logger.error("moderation", "case log failed", e));
         // Audit & automation via client.services if available
-        try{
-            const audit=this.client?.services?.audit ?? globalThis._angelAudit ?? null;
-            if(audit) audit.log(guild.id,{ actorId: moderator.id, targetId: target.id, action: action.toLowerCase(), category:"moderation", details:{ caseNumber: created.caseNumber, reason }}).catch(()=>{});
-            this.client?.services?.automation?.trigger(guild.id,"moderationCase",{ caseNumber: created.caseNumber, action, targetId: target.id, moderatorId: moderator.id }).catch(()=>{});
-        }catch{}
+        try {
+            const audit = this.client?.services?.audit ?? null;
+            if (audit) audit.log(guild.id, { actorId: moderator.id, targetId: target.id, action: action.toLowerCase(), category: "moderation", details: { caseNumber: created.caseNumber, reason } }).catch(() => {});
+            this.client?.services?.automation?.trigger(guild.id, "moderationCase", { caseNumber: created.caseNumber, action, targetId: target.id, moderatorId: moderator.id }).catch(() => {});
+        } catch {}
         return created;
     }
     async ban(guild, target, moderator, reason, days = 0) {

@@ -1,7 +1,7 @@
 import {
     ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
     ActionRowBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, AttachmentBuilder,
-    ChannelType, PermissionFlagsBits, time,
+    ChannelType, PermissionFlagsBits, time, MessageFlags,
 } from "discord.js";
 import { embeds, confirmationRow } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
@@ -56,29 +56,29 @@ export class OrderService {
         return DEFAULT_DESIGN_CATEGORIES;
     }
     registerStaticHandlers() {
-        this.components.set("wings:order:open", async (i) => {
+        this.components.set("order:open", async (i) => {
             if (!i.isButton())
                 return;
             await this.handleOpen(i);
         });
-        this.components.set("wings:order:category", async (i) => {
+        this.components.set("order:category", async (i) => {
             if (!i.isStringSelectMenu())
                 return;
             await this.handleCategorySelect(i);
         });
-        this.components.set("wings:order:create", async (i) => {
+        this.components.set("order:create", async (i) => {
             if (!i.isModalSubmit())
                 return;
             await this.handleCreateModal(i);
         });
     }
     registerControlHandlers() {
-        this.components.set("wings:order:claim", async (i) => this.handleClaim(i));
-        this.components.set("wings:order:status", async (i) => this.handleStatus(i));
-        this.components.set("wings:order:close", async (i) => this.handleClose(i));
-        this.components.set("wings:order:add", async (i) => this.handleAddUser(i));
-        this.components.set("wings:order:remove", async (i) => this.handleRemoveUser(i));
-        this.components.set("wings:order:transcript", async (i) => this.handleTranscript(i));
+        this.components.set("order:claim", async (i) => this.handleClaim(i));
+        this.components.set("order:status", async (i) => this.handleStatus(i));
+        this.components.set("order:close", async (i) => this.handleClose(i));
+        this.components.set("order:add", async (i) => this.handleAddUser(i));
+        this.components.set("order:remove", async (i) => this.handleRemoveUser(i));
+        this.components.set("order:transcript", async (i) => this.handleTranscript(i));
     }
     // --- Panel command support -------------------------------------------------
     buildPanelEmbed() {
@@ -90,7 +90,7 @@ export class OrderService {
     }
     buildOpenButton() {
         return new ActionRowBuilder().addComponents(new ButtonBuilder()
-            .setCustomId("wings:order:open")
+            .setCustomId("order:open")
             .setLabel("Request Design")
             .setStyle(ButtonStyle.Primary)
             .setEmoji("🎨"));
@@ -109,7 +109,7 @@ export class OrderService {
         }
         const cats = this.getCategories(await this.settings.get(i.guild.id).catch(() => null));
         const menu = new StringSelectMenuBuilder()
-            .setCustomId("wings:order:category")
+            .setCustomId("order:category")
             .setPlaceholder("Choose a design category")
             .addOptions(cats);
         await i.reply({
@@ -121,7 +121,7 @@ export class OrderService {
     async handleCategorySelect(i) {
         const category = i.values[0];
         const modal = new ModalBuilder()
-            .setCustomId(`wings:order:create:${category}`)
+            .setCustomId(`order:create:${category}`)
             .setTitle(`Brief · ${category}`);
         modal.addComponents(
             new ActionRowBuilder().addComponents(new TextInputBuilder()
@@ -156,7 +156,7 @@ export class OrderService {
         await i.showModal(modal);
     }
     async handleCreateModal(i) {
-        const category = i.customId.split(":")[3] ?? "other";
+        const category = i.customId.split(":")[2] ?? "other";
         const description = i.fields.getTextInputValue("description");
         const budget = i.fields.getTextInputValue("budget") || null;
         const deadlineRaw = i.fields.getTextInputValue("deadline") || null;
@@ -288,12 +288,12 @@ export class OrderService {
     }
     buildControlRow(channelId) {
         const claim = new ButtonBuilder()
-            .setCustomId(`wings:order:claim:${channelId}`)
+            .setCustomId(`order:claim:${channelId}`)
             .setLabel("Claim")
             .setStyle(ButtonStyle.Success)
             .setEmoji("✅");
         const status = new StringSelectMenuBuilder()
-            .setCustomId(`wings:order:status:${channelId}`)
+            .setCustomId(`order:status:${channelId}`)
             .setPlaceholder("Update status")
             .addOptions([
                 { label: "In Progress", value: "IN_PROGRESS" },
@@ -303,9 +303,9 @@ export class OrderService {
                 { label: "Paid", value: "PAID" },
                 { label: "Close Order", value: "CLOSED" },
             ]);
-        const add = new ButtonBuilder().setCustomId(`wings:order:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕");
-        const remove = new ButtonBuilder().setCustomId(`wings:order:remove:${channelId}`).setLabel("Remove User").setStyle(ButtonStyle.Secondary).setEmoji("➖");
-        const transcript = new ButtonBuilder().setCustomId(`wings:order:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄");
+        const add = new ButtonBuilder().setCustomId(`order:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕");
+        const remove = new ButtonBuilder().setCustomId(`order:remove:${channelId}`).setLabel("Remove User").setStyle(ButtonStyle.Secondary).setEmoji("➖");
+        const transcript = new ButtonBuilder().setCustomId(`order:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄");
         return [
             new ActionRowBuilder().addComponents(claim, status),
             new ActionRowBuilder().addComponents(add, remove, transcript),
@@ -334,10 +334,14 @@ export class OrderService {
     }
     // --- Control handlers ------------------------------------------------------
     parseChannelId(customId, prefix) {
-        const rest = customId.slice(prefix.length);
-        if (!rest.startsWith(":"))
+        // customId format: prefix:channelId:action
+        // e.g., "order:claim:123456" or "order:close:123456:confirm"
+        const parts = customId.split(":");
+        if (parts[0] !== "order")
             return null;
-        return rest.slice(1).split(":")[0] ?? null;
+        // parts[1] is channelId for simple actions
+        // parts[2] might be action for confirm/cancel
+        return parts[1] ?? null;
     }
     async fetchOrder(channelId) {
         return this.prisma.order.findUnique({ where: { channelId } }).catch(() => null);
@@ -350,7 +354,7 @@ export class OrderService {
     async handleClaim(i) {
         if (!i.isButton())
             return;
-        const channelId = this.parseChannelId(i.customId, "wings:order:claim");
+        const channelId = this.parseChannelId(i.customId, "order:claim");
         if (!channelId)
             return;
         const member = i.member;
@@ -376,7 +380,7 @@ export class OrderService {
     async handleStatus(i) {
         if (!i.isStringSelectMenu())
             return;
-        const channelId = this.parseChannelId(i.customId, "wings:order:status");
+        const channelId = this.parseChannelId(i.customId, "order:status");
         if (!channelId)
             return;
         const member = i.member;
@@ -396,8 +400,8 @@ export class OrderService {
                 embeds: [embeds.warn("Close order", "This will lock the channel, mark the order paid/closed, and generate a transcript. Continue?")],
                 components: [
                     confirmationRow({
-                        acceptCustomId: `wings:order:close:${channelId}:confirm`,
-                        cancelCustomId: `wings:order:close:${channelId}:cancel`,
+                        acceptCustomId: `order:close:${channelId}:confirm`,
+                        cancelCustomId: `order:close:${channelId}:cancel`,
                         acceptLabel: "Close order",
                         danger: true,
                     }),
@@ -417,7 +421,7 @@ export class OrderService {
     async handleClose(i) {
         if (!i.isButton() && !i.isStringSelectMenu())
             return;
-        const channelId = this.parseChannelId(i.customId, "wings:order:close");
+        const channelId = this.parseChannelId(i.customId, "order:close");
         if (!channelId)
             return;
         if (i.customId.endsWith(":confirm")) {
@@ -440,8 +444,8 @@ export class OrderService {
             embeds: [embeds.warn("Close order", "This will lock the channel and generate a transcript. Continue?")],
             components: [
                 confirmationRow({
-                    acceptCustomId: `wings:order:close:${channelId}:confirm`,
-                    cancelCustomId: `wings:order:close:${channelId}:cancel`,
+                    acceptCustomId: `order:close:${channelId}:confirm`,
+                    cancelCustomId: `order:close:${channelId}:cancel`,
                     acceptLabel: "Close order",
                     danger: true,
                 }),
@@ -477,7 +481,7 @@ export class OrderService {
             await this.logOrder(guild, finalOrder, `Order closed by ${closer.user.tag}`);
     }
     async handleAddUser(i) {
-        const channelId = this.parseChannelId(i.customId, "wings:order:add");
+        const channelId = this.parseChannelId(i.customId, "order:add");
         if (!channelId)
             return;
         if (i.customId.endsWith(":menu")) {
@@ -491,7 +495,7 @@ export class OrderService {
             await i.reply({ embeds: [embeds.success("User added", `<@${userId}> can now access this order.`)], flags: MessageFlags.Ephemeral });
             return;
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`wings:order:add:${channelId}:menu`).setPlaceholder("Select a user to add");
+        const menu = new UserSelectMenuBuilder().setCustomId(`order:add:${channelId}:menu`).setPlaceholder("Select a user to add");
         await i.reply({
             embeds: [embeds.info("Add user", "Pick a member to grant access to this order.")],
             components: [new ActionRowBuilder().addComponents(menu)],
@@ -499,7 +503,7 @@ export class OrderService {
         });
     }
     async handleRemoveUser(i) {
-        const channelId = this.parseChannelId(i.customId, "wings:order:remove");
+        const channelId = this.parseChannelId(i.customId, "order:remove");
         if (!channelId)
             return;
         if (i.customId.endsWith(":menu")) {
@@ -518,7 +522,7 @@ export class OrderService {
             await i.reply({ embeds: [embeds.success("User removed", `<@${userId}> no longer has access to this order.`)], flags: MessageFlags.Ephemeral });
             return;
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`wings:order:remove:${channelId}:menu`).setPlaceholder("Select a user to remove");
+        const menu = new UserSelectMenuBuilder().setCustomId(`order:remove:${channelId}:menu`).setPlaceholder("Select a user to remove");
         await i.reply({
             embeds: [embeds.info("Remove user", "Pick a member to revoke access from this order.")],
             components: [new ActionRowBuilder().addComponents(menu)],
@@ -528,7 +532,7 @@ export class OrderService {
     async handleTranscript(i) {
         if (!i.isButton())
             return;
-        const channelId = this.parseChannelId(i.customId, "wings:order:transcript");
+        const channelId = this.parseChannelId(i.customId, "order:transcript");
         if (!channelId)
             return;
         await i.deferReply({ flags: MessageFlags.Ephemeral });

@@ -1,20 +1,21 @@
 export const Theme = {
-    accent: 0x9b8ecf, // lavender — primary
-    success: 0x6ee7b7, // mint — calm success
-    danger: 0xf87171, // soft coral — gentle danger
-    warn: 0xfbbf24, // warm amber
-    info: 0x7dd3fc, // sky — airy info
+    accent: 0x5865f2, // Discord blurple — primary
+    success: 0x57f287, // Discord green — success
+    danger: 0xed4245, // Discord red — danger
+    warn: 0xfee75c, // Discord yellow — warning
+    info: 0x3ba55d, // Discord green variant — info
     muted: 0x94a3b8, // slate — subtle
-    text: 0xe2e8f0, // light slate
-    soft: 0xc4b5fd, // lilac haze
-    panel: 0x9b8ecf,
-    ticket: 0x60a5fa,
+    text: 0xffffff, // white
+    soft: 0x8b98fc, // light blurple
+    panel: 0x5865f2,
+    ticket: 0x57f287,
     gold: 0xfacc15,
 };
+
 export const Brand = {
-    name: "A.N.G.E.L.",
-    footer: "A.N.G.E.L.",
-    mark: "✦",
-    icon: null, // set to guild icon dynamically where possible
+    name: ".pulse",
+    footer: ".pulse · Pulse Variant 2",
+    mark: "◆",
+    icon: null,
 };
 //# sourceMappingURL=theme.js.map

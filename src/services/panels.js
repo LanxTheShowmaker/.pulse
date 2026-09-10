@@ -1,6 +1,6 @@
 import { ChannelType, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { embeds } from "../design/embeds.js";
-import { Theme } from "../design/theme.js";
+import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 
 export const PANEL_TYPES = {
@@ -12,25 +12,25 @@ export const PANEL_TYPES = {
 
 const PANEL_META = {
     [PANEL_TYPES.ORDER]: { label: "Orders", emoji: "🛒", defaultChannel: "orders", defaultTitle: "Place Your Order", color: Theme.accent },
-    [PANEL_TYPES.ASSISTANCE]: { label: "Assistance", emoji: "🛟", defaultChannel: "support", defaultTitle: "A.N.G.E.L. Assistance Requests", color: Theme.accent },
-    [PANEL_TYPES.REGULATIONS]: { label: "Regulations", emoji: "📜", defaultChannel: "rules", defaultTitle: "A.N.G.E.L. Regulations", color: Theme.accent },
-    [PANEL_TYPES.DASHBOARD]: { label: "Dashboard", emoji: "📊", defaultChannel: "dashboard", defaultTitle: "A.N.G.E.L. Dashboard", color: Theme.accent },
+    [PANEL_TYPES.ASSISTANCE]: { label: "Assistance", emoji: "🛟", defaultChannel: "support", defaultTitle: "Assistance Requests", color: Theme.accent },
+    [PANEL_TYPES.REGULATIONS]: { label: "Regulations", emoji: "📜", defaultChannel: "rules", defaultTitle: "Regulations", color: Theme.accent },
+    [PANEL_TYPES.DASHBOARD]: { label: "Dashboard", emoji: "📊", defaultChannel: "dashboard", defaultTitle: "Dashboard", color: Theme.accent },
 };
 
 const DEFAULT_PANELS = {
     [PANEL_TYPES.ORDER]: {
-        title: "✦  Place Your Order",
+        title: "◆  Place Your Order",
         description: "Open a ticket for design services. Select a category below to get started.",
         bannerUrl: null,
         thumbnailUrl: null,
         embedColor: null,
-        footerText: "A.N.G.E.L.  •  select an option below to begin  •  one ticket per request",
+        footerText: ".pulse  •  select an option below to begin  •  one ticket per request",
         footerIcon: null,
         sections: [
             { title: "What Happens Next", content: "```\n1 — Choose a service from the menu\n2 — Share your vision (references, budget, deadline)\n3 — A designer claims your ticket and begins\n```" },
             { title: "Before You Order  •  Please Read", content: "> Provide clear references and dimensions\n> Respect payment and revision rules\n> Follow staff guidance with kindness\n> Need help? Open an Assistance ticket" },
         ],
-        dropdownPlaceholder: "🪽  Choose a service to begin",
+        dropdownPlaceholder: "◆  Choose a service to begin",
     },
     [PANEL_TYPES.ASSISTANCE]: {
         title: "🛟  Assistance  •  We're Here to Help",
@@ -41,7 +41,7 @@ const DEFAULT_PANELS = {
             { title: "Review Process", content: "> Staff review within 24 hours\n> You'll be updated directly in the ticket\n> Urgent matters are prioritized" },
         ],
         dropdownPlaceholder: "🛟  Choose a request",
-        footerText: "A.N.G.E.L.  •  private and confidential",
+        footerText: ".pulse  •  private and confidential",
     },
     [PANEL_TYPES.REGULATIONS]: {
         title: "📜  Regulations  •  Our Covenant",
@@ -52,25 +52,25 @@ const DEFAULT_PANELS = {
             { title: "Essentials  —  The Foundation", content: "```\n•  Remain respectful and professional at all times\n•  Follow staff guidance\n•  Never impersonate others or misrepresent work\n•  Scamming, fraud, or deceptive practices are forbidden\n•  Do not interfere with another's transaction or order\n•  Honour Discord Terms of Service and community spirit\n```" },
             { title: "Conduct", content: "> Customer — Be clear and patient\n> Designer — Deliver with integrity, communicate, respect deadlines\n> Staff — Serve with fairness and transparency\n> AI — Disclose AI assistance where relevant" },
         ],
-        footerText: "A.N.G.E.L.  •  regulations live in respect",
+        footerText: ".pulse  •  regulations live in respect",
     },
     [PANEL_TYPES.DASHBOARD]: {
-        title: "✦  A.N.G.E.L. Dashboard",
+        title: "◆  .pulse Dashboard",
         description: "Server overview and quick access.\n\n*Open an Order or Assistance ticket to get started.*",
         bannerUrl: null,
         sections: [
             { title: "Our Community", content: "> Support, design, and development — in one place." },
             { title: "Our Purpose", content: "> Provide reliable service and support.\n> Every ticket is handled professionally." },
         ],
-        dropdownPlaceholder: "✦  Explore more",
+        dropdownPlaceholder: "◆  Explore more",
         dropdownOptions: [
             { label: "About", value: "about", emoji: "📖", description: "Our story and values" },
             { label: "Services", value: "services", emoji: "🛒", description: "What we create" },
-            { label: "Atelier", value: "staff", emoji: "👥", description: "Meet the artisans" },
+            { label: "Team", value: "staff", emoji: "👥", description: "Meet the team" },
             { label: "Connect", value: "links", emoji: "🔗", description: "Links & contact" },
             { label: "Regulations", value: "regulations", emoji: "📜", description: "Our covenant" },
         ],
-        footerText: "A.N.G.E.L.  •  welcome home",
+        footerText: ".pulse  •  welcome home",
     },
 };
 
@@ -164,10 +164,10 @@ export class PanelService {
             return { name: ` ${name}`, value, inline: false };
         }).slice(0, 25);
 
-        const guildName = panel.guildId ? `A.N.G.E.L. • ${PANEL_META[panel.panelType]?.label ?? panel.panelType}` : "A.N.G.E.L.";
+        const guildName = panel.guildId ? `${Brand.name} • ${PANEL_META[panel.panelType]?.label ?? panel.panelType}` : Brand.name;
         const embed = embeds.panel(title, description || undefined, fields.length ? fields : undefined, {
             author: { name: guildName },
-            footer: panel.footerText ?? cfg.footerText ?? "A.N.G.E.L.  •  configured for this server",
+            footer: panel.footerText ?? cfg.footerText ?? `${Brand.name}  •  configured for this server`,
             footerIcon: panel.footerIcon ?? cfg.footerIcon ?? undefined,
         });
         if (color) embed.setColor(color);
@@ -228,7 +228,7 @@ export class PanelService {
             }));
             if (options.length) {
                 const placeholder = cfg.dropdownPlaceholder ?? (panel.panelType === PANEL_TYPES.ORDER ? "Choose a service to order" : "Choose a request");
-                const menu = new StringSelectMenuBuilder().setCustomId(`angel:panel:select:${panel.panelType}`).setPlaceholder(placeholder.slice(0,150)).addOptions(options);
+                const menu = new StringSelectMenuBuilder().setCustomId(`panel:select:${panel.panelType}`).setPlaceholder(placeholder.slice(0,150)).addOptions(options);
                 rows.push(new ActionRowBuilder().addComponents(menu));
             }
         }
@@ -236,7 +236,7 @@ export class PanelService {
         if (panel.panelType === PANEL_TYPES.DASHBOARD) {
             const opts = cfg.dropdownOptions ?? DEFAULT_PANELS.DASHBOARD.dropdownOptions ?? [];
             if (opts.length) {
-                const menu = new StringSelectMenuBuilder().setCustomId(`angel:panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), emoji:o.emoji??undefined, description:o.description?.slice(0,100)})));
+                const menu = new StringSelectMenuBuilder().setCustomId(`panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), emoji:o.emoji??undefined, description:o.description?.slice(0,100)})));
                 rows.push(new ActionRowBuilder().addComponents(menu));
             }
         }

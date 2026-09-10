@@ -1,7 +1,7 @@
 {
-  "name": "angel",
-  "version": "1.0.0",
-  "description": "A.N.G.E.L. — a global, per-server configurable Discord application with autosetup.",
+  "name": "@pulse/bot",
+  "version": "2.0.0",
+  "description": ".pulse — a professional, universal Discord moderation and management bot. Pulse Variant 2.",
   "type": "module",
   "main": "src/core/bootstrap.js",
   "scripts": {
@@ -10,7 +10,9 @@
     "deploy": "node src/core/deploy.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "lint": "eslint src",
+    "test": "node --test src/**/*.test.js"
   },
   "engines": {
     "node": ">=20"
@@ -21,6 +23,7 @@
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "eslint": "^8.57.0"
   }
 }

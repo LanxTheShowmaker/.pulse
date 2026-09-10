@@ -1,3 +1,5 @@
+import { logger } from "../core/logger.js";
+
 export default {
     name: "messageUpdate",
     async execute(oldMsg, newMsg, client) {
@@ -17,9 +19,10 @@ export default {
             content: newMsg.content,
             jumpUrl: newMsg.url,
         })
-            .catch(() => { });
+        .catch((e) => logger.warn("logging", "logMessage failed", e.message));
         // AutoMod edited message detection (conservative, deduplicate)
-        await client.services.automod.handleMessageUpdate(oldMsg, newMsg).catch(() => {});
+        await client.services.automod.handleMessageUpdate(oldMsg, newMsg)
+            .catch((e) => logger.warn("automod", "handleMessageUpdate failed", e.message));
     },
 };
 //# sourceMappingURL=messageUpdate.js.map

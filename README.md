@@ -1,90 +1,184 @@
-# A.N.G.E.L.
+# .pulse
 
-A global, per-server configurable Discord application. A.N.G.E.L. is designed to feel intentional: consistent visual language, fast slash commands, a unified case system for moderation, structured logging, and graceful failure handling. Every server configures itself with `/autosetup`.
+A professional, universal Discord moderation and management bot. Built as a single coherent product from accumulated useful functionality across historical variants.
 
-## Principles
+## Overview
 
-- Slash-first. Components (buttons, selects, modals) are used only when they improve usability.
-- Every response follows one design system (`src/design`).
-- Sensible confirmation for destructive actions; ephemeral by default for moderation.
-- No raw Discord/DB errors reach ordinary users.
-- Persistent state lives in SQLite via Prisma (per-guild `GuildConfig` + `GuildId` isolation) — never scattered JSON.
+.pulse provides a complete suite of server management tools:
 
-## Stack
+- **Moderation** — warn, ban, kick, timeout, cases, history, auto-escalation
+- **Tickets** — configurable types, forms, panels, transcripts, claims
+- **AutoMod** — spam, links, invites, caps, words, regex, raid protection
+- **Leveling** — XP, levels, rewards, leaderboards, prestige
+- **Economy** — balance, shop, daily/weekly, trading, inventory
+- **Configuration** — modules, logs, roles, prefix, branding
+- **Starboard** — reaction-based highlights with modern UI
+- **Welcome/Goodbye** — custom messages, autoroles
+- **Reaction Roles** — panel-based assignment
+- **Giveaways** — creation, management, rerolls
+- **Suggestions** — community workflow
+- **Orders** — design commission workflow
+- **Utilities** — polls, reminders, AFK, diagnostics, analytics
 
-- Plain JavaScript (ESM), run with `node`
-- `discord.js@14`
-- `Prisma` + SQLite (local file — no server or Docker required)
-
-## Project structure
+## Architecture
 
 ```
 src/
-  core/      bootstrap, client, command+event registry, services container, logger, permissions
-  design/    theme + embed/component design system (the "interface")
-  store/     prisma client
-  services/  business logic: settings, cases, moderation, logging, automod, orders, fortress, utility
-  commands/  slash commands grouped by module (auto-loaded)
-  events/    discord event handlers (auto-loaded)
-tests/       vitest specs
-prisma/      schema + migrations
+  core/          bootstrap, client, registry, services, logger, permissions
+  design/        theme, embeds, Components V2 containers (UI system)
+  store/         Prisma client
+  services/      business logic (23 services)
+  commands/      slash commands by module (auto-loaded)
+  events/        Discord event handlers (auto-loaded)
+  automod/       detector pipeline
+prisma/          schema + migrations
+docs/            documentation
 ```
 
-Commands and events are auto-discovered. A command file exports:
+**Single Runtime**: One entry point, one command system, one event system, one service container.
 
-```ts
-export default {
-  data: new SlashCommandBuilder().setName("example").setDescription("..."),
-  category: "Utility",
-  async execute(interaction: ChatInputCommandInteraction) { /* ... */ },
-};
-```
+## Stack
 
-Inside a command, reach services via `const client = interaction.client as AngelClient; client.services.<name>`.
+- **Runtime**: Node.js 20+ (ESM)
+- **Discord**: discord.js v14
+- **Database**: SQLite via Prisma ORM (WAL mode, zero-config)
+- **Linting**: ESLint (flat config)
 
-## Setup (development)
+## Quick Start
 
 ```bash
-cp .env.example .env            # fill DISCORD_TOKEN, CLIENT_ID (DATABASE_URL is already set to a local SQLite file)
+# Clone and install
+git clone https://github.com/LanxTheShowmaker/.pulse.git
+cd .pulse
 npm install
-npx prisma generate
-npx prisma migrate dev          # creates the local wings.db file
+
+# Configure
+cp .env.example .env
+# Edit .env: set DISCORD_TOKEN, DATABASE_URL (default: file:./data.db)
+
+# Database
+npm run prisma:generate
+npm run prisma:migrate
+
+# Deploy commands (global)
+npm run deploy
+
+# Run
+npm run start
+# Or development with hot reload
 npm run dev
 ```
 
-Register slash commands (global, per-server config via `/autosetup`):
+## Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DISCORD_TOKEN` | Yes | — | Bot token from Discord Developer Portal |
+| `DATABASE_URL` | Yes | `file:./data.db` | SQLite database path |
+| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, `error` |
+
+## Discord Intents & Permissions
+
+**Required Intents**:
+- Guilds
+- GuildMembers
+- GuildMessages
+- GuildBans
+- MessageContent
+- GuildVoiceStates
+- GuildMessageReactions
+
+**Required Bot Permissions**:
+- Ban Members, Kick Members, Moderate Members
+- Manage Channels, Manage Messages, Manage Roles
+- Send Messages, Embed Links, Attach Files
+- Read Message History, Use Application Commands
+
+## Configuration
+
+Run `/config` in any server to access the unified configuration center:
+
+- **Modules** — toggle features on/off
+- **AutoMod** — rules, thresholds, exemptions
+- **Logs** — mod log, general log, welcome, goodbye
+- **Staff** — staff roles, moderator roles, ignored channels/roles/users
+- **Prefix** — custom command prefix per server
+
+## Design System
+
+.pulse uses Discord's **Components V2** (Containers, Sections, Text Displays, Separators, Media Galleries) as the primary presentation layer. Traditional embeds are used only where they genuinely make more sense.
+
+The design language is:
+- **Minimalist** — clean, uncluttered
+- **Discord-native** — blurple, green, red, yellow palette
+- **Consistent** — shared primitives across all commands
+- **Readable** — clear hierarchy, muted secondary text
+- **Professional** — no cringe, no excessive emojis, no walls of text
+
+## Command Structure
+
+Commands are organized in intuitive hierarchies:
+
+- `/moderation` — all moderation actions and case management
+- `/tickets` — ticket creation, management, configuration
+- `/automod` — AutoMod status, rules, thresholds
+- `/config` — server settings (alias: `/settings`)
+- `/starboard` — starboard configuration
+- `/leveling` — rank, leaderboard, configuration
+- `/economy` — balance, shop, daily, trading
+- `/giveaways` — giveaway management
+- `/suggestions` — suggestion workflow
+- `/reactionroles` — reaction role panels
+- `/welcome` — welcome/goodbye setup
+- `/utility` — info, polls, reminders, diagnostics
+- `/fun` — games and entertainment
+- `/orders` — design order workflow
+
+## Development
 
 ```bash
-npm run deploy              # global (public, 1h propagate)
-npm run deploy -- --guild   # dev fast guild deploy when GUILD_ID is set
+# Syntax check all files
+node --check src/core/bootstrap.js
+node --check src/core/registry.js
+# ... etc
+
+# Lint
+npm run lint
+
+# Test (when available)
+npm run test
+
+# Auto-reload during development
+npm run dev
 ```
 
-The commands are plain `.js` files under `src/commands` — edit and restart (or use `npm run dev` for auto-reload). After inviting A.N.G.E.L. to a new server, run `/autosetup` to pick Staff/Mod roles and create log channels.
+## Deployment
 
-## Production
-
+### Production
 ```bash
 npm ci
-npx prisma migrate deploy
+npm run prisma:deploy
 npm run start
 ```
 
-The bot needs the `Guilds`, `GuildMembers`, `GuildMessages`, `GuildBans`, `MessageContent`, and `GuildVoiceStates` intents and the `bot` + `applications.commands` scopes. For moderation it needs `Ban Members`, `Kick Members`, `Moderate Members`, `Manage Channels`, and `Manage Messages`.
+### Process Management
+Recommended: PM2, systemd, or Docker
+```bash
+pm2 start src/core/bootstrap.js --name pulse
+```
 
-## Quality
+### Graceful Shutdown
+Handles SIGINT/SIGTERM — disconnects Prisma, destroys Discord client, exits cleanly.
 
-The project is plain ESM JavaScript. Lint/format/testing tooling can be added
-later (e.g. ESLint, Prettier, Vitest) if desired; the runtime depends only on
-`node`, `discord.js`, and `Prisma`.
+## Documentation
 
-## Feature set
+- [Universal Specification](docs/UNIVERSAL_SPEC.md) — canonical product contract
+- [Architecture Notes](docs/ARCHITECTURE.md) — technical deep-dive
 
-- **Moderation + Cases** — ban, kick, timeout, warn, note; every action opens a numbered case with target/moderator/reason/duration. `/case view|resolve|user|moderator`.
-- **Logging** — message edits/deletes, joins/leaves, role changes to configured channels.
-- **Automod (deep)** — spam, mention spam, invite/link filtering, **new-account link lockdown**, zalgo & emoji-spam, scam-URL blocking, multi-user **cluster spam**, raid/join-spike detection, per-channel exemptions, offense escalation ladder, and **auto-fortress** on raid.
-- **Design Orders** — `/order panel` → category → brief modal (description, budget, deadline, references) → private channel with a live status pipeline (`Brief → Claimed → In Progress → Review → Revision → Delivered → Paid → Closed`), designer claim, add/remove users, and transcript export. `/order list` shows the production board; `/order categories` manages design types.
-- **Fortress / lockdown** — `/fortress enable` snapshots and locks every channel to staff only (restored on `/fortress disable`), with status and auto-trigger during raids.
-- **Utility** — whois, avatar, serverinfo, poll, reminder, purge, slowmode.
-- **Settings** — `/settings` with progressive categories (logging, welcome, moderation, orders, automod, general).
+## License
 
-A.N.G.E.L. is built for any server that wants design/order commissions, hardened moderation, and per-server autosetup — the ticket system is replaced by the order system.
+MIT — see LICENSE file.
+
+---
+
+**.pulse** — Professional Discord Management.

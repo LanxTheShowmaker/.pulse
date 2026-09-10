@@ -1,3 +1,5 @@
+import { logger } from "../core/logger.js";
+
 export default {
     name: "messageDelete",
     async execute(message, client) {
@@ -14,7 +16,7 @@ export default {
             channel: `#${message.channel.name ?? message.channelId}`,
             content: message.content,
         })
-            .catch(() => { });
+        .catch((e) => logger.warn("logging", "logMessage failed", e.message));
     },
 };
 //# sourceMappingURL=messageDelete.js.map

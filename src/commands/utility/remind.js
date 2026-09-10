@@ -1,8 +1,10 @@
-import { SlashCommandBuilder } from "discord.js";
-import { defer, parseDuration } from "../moderation/shared.js";
-import { embeds } from "../../design/embeds.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { defer, parseDuration } from "../../commands/moderation/shared.js";
+import { containerReply, containerEdit } from "../../design/containers/base.js";
+import { errorPanel, successPanel } from "../../design/containers/panels.js";
 import { time } from "discord.js";
 import { logger } from "../../core/logger.js";
+
 export default {
     data: new SlashCommandBuilder()
         .setName("remind")
@@ -19,8 +21,7 @@ export default {
         const text = interaction.options.getString("text", true);
         const ms = parseDuration(when);
         if (ms === null) {
-            await interaction.editReply({ embeds: [embeds.error("Invalid duration", "Use a format like 10m, 1h, or 2d.")] });
-            return;
+            return containerEdit(interaction, errorPanel("Invalid duration", "Use a format like 10m, 1h, or 2d."));
         }
         const remindAt = new Date(Date.now() + Number(ms));
         try {
@@ -31,13 +32,11 @@ export default {
                 message: text.slice(0, 1000),
                 remindAt,
             });
-            await interaction.editReply({
-                embeds: [embeds.success("Reminder set", `I will remind you ${time(remindAt, "R")}.`)],
-            });
+            await containerEdit(interaction, successPanel("Reminder set", `I will remind you ${time(remindAt, "R")}.`));
         }
         catch (e) {
             logger.error("utility", "remind failed", e);
-            await interaction.editReply({ embeds: [embeds.error("Reminder failed", "Could not save your reminder.")] });
+            await containerEdit(interaction, errorPanel("Reminder failed", "Could not save your reminder."));
         }
     },
 };

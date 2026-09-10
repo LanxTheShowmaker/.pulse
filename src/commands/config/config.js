@@ -1,89 +1,242 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder } from "discord.js";
-import { embeds } from "../../design/embeds.js";
-import { Theme } from "../../design/theme.js";
+import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ChannelType } from "discord.js";
+import { containerReply, containerEdit } from "../../design/containers/base.js";
+import { settingsMainPanel, moduleTogglePanel, automodConfigPanel, logChannelsPanel, staffRolesPanel, prefixPanel } from "../../design/containers/settings.js";
+import { errorPanel, successPanel } from "../../design/containers/panels.js";
 import { isStaff } from "../../core/services.js";
+
 const MODULES = [
-    { id:"moderation", label:"Moderation", emoji:"🛡️" },
-    { id:"automod", label:"AutoMod", emoji:"🤖" },
-    { id:"tickets", label:"Tickets", emoji:"🎫" },
-    { id:"leveling", label:"Leveling", emoji:"🌱" },
-    { id:"economy", label:"Economy", emoji:"💰" },
-    { id:"welcome", label:"Welcome", emoji:"👋" },
-    { id:"starboard", label:"Starboard", emoji:"⭐" },
-    { id:"reactionRoles", label:"Reaction Roles", emoji:"🎭" },
-    { id:"analytics", label:"Analytics", emoji:"📊" },
-    { id:"achievements", label:"Achievements", emoji:"🏆" },
-    { id:"automation", label:"Automation", emoji:"⚙️" },
+    { key: "moderation", name: "Moderation", desc: "Warn, ban, kick, timeout, cases" },
+    { key: "automod", name: "AutoMod", desc: "Spam, links, invites, caps, words protection" },
+    { key: "tickets", name: "Tickets", desc: "Support ticket system" },
+    { key: "welcome", name: "Welcome", desc: "Member join/leave messages" },
+    { key: "starboard", name: "Starboard", desc: "Starred messages channel" },
+    { key: "leveling", name: "Leveling", desc: "XP, levels, rewards" },
+    { key: "economy", name: "Economy", desc: "Balance, shop, daily, trading" },
+    { key: "reactionroles", name: "Reaction Roles", desc: "Role assignment via reactions" },
+    { key: "giveaways", name: "Giveaways", desc: "Giveaway creation and management" },
+    { key: "suggestions", name: "Suggestions", desc: "Community suggestion system" },
+    { key: "logging", name: "Logging", desc: "Message, moderation, server logs" },
+    { key: "orders", name: "Orders", desc: "Design order system" },
 ];
-function mainEmbed(guild, cfg){
-    const mods=Object.entries(cfg.modules||{}).map(([k,v])=> `${v?"🟢":"🔴"} ${k}`).join(" • ").slice(0,1000) || "—";
-    return new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${guild.name} • Angel Configuration`, iconURL: guild.iconURL()??undefined }).setDescription("*Centralized control — choose a module to configure*\n\n**Modules**\n"+mods)
-        .addFields(
-            { name:"Log Channel", value: cfg.logChannelId? `<#${cfg.logChannelId}>`:"Not set", inline:true },
-            { name:"Mod Log", value: cfg.modLogChannelId? `<#${cfg.modLogChannelId}>`:"Not set", inline:true },
-            { name:"Welcome", value: cfg.welcomeChannelId? `<#${cfg.welcomeChannelId}>`:"Not set", inline:true }
-        ).setFooter({ text:"A.N.G.E.L. • unified config" }).setTimestamp();
-}
+
 export default {
-    data: new SlashCommandBuilder().setName("config").setDescription("Unified configuration center (V5)"),
-    category:"Config",
-    async execute(interaction){
-        const cfg=await interaction.client.services.settings.get(interaction.guildId).catch(()=>null);
-        if(!isStaff(interaction.member, cfg)) return interaction.reply({ embeds:[embeds.error("No permission","Staff only")], flags: MessageFlags.Ephemeral});
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
-        const guild=interaction.guild;
-        const embed=mainEmbed(guild, await interaction.client.services.settings.get(guild.id));
-        const menu=new StringSelectMenuBuilder().setCustomId("angel:config:module").setPlaceholder("Choose module").addOptions(MODULES.map(m=> ({ label:m.label, value:m.id, emoji:m.emoji })));
-        const row=new ActionRowBuilder().addComponents(menu);
-        const buttons=new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId("angel:config:modules").setLabel("Toggle Modules").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId("angel:config:backup").setLabel("Backup").setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId("angel:config:diagnostics").setLabel("Diagnostics").setStyle(ButtonStyle.Secondary)
-        );
-        // Register handlers
-        interaction.client.components.set("angel:config:module", async(i)=>{
-            const mod=i.values[0];
-            const c=await i.client.services.settings.get(i.guildId);
-            const info={
-                moderation:"Moderation thresholds, logging, escalation — use /modcenter",
-                automod:"Filters, regex, spam, raid — use /automod",
-                tickets:"Panels, forms, claiming — use /setuptickets",
-                leveling:"XP multipliers, role rewards, streaks — use /levelconfig",
-                economy:"Shop, jobs, trading — use /shop /economy",
-                welcome:"Join/leave channels — set via /settings",
-                starboard:"Starboard channel/threshold — /starboard set",
-                reactionRoles:"Reaction roles — /reactionroles",
-                analytics:"View via /analytics",
-                achievements:"View via /achievements",
-                automation:"Rules — /automation",
-            }[mod]||"No details";
-            await i.reply({ embeds:[embeds.info(`${mod}`, info)], flags: MessageFlags.Ephemeral}).catch(()=>{});
-        });
-        interaction.client.components.set("angel:config:modules", async(i)=>{
-            const c=await i.client.services.settings.get(i.guildId);
-            const opts=MODULES.map(m=> ({ label:m.label, value:m.id, default: !!c.modules[m.id] }));
-            const sel=new StringSelectMenuBuilder().setCustomId("angel:config:modules:toggle").setPlaceholder("Toggle modules").setMinValues(0).setMaxValues(MODULES.length).addOptions(opts.map(o=> ({ label:o.label, value:o.value, default:o.default })));
-            await i.reply({ embeds:[embeds.info("Modules","Select enabled modules")], components:[new ActionRowBuilder().addComponents(sel)], flags: MessageFlags.Ephemeral}).catch(()=>{});
-        });
-        interaction.client.components.set("angel:config:modules:toggle", async(i)=>{
-            const chosen=new Set(i.values);
-            const cfg2=await i.client.services.settings.get(i.guildId);
-            const next={}; for(const m of MODULES) next[m.id]=chosen.has(m.id);
-            await i.client.services.settings.patch(i.guildId,{ modules: next });
-            await i.update({ embeds:[embeds.success("Updated","Modules saved")], components:[] }).catch(()=>{});
-        });
-        interaction.client.components.set("angel:config:backup", async(i)=>{
-            const b=await i.client.services.backup.create(i.guildId, i.user).catch(e=>null);
-            if(!b) return i.reply({ embeds:[embeds.error("Backup failed","")], flags: MessageFlags.Ephemeral});
-            await i.reply({ embeds:[embeds.success("Backup created",`ID \`${b.id}\``)], flags: MessageFlags.Ephemeral});
-        });
-        interaction.client.components.set("angel:config:diagnostics", async(i)=>{
-            const d=await i.client.services.diagnostics.check(i.guildId);
-            const errs=d.filter(x=>x.status==="ERROR").length;
-            const warns=d.filter(x=>x.status==="WARNING").length;
-            const embed=new EmbedBuilder().setColor(errs?0xf87171: warns?0xfbbf24:0x6ee7b7).setTitle("Diagnostics").setDescription(d.map(x=> `${x.status==="OK"?"🟢":x.status==="WARNING"?"🟡":"🔴"} **${x.name}** — ${x.detail.slice(0,80)}`).join("\n").slice(0,4000));
-            await i.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
-        });
-        await interaction.editReply({ embeds:[embed], components:[row, buttons]});
+    data: new SlashCommandBuilder()
+        .setName("config")
+        .setDescription("Server configuration center")
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+        .addSubcommand(s => s.setName("view").setDescription("View current configuration"))
+        .addSubcommand(s => s.setName("modules").setDescription("Manage enabled modules"))
+        .addSubcommand(s => s.setName("automod").setDescription("Configure AutoMod"))
+        .addSubcommand(s => s.setName("logs").setDescription("Configure log channels"))
+        .addSubcommand(s => s.setName("staff").setDescription("Configure staff roles"))
+        .addSubcommand(s => s.setName("prefix").setDescription("Configure command prefix")),
+    category: "Config",
+    async execute(interaction) {
+        const sub = interaction.options.getSubcommand();
+        const client = interaction.client;
+        const prisma = client.prisma;
+        
+        const cfg = await client.services.settings.get(interaction.guildId).catch(() => null);
+        if (!isStaff(interaction.member, cfg)) {
+            return containerReply(interaction, errorPanel("Missing Permission", "You need staff permissions to use this command."), true);
+        }
+        
+        if (sub === "view") {
+            const panel = settingsMainPanel(interaction.guild, cfg);
+            return containerReply(interaction, panel, true);
+        }
+        
+        if (sub === "modules") {
+            const modules = JSON.parse(cfg.modules || "{}");
+            const panel = moduleTogglePanel(modules);
+            return containerReply(interaction, panel, true);
+        }
+        
+        if (sub === "automod") {
+            const automod = JSON.parse(cfg.automod || "{}");
+            const panel = automodConfigPanel(automod);
+            return containerReply(interaction, panel, true);
+        }
+        
+        if (sub === "logs") {
+            const panel = logChannelsPanel(cfg);
+            return containerReply(interaction, panel, true);
+        }
+        
+        if (sub === "staff") {
+            const panel = staffRolesPanel(cfg);
+            return containerReply(interaction, panel, true);
+        }
+        
+        if (sub === "prefix") {
+            const prefix = cfg.prefix || "!";
+            const panel = prefixPanel(prefix);
+            return containerReply(interaction, panel, true);
+        }
     }
+};
+
+// Component handlers for interactive settings
+export const componentHandlers = {
+    "settings:module:toggle:": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
+        const key = i.customId.replace("settings:module:toggle:", "");
+        const cfg = await i.client.services.settings.get(i.guildId);
+        const modules = JSON.parse(cfg.modules || "{}");
+        modules[key] = !modules[key];
+        await i.client.services.settings.patch(i.guildId, { modules });
+        
+        const panel = moduleTogglePanel(modules);
+        await i.update({ components: [panel] });
+    },
+    
+    "settings:module:config:": async (i) => {
+        const key = i.customId.replace("settings:module:config:", "");
+        if (key === "automod") {
+            const cfg = await i.client.services.settings.get(i.guildId);
+            const automod = JSON.parse(cfg.automod || "{}");
+            const panel = automodConfigPanel(automod);
+            await i.update({ components: [panel] });
+        }
+    },
+    
+    "settings:logs:modlog": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
+        const { createContainer, createActionRow, divider, headerText, bodyText, mutedText, spacer } = await import("../../design/containers/base.js");
+        const { ChannelSelectMenuBuilder, ChannelType } = await import("discord.js");
+        
+        const menu = new ChannelSelectMenuBuilder()
+            .setCustomId("settings:logs:modlog:select")
+            .setPlaceholder("Select mod log channel")
+            .addChannelTypes(ChannelType.GuildText);
+        
+        const container = createContainer([
+            headerText("Set Moderation Log Channel"),
+            divider(),
+            bodyText("Select the channel for moderation logs:"),
+            divider(),
+            createActionRow(menu),
+            spacer(),
+            mutedText(".pulse · Pulse Variant 2"),
+        ]);
+        
+        await i.update({ components: [container] });
+    },
+    
+    "settings:logs:modlog:select": async (i) => {
+        const channelId = i.values[0];
+        await i.client.services.settings.patch(i.guildId, { modLogChannelId: channelId });
+        
+        const cfg = await i.client.services.settings.get(i.guildId);
+        const panel = logChannelsPanel(cfg);
+        await i.update({ components: [panel] });
+    },
+    
+    "settings:logs:generallog": async (i) => {
+        const { createContainer, createActionRow, divider, headerText, bodyText, mutedText, spacer } = await import("../../design/containers/base.js");
+        const { ChannelSelectMenuBuilder, ChannelType } = await import("discord.js");
+        
+        const menu = new ChannelSelectMenuBuilder()
+            .setCustomId("settings:logs:generallog:select")
+            .setPlaceholder("Select general log channel")
+            .addChannelTypes(ChannelType.GuildText);
+        
+        const container = createContainer([
+            headerText("Set General Log Channel"),
+            divider(),
+            bodyText("Select the channel for general logs:"),
+            divider(),
+            createActionRow(menu),
+            spacer(),
+            mutedText(".pulse · Pulse Variant 2"),
+        ]);
+        
+        await i.update({ components: [container] });
+    },
+    
+    "settings:logs:generallog:select": async (i) => {
+        await i.client.services.settings.patch(i.guildId, { logChannelId: i.values[0] });
+        const cfg = await i.client.services.settings.get(i.guildId);
+        const panel = logChannelsPanel(cfg);
+        await i.update({ components: [panel] });
+    },
+    
+    "settings:prefix:set": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
+        
+        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = await import("discord.js");
+        
+        const modal = new ModalBuilder()
+            .setCustomId("settings:prefix:modal")
+            .setTitle("Set Command Prefix");
+        
+        const input = new TextInputBuilder()
+            .setCustomId("prefix")
+            .setLabel("New prefix (1-5 characters)")
+            .setStyle(TextInputStyle.Short)
+            .setMinLength(1)
+            .setMaxLength(5)
+            .setRequired(true);
+        
+        modal.addComponents(new ActionRowBuilder().addComponents(input));
+        
+        await i.showModal(modal);
+    },
+    
+    "settings:prefix:modal": async (i) => {
+        const prefix = i.fields.getTextInputValue("prefix");
+        await i.client.services.settings.patch(i.guildId, { prefix });
+        
+        const cfg = await i.client.services.settings.get(i.guildId);
+        const panel = prefixPanel(cfg.prefix);
+        await i.update({ components: [panel] });
+    },
+    
+    "settings:prefix:reset": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
+        await i.client.services.settings.patch(i.guildId, { prefix: "!" });
+        const panel = prefixPanel("!");
+        await i.update({ components: [panel] });
+    },
+    
+    "settings:staff:add": async (i) => {
+        const { RoleSelectMenuBuilder } = await import("discord.js");
+        const { createContainer, createActionRow, divider, headerText, bodyText, mutedText, spacer } = await import("../../design/containers/base.js");
+        
+        const menu = new RoleSelectMenuBuilder()
+            .setCustomId("settings:staff:add:select")
+            .setPlaceholder("Select staff role(s)")
+            .setMinValues(1)
+            .setMaxValues(10);
+        
+        const container = createContainer([
+            headerText("Add Staff Role"),
+            divider(),
+            bodyText("Select role(s) to add as staff:"),
+            divider(),
+            createActionRow(menu),
+            spacer(),
+            mutedText(".pulse · Pulse Variant 2"),
+        ]);
+        
+        await i.update({ components: [container] });
+    },
+    
+    "settings:staff:add:select": async (i) => {
+        const cfg = await i.client.services.settings.get(i.guildId);
+        const current = cfg.staffRoleIds ? cfg.staffRoleIds.split(",") : [];
+        const newRoles = [...new Set([...current, ...i.values])];
+        await i.client.services.settings.patch(i.guildId, { staffRoleIds: newRoles.join(",") });
+        
+        const panel = staffRolesPanel(await i.client.services.settings.get(i.guildId));
+        await i.update({ components: [panel] });
+    },
 };

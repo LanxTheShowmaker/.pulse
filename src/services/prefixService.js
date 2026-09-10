@@ -129,29 +129,66 @@ export class PrefixService {
         if (parsed.length === 0) return false;
 
         let cmdName = parsed[0].toLowerCase();
+        // Resolve alias first (centralized)
+        const { resolveAlias } = await import("../core/aliases.js");
+        const originalName = cmdName;
+        cmdName = resolveAlias(cmdName);
+        if(originalName !== cmdName){
+            // Alias resolved, keep args as is (alias preserves subcommand handling)
+        }
         let args = parsed.slice(1);
 
         // Handle subcommand: e.g., "ticket close" -> cmdName="ticket", subcommand="close"
+        // Fixed: use toJSON().options and handle case insensitively, support multiple subcommand levels
         let subcommand = null;
-        const slashCmd = this.client.commands.get(cmdName);
+        let slashCmd = this.client.commands.get(cmdName);
+        // If alias resolved to a command that doesn't exist as slash, try original
+        if(!slashCmd) slashCmd = this.client.commands.get(originalName);
         if (slashCmd) {
             try{
                 const jsonOpts = slashCmd.data.toJSON().options || [];
-                if (jsonOpts.some(o => o.type === 1)) {
-                    if (args.length > 0) {
-                        const maybeSub = args[0].toLowerCase();
-                        const hasSub = jsonOpts.some(o => o.type === 1 && o.name === maybeSub);
-                        if (hasSub) {
-                            subcommand = maybeSub;
-                            args = args.slice(1);
+                // Check for subcommands (type 1) or subcommand groups (type 2)
+                const hasSubcommands = jsonOpts.some(o => o.type === 1 || o.type === 2);
+                if (hasSubcommands && args.length > 0) {
+                    const maybeSub = args[0].toLowerCase();
+                    // Check direct subcommand
+                    let found=false;
+                    for(const opt of jsonOpts){
+                        if(opt.type === 1 && opt.name.toLowerCase() === maybeSub){
+                            found=true; break;
+                        }
+                        if(opt.type === 2){ // group
+                            // For prefix, we support "group sub" as two args
+                            if(opt.options?.some(o=> o.type===1 && o.name.toLowerCase()===maybeSub)){
+                                found=true; break;
+                            }
+                            // Also check second arg if first is group
+                            if(args.length>1){
+                                const maybeSub2=args[1].toLowerCase();
+                                if(opt.name.toLowerCase()===maybeSub && opt.options?.some(o=> o.type===1 && o.name.toLowerCase()===maybeSub2)){
+                                    // Handle group + sub
+                                    subcommand = maybeSub; // group
+                                    // For now, treat as subcommand = group, and keep second as part of args for mock
+                                    // But our simple handler expects single subcommand, so we handle group separately
+                                    found=true; break;
+                                }
+                            }
                         }
                     }
+                    if (found) {
+                        subcommand = maybeSub;
+                        args = args.slice(1);
+                    } else {
+                        // Check if command actually requires a subcommand but none provided - will be handled later
+                        // For now, don't set subcommand, let executeWithMock handle missing subcommand error
+                    }
                 }
-            }catch{}
+            }catch(e){ logger.warn("prefix","subcommand detection failed", e.message); }
         }
 
-        // Resolve command
-        const command = this.client.commands.get(cmdName);
+        // Resolve command (with alias)
+        let command = this.client.commands.get(cmdName);
+        if (!command) command = this.client.commands.get(originalName);
         if (!command) {
             // Unknown command - ignore to avoid spam, but could optionally hint
             return false;

@@ -1,7 +1,7 @@
 import { ChannelType, PermissionFlagsBits } from "discord.js";
 import { logger } from "../core/logger.js";
 
-const ASSET_CHANNEL_CANDIDATES = ["angel-assets", "server-assets", "assets", "bot-assets", "angel-asset"];
+const ASSET_CHANNEL_CANDIDATES = ["pulse-assets", "server-assets", "assets", "bot-assets", "pulse-asset"];
 const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB Discord limit
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
 
@@ -44,9 +44,9 @@ export class AssetService {
         } catch {}
         try {
             const ch = await guild.channels.create({
-                name: "angel-assets",
+                name: "pulse-assets",
                 type: ChannelType.GuildText,
-                topic: "A.N.G.E.L. private asset storage — do not delete",
+                topic: ".pulse private asset storage — do not delete",
                 permissionOverwrites: overwrites,
             });
             return { channel: ch, action: "created" };

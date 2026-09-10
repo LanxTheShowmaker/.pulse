@@ -1,6 +1,8 @@
 import { MessageFlags } from "discord.js";
-import { embeds } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
+import { errorPanel } from "../design/containers/panels.js";
+import { containerReply, containerFollowUp } from "../design/containers/base.js";
+
 function resolveComponent(client, customId) {
     if (client.components.has(customId))
         return client.components.get(customId);
@@ -8,8 +10,13 @@ function resolveComponent(client, customId) {
         if (customId === key || customId.startsWith(key + ":"))
             return handler;
     }
+    const namespace = customId.split(":")[0];
+    if (namespace && client.components.has(namespace)) {
+        return client.components.get(namespace);
+    }
     return undefined;
 }
+
 export default {
     name: "interactionCreate",
     async execute(interaction, client) {
@@ -49,12 +56,12 @@ export default {
         }
         catch (e) {
             logger.error("interaction", "unhandled error", e);
-            const reply = embeds.error("Something went wrong", "That action could not be completed. Please try again or contact staff.");
+            const reply = errorPanel("Something went wrong", "That action could not be completed. Please try again or contact staff.");
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ embeds: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
+                await interaction.followUp({ components: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
             }
             else {
-                await interaction.reply({ embeds: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
+                await interaction.reply({ components: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
             }
         }
     },

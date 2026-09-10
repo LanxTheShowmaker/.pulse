@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, MessageFlags, time, EmbedBuilder } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
+import { getServerInfo } from "./serverinfo.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -15,17 +16,7 @@ export default {
         const guild = interaction.guild;
         if (sub === "server") {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
-            const e = embeds.panel(`✦  ${guild.name}`, `*Server information.*`, [
-                { name: "  ID", value: `\`${guild.id}\``, inline: true },
-                { name: "  Owner", value: `<@${guild.ownerId}>`, inline: true },
-                { name: "  Members", value: `> **${guild.memberCount}**`, inline: true },
-                { name: "  Boosts", value: `> **${guild.premiumSubscriptionCount ?? 0}**`, inline: true },
-                { name: "  Channels", value: `> **${guild.channels.cache.size}**`, inline: true },
-                { name: "  Roles", value: `> **${guild.roles.cache.size}**`, inline: true },
-                { name: "  Created", value: `> ${time(guild.createdAt, "R")}`, inline: true },
-            ], { author: { name: `A.N.G.E.L. • Server Info`, iconURL: guild.iconURL({ size: 64 }) ?? undefined } });
-            e.setThumbnail(guild.iconURL({ size: 256 }) ?? null);
-            e.setColor(Theme.panel);
+            const e = await getServerInfo(guild);
             return interaction.editReply({ embeds: [e] }).catch(() => {});
         }
         if (sub === "avatar") {

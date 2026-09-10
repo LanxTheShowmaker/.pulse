@@ -1,6 +1,7 @@
-import { ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
+import { ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } from "discord.js";
 import { logger } from "../core/logger.js";
 import { embeds } from "../design/embeds.js";
+
 export class UtilityService {
     prisma;
     client;
@@ -12,8 +13,7 @@ export class UtilityService {
         this.interval = setInterval(() => {
             this.tickReminders().catch((e) => logger.error("utility", "reminder tick failed", e));
         }, 15000);
-        const wings = this.client;
-        wings.components.set("wings:poll:vote", async (interaction) => {
+        this.client.components.set("poll:vote", async (interaction) => {
             await this.handlePollVote(interaction).catch((e) => logger.error("utility", "poll vote failed", e));
         });
         process.once("beforeExit", () => clearInterval(this.interval));
@@ -66,8 +66,8 @@ export class UtilityService {
     }
     async handlePollVote(interaction) {
         const parts = interaction.customId.split(":");
-        const messageId = parts[3];
-        const indexStr = parts[4];
+        const messageId = parts[1];
+        const indexStr = parts[2];
         if (!messageId || indexStr === undefined) {
             await interaction.reply({ embeds: [embeds.error("Invalid vote", "This poll is no longer valid.")], flags: MessageFlags.Ephemeral });
             return;
@@ -108,7 +108,7 @@ export class UtilityService {
             options.slice(start, end).forEach((o, i) => {
                 const idx = start + i;
                 row.addComponents(new ButtonBuilder()
-                    .setCustomId(`wings:poll:vote:${messageId}:${idx}`)
+                    .setCustomId(`poll:vote:${messageId}:${idx}`)
                     .setLabel(`${idx + 1}. ${o.label}`.slice(0, 80))
                     .setStyle(ButtonStyle.Secondary));
             });

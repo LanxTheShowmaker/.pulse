@@ -1,7 +1,7 @@
-import { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, EmbedBuilder } from "discord.js";
+import { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, EmbedBuilder, MessageFlags, UserSelectMenuBuilder } from "discord.js";
 import { embeds, confirmationRow } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
-import { Theme } from "../design/theme.js";
+import { Theme, Brand } from "../design/theme.js";
 
 const STATUS = {
     OPEN: "OPEN",
@@ -66,20 +66,20 @@ export class TicketSystemService {
     registerHandlers() {
         const c = this.client.components;
         // Panel dropdown
-        c.set("angel:panel:select", async (i) => this.handlePanelSelect(i));
-        c.set("angel:panel:dashboard", async (i) => this.handleDashboardSelect(i));
+        c.set("panel:select", async (i) => this.handlePanelSelect(i));
+        c.set("panel:dashboard", async (i) => this.handleDashboardSelect(i));
         // Ticket modals
-        c.set("angel:ticket:questions", async (i) => this.handleQuestionModal(i));
+        c.set("ticket:questions", async (i) => this.handleQuestionModal(i));
         // Ticket controls
-        c.set("angel:ticket:claim", async (i) => this.handleClaim(i));
-        c.set("angel:ticket:unclaim", async (i) => this.handleUnclaim(i));
-        c.set("angel:ticket:status", async (i) => this.handleStatusSelect(i));
-        c.set("angel:ticket:priority", async (i) => this.handlePrioritySelect(i));
-        c.set("angel:ticket:add", async (i) => this.handleAddUser(i));
-        c.set("angel:ticket:remove", async (i) => this.handleRemoveUser(i));
-        c.set("angel:ticket:info", async (i) => this.handleInfo(i));
-        c.set("angel:ticket:close", async (i) => this.handleClose(i));
-        c.set("angel:ticket:transcript", async (i) => this.handleTranscript(i));
+        c.set("ticket:claim", async (i) => this.handleClaim(i));
+        c.set("ticket:unclaim", async (i) => this.handleUnclaim(i));
+        c.set("ticket:status", async (i) => this.handleStatusSelect(i));
+        c.set("ticket:priority", async (i) => this.handlePrioritySelect(i));
+        c.set("ticket:add", async (i) => this.handleAddUser(i));
+        c.set("ticket:remove", async (i) => this.handleRemoveUser(i));
+        c.set("ticket:info", async (i) => this.handleInfo(i));
+        c.set("ticket:close", async (i) => this.handleClose(i));
+        c.set("ticket:transcript", async (i) => this.handleTranscript(i));
     }
 
     sanitizeName(name) {
@@ -163,7 +163,7 @@ export class TicketSystemService {
 
     async handlePanelSelect(interaction) {
         if (!interaction.isStringSelectMenu()) return;
-        const panelType = interaction.customId.split(":")[3]; // angel:panel:select:ORDER
+        const panelType = interaction.customId.split(":")[2]; // panel:select:ORDER
         const key = interaction.values[0];
         const guild = interaction.guild;
         const member = interaction.member;
@@ -198,7 +198,7 @@ export class TicketSystemService {
         try { questions = JSON.parse(type.questions ?? "[]"); } catch {}
         if (questions.length) {
             // Build modal
-            const modal = new ModalBuilder().setCustomId(`angel:ticket:questions:${type.key}`).setTitle(type.displayName.slice(0,45));
+            const modal = new ModalBuilder().setCustomId(`ticket:questions:${type.key}`).setTitle(type.displayName.slice(0,45));
             for (let idx = 0; idx < Math.min(questions.length, 5); idx++) {
                 const q = questions[idx];
                 modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId(`q${idx}`).setLabel(String(q.label ?? q.question ?? `Question ${idx+1}`).slice(0,45)).setStyle(q.style==="PARAGRAPH"? TextInputStyle.Paragraph: TextInputStyle.Short).setRequired(q.required!==false).setMaxLength(1000).setPlaceholder((q.placeholder??"").slice(0,100))));
@@ -216,19 +216,19 @@ export class TicketSystemService {
         const guild = i.guild;
         // Simple info responses
         const map = {
-            about: "A.N.G.E.L. is a global panel & ticket framework — each server configures its own content via /setuptickets.",
+            about: ".pulse is a universal panel & ticket framework — each server configures its own content via /config.",
             services: "Use the Orders and Assistance panels to open tickets. Staff will claim and assist.",
-            staff: "Staff listed via server roles — configure via /autosetup.",
-            links: "Invite A.N.G.E.L.: https://discord.com/oauth2/authorize?client_id=" + (process.env.CLIENT_ID ?? "") + "&scope=bot%20applications.commands",
+            staff: "Staff listed via server roles — configure via /config.",
+            links: "Invite .pulse: https://discord.com/oauth2/authorize?client_id=" + (process.env.CLIENT_ID ?? "") + "&scope=bot%20applications.commands",
             regulations: "See the Regulations panel for server rules.",
         };
         const text = map[val] ?? "More information coming soon.";
-        await i.reply({ embeds: [embeds.info(val, text)], flags: 64 }).catch(()=>{});
+        await i.reply({ embeds: [embeds.info(val, text)], flags: 64 }).catch(() => {});
     }
 
     async handleQuestionModal(interaction) {
         if (!interaction.isModalSubmit()) return;
-        const key = interaction.customId.split(":")[3];
+        const key = interaction.customId.split(":")[2];
         const guild = interaction.guild;
         const member = interaction.member;
         const type = await this.prisma.ticketType.findUnique({ where: { guildId_key: { guildId: guild.id, key } } }).catch(()=>null);
@@ -262,8 +262,8 @@ export class TicketSystemService {
         if (type.cooldown) this.cooldowns.set(`${guild.id}:${member.id}:${type.key}`, Date.now());
 
         // V5 Welcome — matches ORDER-HERE image: banner, Clothing Ticket, Terms, Information
-        const branding=await this.client?.services?.branding?.get(guild.id).catch(()=>null);
-        const display=await this.client?.services?.branding?.getDisplay(guild).catch(()=>({ name:"A.N.G.E.L.", icon:null }));
+        const branding = await this.client?.services?.branding?.get(guild.id).catch(() => null);
+        const display = await this.client?.services?.branding?.getDisplay(guild).catch(() => ({ name: ".pulse", icon: null }));
         // Resolve banner: branding banner > type banner > panel banner > fallback ORDER-HERE dark
         let bannerUrl = branding?.bannerUrl || type.bannerUrl || null;
         if(!bannerUrl){
@@ -276,24 +276,24 @@ export class TicketSystemService {
         const welcome = new EmbedBuilder().setColor(0x2B2D31) // Discord dark to match image
             .setTitle(`${type.displayName} Ticket`)
             .setDescription(`Hey there <@${member.id}>. Welcome to your personal order ticket. Please take a moment to answer all the questions in your ticket.`);
-        if(bannerUrl) welcome.setImage(bannerUrl);
+        if (bannerUrl) welcome.setImage(bannerUrl);
         // Terms of Service field (from image)
-        const termsText = type.instructions ? type.instructions.slice(0,1024) : `By placing an order you agree to the full Terms & Conditions.\nAll orders are strictly **non-refundable** unless a member of the Executive Board decides otherwise.`;
-        welcome.addFields({ name:"Terms of Service", value: termsText, inline:false });
+        const termsText = type.instructions ? type.instructions.slice(0, 1024) : `By placing an order you agree to the full Terms & Conditions.\nAll orders are strictly **non-refundable** unless a member of the Executive Board decides otherwise.`;
+        welcome.addFields({ name: "Terms of Service", value: termsText, inline: false });
         // Information field — per category
         let infoValue;
-        if(answers.length){
-            infoValue = answers.map(a=> `• **${a.question}**: ${a.answer.slice(0,200)}`).join("\n");
-            if(infoValue.length>1024) infoValue=infoValue.slice(0,1021)+"…";
-        } else if(type.panelType==="ORDER"){
-            infoValue="Please provide to your designer:\n• References (image form)\n• Quantity\n• Budget";
+        if (answers.length) {
+            infoValue = answers.map(a => `• **${a.question}**: ${a.answer.slice(0, 200)}`).join("\n");
+            if (infoValue.length > 1024) infoValue = infoValue.slice(0, 1021) + "…";
+        } else if (type.panelType === "ORDER") {
+            infoValue = "Please provide to your designer:\n• References (image form)\n• Quantity\n• Budget";
         } else {
-            infoValue="Please provide:\n• Detailed description of your request\n• Any relevant images or links\n• Desired timeline";
+            infoValue = "Please provide:\n• Detailed description of your request\n• Any relevant images or links\n• Desired timeline";
         }
-        welcome.addFields({ name:"Information:", value: infoValue, inline:false });
+        welcome.addFields({ name: "Information:", value: infoValue, inline: false });
         // Footer with branding per-server
         welcome.setFooter({ text: `${display.name} • ${member.user.tag}`, iconURL: display.icon || guild.iconURL() || undefined });
-        if(display.icon) welcome.setAuthor({ name: display.name, iconURL: display.icon });
+        if (display.icon) welcome.setAuthor({ name: display.name, iconURL: display.icon });
         welcome.setTimestamp();
         // Thumbnail as user avatar subtle (like image has no thumbnail, but keep for context)
         // Do not set thumbnail to keep clean like image — banner is enough
@@ -317,23 +317,23 @@ export class TicketSystemService {
         const isClaimed = !!ticket?.claimedById;
         const row1 = new ActionRowBuilder().addComponents(
             isClaimed
-                ? new ButtonBuilder().setCustomId(`angel:ticket:unclaim:${channelId}`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary).setEmoji("↩️")
-                : new ButtonBuilder().setCustomId(`angel:ticket:claim:${channelId}`).setLabel("Claim").setStyle(ButtonStyle.Success).setEmoji("🛠️"),
-            new ButtonBuilder().setCustomId(`angel:ticket:close:${channelId}`).setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("🔒"),
-            new ButtonBuilder().setCustomId(`angel:ticket:info:${channelId}`).setLabel("Info").setStyle(ButtonStyle.Secondary).setEmoji("ℹ️"),
+                ? new ButtonBuilder().setCustomId(`ticket:unclaim:${channelId}`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary).setEmoji("↩️")
+                : new ButtonBuilder().setCustomId(`ticket:claim:${channelId}`).setLabel("Claim").setStyle(ButtonStyle.Success).setEmoji("🛠️"),
+            new ButtonBuilder().setCustomId(`ticket:close:${channelId}`).setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("🔒"),
+            new ButtonBuilder().setCustomId(`ticket:info:${channelId}`).setLabel("Info").setStyle(ButtonStyle.Secondary).setEmoji("ℹ️"),
         );
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`angel:ticket:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕"),
-            new ButtonBuilder().setCustomId(`angel:ticket:remove:${channelId}`).setLabel("Remove").setStyle(ButtonStyle.Secondary).setEmoji("➖"),
-            new ButtonBuilder().setCustomId(`angel:ticket:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄"),
+            new ButtonBuilder().setCustomId(`ticket:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕"),
+            new ButtonBuilder().setCustomId(`ticket:remove:${channelId}`).setLabel("Remove").setStyle(ButtonStyle.Secondary).setEmoji("➖"),
+            new ButtonBuilder().setCustomId(`ticket:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄"),
         );
-        const priorityMenu = new StringSelectMenuBuilder().setCustomId(`angel:ticket:priority:${channelId}`).setPlaceholder("Priority").addOptions([
+        const priorityMenu = new StringSelectMenuBuilder().setCustomId(`ticket:priority:${channelId}`).setPlaceholder("Priority").addOptions([
             { label:"Low", value: PRIORITY.LOW, emoji:"🟢" },
             { label:"Normal", value: PRIORITY.NORMAL, emoji:"🟡" },
             { label:"High", value: PRIORITY.HIGH, emoji:"🟠" },
             { label:"Urgent", value: PRIORITY.URGENT, emoji:"🔴" },
         ]);
-        const statusMenu = new StringSelectMenuBuilder().setCustomId(`angel:ticket:status:${channelId}`).setPlaceholder("Status").addOptions([
+        const statusMenu = new StringSelectMenuBuilder().setCustomId(`ticket:status:${channelId}`).setPlaceholder("Status").addOptions([
             { label:"Open", value: STATUS.OPEN, emoji:"🟡" },
             { label:"Claimed", value: STATUS.CLAIMED, emoji:"🔵" },
             { label:"Waiting", value: STATUS.WAITING, emoji:"🟠" },
@@ -358,7 +358,7 @@ export class TicketSystemService {
     // Ticket controls
     async handleClaim(i) {
         if (!i.isButton()) return;
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
         if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket not in DB")], flags:64 }).catch(()=>{});
         if (ticket.status === STATUS.CLOSED) return i.reply({ embeds:[embeds.warn("Closed","Ticket is closed")], flags:64 }).catch(()=>{});
@@ -375,7 +375,7 @@ export class TicketSystemService {
     }
     async handleUnclaim(i) {
         if (!i.isButton()) return;
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: null, status: STATUS.OPEN } }).catch(()=>null);
         await i.reply({ embeds:[embeds.success("Unclaimed","Ticket unclaimed")], flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
@@ -383,7 +383,7 @@ export class TicketSystemService {
     }
     async handleStatusSelect(i) {
         if (!i.isStringSelectMenu()) return;
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const val = i.values[0];
         await this.prisma.ticket.update({ where:{ channelId }, data:{ status: val } }).catch(()=>{});
         await i.reply({ embeds:[embeds.success("Status",`Status set to ${val}`)], flags:64 }).catch(()=>{});
@@ -392,13 +392,13 @@ export class TicketSystemService {
     }
     async handlePrioritySelect(i) {
         if (!i.isStringSelectMenu()) return;
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const val = i.values[0];
         await this.prisma.ticket.update({ where:{ channelId }, data:{ priority: val } }).catch(()=>{});
         await i.reply({ embeds:[embeds.success("Priority",`Priority set to ${val}`)], flags:64 }).catch(()=>{});
     }
     async handleAddUser(i) {
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu()) return;
             const uid = i.values[0];
@@ -406,11 +406,11 @@ export class TicketSystemService {
             if (ch) await ch.permissionOverwrites.edit(uid, { ViewChannel:true, SendMessages:true, ReadMessageHistory:true, AttachFiles:true }).catch(()=>{});
             return i.reply({ embeds:[embeds.success("Added", `<@${uid}> added`)], flags:64 }).catch(()=>{});
         }
-        const menu = new (await import("discord.js")).UserSelectMenuBuilder().setCustomId(`angel:ticket:add:${channelId}:menu`).setPlaceholder("Select user");
+        const menu = new UserSelectMenuBuilder().setCustomId(`ticket:add:${channelId}:menu`).setPlaceholder("Select user");
         await i.reply({ embeds:[embeds.info("Add user","Pick user to add")], components:[new ActionRowBuilder().addComponents(menu)], flags:64 }).catch(()=>{});
     }
     async handleRemoveUser(i) {
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu()) return;
             const uid = i.values[0];
@@ -418,11 +418,11 @@ export class TicketSystemService {
             if (ch) await ch.permissionOverwrites.delete(uid).catch(()=>{});
             return i.reply({ embeds:[embeds.success("Removed", `<@${uid}> removed`)], flags:64 }).catch(()=>{});
         }
-        const menu = new (await import("discord.js")).UserSelectMenuBuilder().setCustomId(`angel:ticket:remove:${channelId}:menu`).setPlaceholder("Select user");
+        const menu = new UserSelectMenuBuilder().setCustomId(`ticket:remove:${channelId}:menu`).setPlaceholder("Select user");
         await i.reply({ embeds:[embeds.info("Remove user","Pick user to remove")], components:[new ActionRowBuilder().addComponents(menu)], flags:64 }).catch(()=>{});
     }
     async handleInfo(i) {
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
         if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket missing")], flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId);
@@ -439,12 +439,12 @@ export class TicketSystemService {
         ])], flags:64 }).catch(()=>{});
     }
     async handleClose(i) {
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
         if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket missing")], flags:64 }).catch(()=>{});
         // Confirm
         if (!i.customId.includes(":confirm")) {
-            return i.reply({ embeds:[embeds.warn("Close ticket","Confirm closing? This will archive and optionally create transcript.")], components:[confirmationRow({ acceptCustomId:`angel:ticket:close:${channelId}:confirm`, cancelCustomId:`angel:ticket:close:${channelId}:cancel`, acceptLabel:"Close", danger:true })], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.warn("Close ticket","Confirm closing? This will archive and optionally create transcript.")], components:[confirmationRow({ acceptCustomId:`ticket:close:${channelId}:confirm`, cancelCustomId:`ticket:close:${channelId}:cancel`, acceptLabel:"Close", danger:true })], flags:64 }).catch(()=>{});
         }
         if (i.customId.endsWith(":cancel")) return i.update({ embeds:[embeds.info("Cancelled","Not closed")], components:[] }).catch(()=>{});
         await i.deferUpdate().catch(()=>{});
@@ -458,7 +458,7 @@ export class TicketSystemService {
                 const msgs = await ch.messages.fetch({ limit:100 });
                 const sorted=[...msgs.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
                 const branding=await this.client?.services?.branding?.get(i.guild.id).catch(()=>null);
-                const displayName=branding?.displayName || "A.N.G.E.L.";
+const displayName=branding?.displayName || ".pulse";
                 const html=this.buildHtmlTranscript({ channel:ch, ticket, guild:i.guild, messages:sorted, displayName, closerId:i.user.id });
                 const buf=Buffer.from(html,"utf-8");
                 htmlFile=new AttachmentBuilder(buf).setName(`transcript-${ch.name}-${ticket.id.slice(0,4)}.html`);
@@ -525,15 +525,15 @@ body{font-family:Inter,system-ui,Arial;background:#313338;color:#dcddde;margin:0
 .badge{display:inline-block;background:#5865f2;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px}
 </style></head><body>
 <div class="header"><h1>${esc(ticket.panelType||"Ticket")} — ${esc(channel.name)} <span class="badge">${esc(ticket.status||"CLOSED")}</span></h1><p>Guild: ${esc(guild.name)} • Ticket: ${esc(ticket.id)} • Opener: ${esc(ticket.openerId)} • Closed by: ${esc(closerId||"system")} • ${new Date().toLocaleString()}</p></div>
-<div class="container"><div class="banner" style="background:linear-gradient(135deg,#4f46e5,#0ea5e9);height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:2px;font-size:28px">ORDER-HERE<br><span style="font-size:14px;letter-spacing:1px;font-weight:400;opacity:0.9">Server Management</span></div>
+<div class="container"><div class="banner" style="background:linear-gradient(135deg,#4f46e5,#0ea5e9);height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:2px;font-size:28px">.pulse<br><span style="font-size:14px;letter-spacing:1px;font-weight:400;opacity:0.9">Server Management</span></div>
 <h2 style="color:#fff;margin-top:8px">${esc(displayName)} Ticket</h2>
 <p style="color:#b5bac1">Archived transcript — ${messages.length} messages</p>
 <hr style="border:0;border-top:1px solid #3f4147;margin:16px 0">
 ${rows}
-<div class="footer">A.N.G.E.L. • ${esc(displayName)} • ${esc(guild.name)} • Generated ${new Date().toISOString()}</div></div></body></html>`;
+<div class="footer">${Brand.name} • ${esc(displayName)} • ${esc(guild.name)} • Generated ${new Date().toISOString()}</div></div></body></html>`;
     }
     async handleTranscript(i) {
-        const channelId = i.customId.split(":")[3];
+        const channelId = i.customId.split(":")[2];
         await i.deferReply({ flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (!ch) return i.editReply({ embeds:[embeds.error("Not found","Channel missing")] }).catch(()=>{});
@@ -544,7 +544,7 @@ ${rows}
             const ticket=await this.prisma.ticket.findUnique({ where:{ channelId }}).catch(()=>null);
             const sorted=[...msgs.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
             const branding=await this.client?.services?.branding?.get(i.guild.id).catch(()=>null);
-            const displayName=branding?.displayName || "A.N.G.E.L.";
+            const displayName=branding?.displayName || ".pulse";
             const html=this.buildHtmlTranscript({ channel:ch, ticket: ticket||{ id:channelId, panelType:"Ticket", status:"OPEN", openerId:"unknown" }, guild:i.guild, messages:sorted, displayName, closerId:i.user.id });
             const file=new AttachmentBuilder(Buffer.from(html,"utf-8")).setName(`transcript-${ch.name}.html`);
             return i.editReply({ embeds:[embeds.success("Transcript","HTML transcript")], files:[file] }).catch(()=>{});

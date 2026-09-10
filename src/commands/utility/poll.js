@@ -1,7 +1,9 @@
-import { SlashCommandBuilder } from "discord.js";
-import { defer } from "../moderation/shared.js";
-import { embeds } from "../../design/embeds.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { defer } from "../../commands/moderation/shared.js";
+import { containerReply, containerEdit } from "../../design/containers/base.js";
+import { errorPanel, successPanel } from "../../design/containers/panels.js";
 import { logger } from "../../core/logger.js";
+
 export default {
     data: new SlashCommandBuilder()
         .setName("poll")
@@ -31,19 +33,16 @@ export default {
                 options.push({ label: v.trim().slice(0, 80), votes: 0 });
         }
         if (options.length < 2) {
-            await interaction.editReply({ embeds: [embeds.error("Not enough options", "Provide at least 2 options.")] });
-            return;
+            return containerEdit(interaction, errorPanel("Not enough options", "Provide at least 2 options."));
         }
         try {
-            const baseEmbed = embeds.neutral("Poll", question, options.map((o, i) => ({
-                name: `${i + 1}. ${o.label}`.slice(0, 256),
-                value: `${o.votes} vote${o.votes === 1 ? "" : "s"}`,
-                inline: true,
-            })));
-            const msg = await channel.send({ embeds: [baseEmbed] });
-            const rows = client.services.utility.buildPollButtons(msg.id, options);
+            const utility = client.services.utility;
+            const msg = await channel.send({ 
+                embeds: [utility.buildPollEmbed(question, options)] 
+            });
+            const rows = utility.buildPollButtons(msg.id, options);
             await msg.edit({ components: rows });
-            await client.services.utility.createPoll({
+            await utility.createPoll({
                 guildId: guild.id,
                 channelId: channel.id,
                 messageId: msg.id,
@@ -51,11 +50,11 @@ export default {
                 question,
                 options,
             });
-            await interaction.editReply({ embeds: [embeds.success("Poll created", "Your poll is live in this channel.")] });
+            await containerEdit(interaction, successPanel("Poll created", "Your poll is live in this channel."));
         }
         catch (e) {
             logger.error("utility", "poll failed", e);
-            await interaction.editReply({ embeds: [embeds.error("Poll failed", "Could not create the poll.")] });
+            await containerEdit(interaction, errorPanel("Poll failed", "Could not create the poll."));
         }
     },
 };

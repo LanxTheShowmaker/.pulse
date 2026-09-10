@@ -28,12 +28,13 @@ import { BackupService } from "../services/backup.js";
 import { DiagnosticsService } from "../services/diagnostics.js";
 import { BrandingService } from "../services/branding.js";
 import { PrefixService } from "../services/prefixService.js";
+
 export function createServices(client) {
     const prisma = new PrismaClient();
-    // SQLite hardening for multi-guild (global bot) — WAL + busy timeout
     prisma.$executeRawUnsafe("PRAGMA journal_mode=WAL;").catch(() => {});
     prisma.$executeRawUnsafe("PRAGMA busy_timeout=5000;").catch(() => {});
     prisma.$executeRawUnsafe("PRAGMA synchronous=NORMAL;").catch(() => {});
+
     const settings = new SettingsService(prisma, client);
     const cases = new CasesService(prisma);
     const logging = new LoggingService(prisma, client);
@@ -63,11 +64,16 @@ export function createServices(client) {
     const diagnostics = new DiagnosticsService(prisma, client);
     const branding = new BrandingService(prisma, client);
     const prefix = new PrefixService(prisma, client);
-    // Inject prisma into assets/panels that need it (assets needs settings, already has client)
-    // Cross-wire assets with prisma for convenience
+
     client.prisma = prisma;
-    return { settings, cases, moderation, logging, automod, orders, fortress, utility, assets, panels, tickets, welcome, leveling, reactionRoles, economy, giveaways, suggestions, starboard, afk, audit, analytics, intelligence, raid, achievements, automation, backup, diagnostics, branding, prefix, prisma };
+    return {
+        settings, cases, moderation, logging, automod, orders, fortress, utility,
+        assets, panels, tickets, welcome, leveling, reactionRoles, economy,
+        giveaways, suggestions, starboard, afk, audit, analytics, intelligence,
+        raid, achievements, automation, backup, diagnostics, branding, prefix, prisma
+    };
 }
+
 export function isStaff(member, config) {
     if (member.permissions.has("Administrator") || member.permissions.has("ManageGuild"))
         return true;
@@ -80,6 +86,7 @@ export function isStaff(member, config) {
         return true;
     return false;
 }
+
 export function isModerator(member, config) {
     if (member.permissions.has("BanMembers") || member.permissions.has("KickMembers") || member.permissions.has("ModerateMembers"))
         return true;
@@ -88,6 +95,7 @@ export function isModerator(member, config) {
     const roleIds = new Set(member.roles.cache.keys());
     return config.moderatorRoleIds.some((id) => roleIds.has(id));
 }
+
 export function isIgnored(member, config) {
     if (!config)
         return false;

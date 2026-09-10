@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "models": {
+        "nemotron-3.5-64k:latest": {
+          "name": "Nemo 3.5 64K",
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "model": "ollama/nemotron-3.5-64k:latest"
+}

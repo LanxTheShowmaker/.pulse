@@ -34,14 +34,13 @@ export default {
             const me=guild.members.me;
             const currentNick=me?.nickname || "*None (using global)*";
             const canNick=me?.permissions.has(PermissionFlagsBits.ChangeNickname) || me?.permissions.has(PermissionFlagsBits.ManageNicknames);
-            // Check per-guild avatar support
+            // Check per-guild avatar support (Discord 2025: per-guild bot profiles via editMe)
             let avatarStatus="*Not configured*";
-            let avatarNote="Discord does **not** support true per-guild bot avatars via bot token — global avatar is `"+interaction.client.user.username+"`. We store per-server avatar for embeds/panels (closest legitimate alternative).";
+            let avatarNote="Per-server avatar via `guild.members.editMe({ avatar })` — Discord-native, isolated per guild (2025).";
             if(b.avatarUrl){
                 avatarStatus=`[Link](${b.avatarUrl})`;
-                // Try to detect if guild avatar is actually set via member.avatar
-                if(me?.avatar) avatarStatus+=` — guild avatar active (\`${me.avatar}\`)`;
-                else avatarStatus+=` — embed-only (global remains ${interaction.client.user.displayAvatarURL()})`;
+                if(me?.avatar) avatarStatus+=` — guild avatar active (\`${me.avatar.slice(0,8)}...\`)`;
+                else avatarStatus+=` — stored, will apply on next edit`;
             }
             const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${guild.name} • Bot Profile`, iconURL: guild.iconURL() ?? undefined })
                 .setTitle(`Per-Server Identity — ${disp.name}`)
@@ -100,13 +99,10 @@ export default {
                 const url=i.fields.getTextInputValue("url").trim();
                 if(url && !/^https?:\/\/.+\.(png|jpg|jpeg|webp)(\?.*)?$/i.test(url) && !url.includes("cdn.discordapp")) return i.reply({ embeds:[embeds.error("Invalid URL","Use https png/jpg/webp or cdn.discordapp")], flags: MessageFlags.Ephemeral});
                 try{
-                    // Try per-guild avatar if Discord supports it via edit
                     let perGuildSuccess=false;
                     let perGuildError=null;
                     if(url){
                         try{
-                            // Discord.js may support guild.members.me.edit({ avatar: url }) for per-guild avatar (if API permits)
-                            // Try: fetch image as base64 and set
                             const res=await fetch(url).catch(()=>null);
                             if(res && res.ok){
                                 const ct=res.headers.get("content-type")||"";
@@ -114,27 +110,29 @@ export default {
                                 const buf=Buffer.from(await res.arrayBuffer());
                                 if(buf.length>8*1024*1024) throw new Error("Image >8MB");
                                 const b64=`data:${ct};base64,${buf.toString("base64")}`;
-                                // Try Discord API for per-guild avatar
-                                if(guild.members.me && typeof guild.members.me.edit === "function"){
-                                    try{
-                                        // Some discord.js versions support avatar in edit
-                                        await guild.members.me.edit({ avatar: b64 }).catch(e=>{ perGuildError=e.message; throw e; });
-                                        perGuildSuccess=true;
-                                    }catch(e){ perGuildError=e.message; }
+                                // Use per-guild editMe (Discord 2025 native per-server bot profile)
+                                if(guild.members && typeof guild.members.editMe==="function"){
+                                    await guild.members.editMe({ avatar: b64 }).catch(e=>{ perGuildError=e.message; throw e; });
+                                    perGuildSuccess=true;
+                                } else if(guild.members.me && typeof guild.members.me.edit==="function"){
+                                    await guild.members.me.edit({ avatar: b64 }).catch(e=>{ perGuildError=e.message; throw e; });
+                                    perGuildSuccess=true;
                                 }
-                                // Fallback: try global avatar (will affect all guilds — not desired, so don't)
-                                // We do NOT set global avatar; just store for embeds
                             }
                         }catch(e){ perGuildError=e.message; }
                     } else {
-                        // Reset guild avatar: try to clear
-                        try{ await guild.members.me.edit({ avatar: null }).catch(()=>{}); perGuildSuccess=true; }catch{}
+                        if(typeof guild.members.editMe==="function"){
+                            await guild.members.editMe({ avatar: null }).catch(()=>{});
+                            perGuildSuccess=true;
+                        } else {
+                            try{ await guild.members.me.edit({ avatar: null }).catch(()=>{}); perGuildSuccess=true; }catch{}
+                        }
                     }
                     await branding.set(guild.id, { avatarUrl: url||null });
-                    let desc = url? `Stored avatar for embeds: [Link](${url})` : "Avatar cleared";
-                    if(perGuildSuccess) desc+=`\n✅ Per-guild avatar applied via Discord API (visible change)`;
-                    else if(perGuildError) desc+=`\n⚠️ Per-guild avatar not supported by Discord for bots (error: ${perGuildError.slice(0,80)}). Stored for embeds/panels — closest legitimate alternative. Global avatar remains \`${interaction.client.user.username}\`.`;
-                    else desc+=`\nStored for embeds/panels — global avatar unchanged.`;
+                    let desc = url? `Stored avatar: [Link](${url})` : "Avatar cleared";
+                    if(perGuildSuccess) desc+=`\n✅ Per-guild avatar applied — visible change in **${guild.name}** only (isolated via guildId \`${guild.id}\`)`;
+                    else if(perGuildError) desc+=`\n❌ Failed (error: ${perGuildError.slice(0,120)}). Please try a different image or check permissions.`;
+                    else desc+=`\nStored for embeds/panels.`;
                     await i.reply({ embeds:[embeds.success("Avatar", desc)], flags: MessageFlags.Ephemeral}).catch(()=>{});
                 }catch(e){
                     await i.reply({ embeds:[embeds.error("Failed", e.message.slice(0,300))], flags: MessageFlags.Ephemeral}).catch(()=>{});

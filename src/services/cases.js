@@ -94,6 +94,11 @@ export class CasesService {
     async reviewAppeal(guildId, appealId, reviewer, status, note=null){
         return this.prisma.appeal.update({ where:{ id: appealId }, data:{ status, reviewerId: reviewer.id, reviewerTag: reviewer.tag }}).catch(()=>null);
     }
+    async reviewAppealByCase(guildId, caseNumber, reviewer, status, reason=null){
+        const appeal = await this.prisma.appeal.findFirst({ where: { guildId, caseNumber } });
+        if (!appeal) return null;
+        return this.reviewAppeal(guildId, appeal.id, reviewer, status, reason);
+    }
     // Expiration handling: find cases with durationMs and not resolved and past
     async expiredPunishments(guildId){
         const now=Date.now();
