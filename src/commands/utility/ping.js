@@ -10,9 +10,9 @@ export default {
         const api = Math.round(interaction.client.ws.ping);
         const latency = Date.now() - sent;
         await interaction.editReply({
-            embeds: [embeds.info("✦  Pong", `**API:** \`${api}ms\`  •  **Gateway:** \`${latency}ms\``, [
-                { name: "  Uptime", value: `> <t:${Math.floor((Date.now() - interaction.client.uptime) / 1000)}:R>`, inline: true },
-                { name: "  Guilds", value: `> **${interaction.client.guilds.cache.size}**`, inline: true },
+            embeds: [embeds.info("Pong", `**API:** \`${api}ms\`  •  **Gateway:** \`${latency}ms\``, [
+                { name: "Uptime", value: `> <t:${Math.floor((Date.now() - interaction.client.uptime) / 1000)}:R>`, inline: true },
+                { name: "Guilds", value: `> **${interaction.client.guilds.cache.size}**`, inline: true },
             ])],
         }).catch(() => {});
     },

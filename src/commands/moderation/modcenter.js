@@ -43,9 +43,9 @@ export default {
             const per=8;
             const recent=await cases.recent(guildId, per);
             const total=await cases.count(guildId).catch(()=>recent.length);
-            const embed=new EmbedBuilder().setColor(Theme.accent).setTitle(`✦ Moderation Center — Recent`).setFooter({ text:`Page ${page} • ${total} cases`}).setTimestamp();
-            if(!recent.length) embed.setDescription("*No cases yet*");
-            else embed.setDescription(recent.map(c=> `\`#${c.caseNumber}\` **${c.action}** <@${c.targetId}> by <@${c.moderatorId}> — ${c.reason?.slice(0,60)||"No reason"} ${c.resolved?"✅":""}`).join("\n"));
+            const embed=new EmbedBuilder().setColor(Theme.accent).setTitle(`Moderation Center — Recent`).setFooter({ text:`Page ${page} • ${total} cases`}).setTimestamp();
+            if(!recent.length) embed.setDescription("No cases yet — new cases will appear here.");
+            else embed.setDescription(recent.map(c=> `\`#${c.caseNumber}\` **${c.action}** <@${c.targetId}> by <@${c.moderatorId}> — ${c.reason?.slice(0,60)||"No reason"} ${c.resolved?" (Resolved)":""}`).join("\n"));
             const row=new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`modcenter:browse:${page+1}`).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(recent.length<per)
             );
@@ -131,7 +131,7 @@ export default {
         if(sub==="appeals"){
             const status=interaction.options.getString("status");
             const list=await cases.listAppeals(guildId, status);
-            const embed=new EmbedBuilder().setColor(Theme.accent).setTitle(`Appeals ${status||"All"}`).setDescription(list.length? list.map(a=>`Case #${a.caseNumber} by <@${a.appellantId}> — ${a.status} *${a.reason.slice(0,60)}*`).join("\n") : "*None*");
+            const embed=new EmbedBuilder().setColor(Theme.accent).setTitle(`Appeals ${status||"All"}`).setDescription(list.length? list.map(a=>`Case #${a.caseNumber} by <@${a.appellantId}> — ${a.status} ${a.reason.slice(0,60)}`).join("\n") : "No appeals found.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
     }

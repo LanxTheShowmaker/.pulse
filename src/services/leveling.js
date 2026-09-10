@@ -111,8 +111,8 @@ export class LevelingService {
                 // Announcement
                 const chId=cfg.announceChannelId || message.channel.id;
                 const ch=message.guild.channels.cache.get(chId) ?? message.channel;
-                const embed = new EmbedBuilder().setColor(Theme.gold).setTitle(`◆  Level Up — ${level}`).setDescription(`<@${userId}> reached **level ${level}**!`).setThumbnail(message.author.displayAvatarURL()).setTimestamp()
-                    .setFooter({ text: `.pulse  •  keep chatting • streak ${await this.getStreak(guildId,userId).then(s=>s?.streak||0)}` });
+                const embed = new EmbedBuilder().setColor(Theme.gold).setTitle(`Level Up — ${level}`).setDescription(`<@${userId}> reached **level ${level}**.`).setThumbnail(message.author.displayAvatarURL()).setTimestamp()
+                    .setFooter({ text: `.pulse • streak ${await this.getStreak(guildId,userId).then(s=>s?.streak||0)}` });
                 await ch.send({ content:`<@${userId}>`, embeds:[embed] }).catch(()=>{});
                 // Automation & achievements & audit & analytics
                 await this.client?.services?.automation?.trigger(guildId,"levelUp",{ userId, level, channelId: message.channel.id }).catch(()=>{});

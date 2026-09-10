@@ -21,7 +21,7 @@ export default {
         const svc=interaction.client.services.automation;
         if(sub==="list"){
             const list=await svc.list(interaction.guildId);
-            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Automation Rules").setDescription(list.length? list.map(r=> `\`${r.id.slice(0,8)}\` **${r.name||r.trigger}** \`${r.trigger}\` ${r.enabled?"🟢":"🔴"}\n${r.actions.slice(0,120)}`).join("\n\n") : "*No rules — create with /automation create*");
+            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Automation Rules").setDescription(list.length? list.map(r=> `\`${r.id.slice(0,8)}\` **${r.name||r.trigger}** \`${r.trigger}\` ${r.enabled?"🟢":"🔴"}\n${r.actions.slice(0,120)}`).join("\n\n") : "No automation rules configured. Create one with /automation create.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="create"){

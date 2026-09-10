@@ -48,29 +48,28 @@ async function buildStatusEmbed(guild, client) {
     const types = await client.prisma.ticketType.findMany({ where: { guildId: guild.id } }).catch(() => []);
     const countByPanel = (t) => types.filter((x) => x.panelType === t).length;
     const statusFor = (panel) => {
-        if (!panel.enabled) return "◯  Not configured";
-        if (!panel.channelId || !panel.messageId) return "◐  Partial";
+        if (!panel.enabled) return "Disabled";
+        if (!panel.channelId || !panel.messageId) return "Not configured";
         const ch = guild.channels.cache.get(panel.channelId);
-        if (!ch) return "⬤  Missing";
-        return "⬤  Live";
+        if (!ch) return "Not configured";
+        return "Enabled";
     };
     const lines = [];
     for (const pt of Object.values(PANEL_TYPES)) {
         const p = panels.find((x) => x.panelType === pt);
         const label = pt === PANEL_TYPES.ORDER ? "Orders" : pt === PANEL_TYPES.ASSISTANCE ? "Assistance" : pt === PANEL_TYPES.REGULATIONS ? "Regulations" : "Dashboard";
-        const emoji = pt === PANEL_TYPES.ORDER ? "🛒" : pt === PANEL_TYPES.ASSISTANCE ? "🛟" : pt === PANEL_TYPES.REGULATIONS ? "📜" : "📊";
-        const st = p ? statusFor(p) : "◯  —";
+        const st = p ? statusFor(p) : "Not configured";
         const extra = pt === PANEL_TYPES.ORDER || pt === PANEL_TYPES.ASSISTANCE ? ` ${countByPanel(pt)} types` : pt === PANEL_TYPES.REGULATIONS ? ` ${(() => { try { return JSON.parse(p?.config ?? "{}").sections?.length ?? 0; } catch { return 0; } })()} sections` : "";
         const chInfo = p?.channelId ? `<#${p.channelId}>` : "`—`";
-        lines.push(`${emoji}  **${label}**  ${st}  ·  ${chInfo}${extra ? `  ·  _${extra.trim()}_` : ""}`);
+        lines.push(`**${label}**  ${st}  ·  ${chInfo}${extra ? `  ·  ${extra.trim()}` : ""}`);
     }
     const ticketEnabled = panels.some((p) => p.enabled);
-    lines.push(`\n🎫  **Tickets**  ${ticketEnabled ? "⬤  Enabled" : "◯  Disabled"}     📄  **Transcripts**  ${(await client.services.settings.get(guild.id).catch(()=>null))?.logChannelId ? "⬤  Enabled" : "◯  Disabled"}`);
+    lines.push(`\n**Tickets**  ${ticketEnabled ? "Enabled" : "Disabled"}     **Transcripts**  ${(await client.services.settings.get(guild.id).catch(()=>null))?.logChannelId ? "Enabled" : "Disabled"}`);
 
-    const embed = embeds.panel("Ticket and Panel Manager", `Server configuration for panels, tickets, and support.\n\n${lines.join("\n")}`, [
-        { name: "  Guild", value: `> **${guild.name}**`, inline: true },
-        { name: "  Panels", value: `> **${panels.filter((p) => p.enabled).length}/4** live`, inline: true },
-        { name: "  Tip", value: `> *Select a panel below to configure*`, inline: true },
+    const embed = embeds.panel("Ticket and Panel Manager", `Configure panels, tickets, and support.\n\n${lines.join("\n")}`, [
+        { name: "Guild", value: `> **${guild.name}**`, inline: true },
+        { name: "Panels", value: `> **${panels.filter((p) => p.enabled).length}/4** live`, inline: true },
+        { name: "Tip", value: `> Select a panel below to configure`, inline: true },
     ], {
         author: { name: `${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
     });
@@ -79,22 +78,22 @@ async function buildStatusEmbed(guild, client) {
 }
 
 function dashboardComponents() {
-    const panelMenu = new StringSelectMenuBuilder().setCustomId("pulse:setup:panelMenu").setPlaceholder("Configure a panel").addOptions([
-        { label: "Orders", value: PANEL_TYPES.ORDER, emoji: "🛒", description: "Order panel & ticket types" },
-        { label: "Assistance", value: PANEL_TYPES.ASSISTANCE, emoji: "🛟", description: "Assistance requests" },
-        { label: "Regulations", value: PANEL_TYPES.REGULATIONS, emoji: "📜", description: "Rules & sections" },
-        { label: "Dashboard", value: PANEL_TYPES.DASHBOARD, emoji: "📊", description: "Info hub" },
+    const panelMenu = new StringSelectMenuBuilder().setCustomId("pulse:setup:panelMenu").setPlaceholder("Select a panel").addOptions([
+        { label: "Orders", value: PANEL_TYPES.ORDER, description: "Order panel and ticket types" },
+        { label: "Assistance", value: PANEL_TYPES.ASSISTANCE, description: "Assistance requests" },
+        { label: "Regulations", value: PANEL_TYPES.REGULATIONS, description: "Rules and sections" },
+        { label: "Dashboard", value: PANEL_TYPES.DASHBOARD, description: "Info hub" },
     ]);
     const row1 = new ActionRowBuilder().addComponents(panelMenu);
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("pulse:setup:ticketSettings").setLabel("Ticket Settings").setStyle(ButtonStyle.Secondary).setEmoji("🎫"),
-        new ButtonBuilder().setCustomId("pulse:setup:globalSettings").setLabel("Global Settings").setStyle(ButtonStyle.Secondary).setEmoji("⚙️"),
-        new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
+        new ButtonBuilder().setCustomId("pulse:setup:ticketSettings").setLabel("Ticket Settings").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("pulse:setup:globalSettings").setLabel("Global Settings").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary),
     );
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧"),
-        new ButtonBuilder().setCustomId("pulse:setup:deploy").setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"),
-        new ButtonBuilder().setCustomId("pulse:setup:close").setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("❌"),
+        new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId("pulse:setup:deploy").setLabel("Deploy").setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId("pulse:setup:close").setLabel("Close").setStyle(ButtonStyle.Danger),
     );
     return [row1, row2, row3];
 }
@@ -102,26 +101,25 @@ function dashboardComponents() {
 async function panelEditorEmbed(guild, panelType, client) {
     const panel = await client.services.panels.get(guild.id, panelType);
     const cfg = panel.parsedConfig ?? {};
-    const bannerStatus = panel.bannerUrl ? "⬤  Set  •  preview below" : "◯  Not set";
+    const bannerStatus = panel.bannerUrl ? "Configured" : "Not configured";
     const channel = panel.channelId ? guild.channels.cache.get(panel.channelId) : null;
     const types = panelType === PANEL_TYPES.ORDER || panelType === PANEL_TYPES.ASSISTANCE ? await client.prisma.ticketType.findMany({ where: { guildId: guild.id, panelType } }).catch(() => []) : [];
     const meta = {
-        [PANEL_TYPES.ORDER]: { title: "Orders", emoji: "🛒", desc: "Your storefront — where commissions begin" },
-        [PANEL_TYPES.ASSISTANCE]: { title: "Assistance", emoji: "🛟", desc: "A haven for support and care" },
-        [PANEL_TYPES.REGULATIONS]: { title: "Regulations", emoji: "📜", desc: "Your covenant of safety" },
-        [PANEL_TYPES.DASHBOARD]: { title: "Dashboard", emoji: "📊", desc: "Your community's front door" },
+        [PANEL_TYPES.ORDER]: { title: "Orders", desc: "Configure the order panel." },
+        [PANEL_TYPES.ASSISTANCE]: { title: "Assistance", desc: "Configure the assistance panel." },
+        [PANEL_TYPES.REGULATIONS]: { title: "Regulations", desc: "Configure the regulations panel." },
+        [PANEL_TYPES.DASHBOARD]: { title: "Dashboard", desc: "Configure the dashboard panel." },
     }[panelType];
-    const embed = embeds.panel(`${meta.emoji}  ${meta.title}`, `${meta.desc}\nConfigure this panel for ${guild.name}.`, [
-        { name: "  State", value: panel.enabled ? "```diff\n+ Live\n```" : "```diff\n- Disabled\n```", inline: true },
-        { name: "  Channel", value: channel ? `<#${channel.id}>` : "`—  Not set`", inline: true },
-        { name: "  Message", value: panel.messageId ? "`⬤  Deployed`" : "`◯  Awaiting deploy`", inline: true },
-        { name: "  Title", value: `> ${panel.title ?? cfg.title ?? "—"}`, inline: false },
-        { name: "  Banner", value: bannerStatus, inline: true },
-        { name: "  Footer", value: `> ${(panel.footerText ?? cfg.footerText ?? "—").slice(0,100)}`, inline: true },
-        ...(panelType === PANEL_TYPES.REGULATIONS ? [{ name: "  Sections", value: `> **${(cfg.sections ?? []).length}** sections`, inline: true }] : []),
-        ...(types.length ? [{ name: "  Ticket Types", value: `> **${types.length}** configured`, inline: true }] : []),
+    const embed = embeds.panel(`${meta.title}`, `${meta.desc}`, [
+        { name: "State", value: panel.enabled ? "```diff\n+ Enabled\n```" : "```diff\n- Disabled\n```", inline: true },
+        { name: "Channel", value: channel ? `<#${channel.id}>` : "Not configured", inline: true },
+        { name: "Message", value: panel.messageId ? "Configured" : "Not configured", inline: true },
+        { name: "Title", value: `> ${panel.title ?? cfg.title ?? "—"}`, inline: false },
+        { name: "Banner", value: bannerStatus, inline: true },
+        { name: "Footer", value: `> ${(panel.footerText ?? cfg.footerText ?? "—").slice(0,100)}`, inline: true },
+        ...(panelType === PANEL_TYPES.REGULATIONS ? [{ name: "Sections", value: `> **${(cfg.sections ?? []).length}** sections`, inline: true }] : []),
+        ...(types.length ? [{ name: "Ticket Types", value: `> **${types.length}** configured`, inline: true }] : []),
     ], {
-        author: { name: `${meta.title}`, iconURL: guild.iconURL({ size:64 }) ?? undefined },
         footer: `${guild.name}`,
     });
     if (panel.bannerUrl) embed.setImage(panel.bannerUrl);
@@ -137,21 +135,21 @@ function panelEditorComponents(panelType) {
         new ButtonBuilder().setCustomId(`pulse:setup:toggleEnabled:${panelType}`).setLabel("Toggle Enabled").setStyle(ButtonStyle.Primary),
     );
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`pulse:setup:bannerUpload:${panelType}`).setLabel("Upload Banner").setStyle(ButtonStyle.Secondary).setEmoji("🖼️"),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerUpload:${panelType}`).setLabel("Upload Banner").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`pulse:setup:bannerUrl:${panelType}`).setLabel("Banner URL").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`pulse:setup:bannerRemove:${panelType}`).setLabel("Remove Banner").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId(`pulse:setup:bannerPreview:${panelType}`).setLabel("Preview Banner").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerPreview:${panelType}`).setLabel("Preview Banner").setStyle(ButtonStyle.Secondary),
     );
     const row3 = new ActionRowBuilder();
     if (panelType === PANEL_TYPES.ORDER || panelType === PANEL_TYPES.ASSISTANCE) {
-        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageTypes:${panelType}`).setLabel("Ticket Types").setStyle(ButtonStyle.Primary).setEmoji("🎫"));
+        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageTypes:${panelType}`).setLabel("Ticket Types").setStyle(ButtonStyle.Primary));
     } else if (panelType === PANEL_TYPES.REGULATIONS) {
-        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageRegs:${panelType}`).setLabel("Sections").setStyle(ButtonStyle.Primary).setEmoji("📜"));
+        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageRegs:${panelType}`).setLabel("Sections").setStyle(ButtonStyle.Primary));
     } else {
         row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:editSections:${panelType}`).setLabel("Edit Sections").setStyle(ButtonStyle.Primary));
     }
-    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:previewPanel:${panelType}`).setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"));
-    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:deployPanel:${panelType}`).setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"));
+    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:previewPanel:${panelType}`).setLabel("Preview").setStyle(ButtonStyle.Secondary));
+    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:deployPanel:${panelType}`).setLabel("Deploy").setStyle(ButtonStyle.Success));
     const row4 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary));
     return [channelRow, row1, row2, row3, row4];
 }
@@ -279,7 +277,7 @@ export default {
         client.components.set("pulse:setup:bannerUpload", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
-            await i.reply({ embeds:[embeds.info("Upload Banner", "Please **upload an image attachment** in this channel within 60 seconds. I'll store it in `pulse-assets`.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await i.reply({ embeds:[embeds.info("Upload Banner", "Upload an image attachment in this channel within 60 seconds.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const filter = (m) => m.author.id === i.user.id && m.attachments.size > 0;
             const collector = i.channel.createMessageCollector({ filter, time: 60_000, max: 1 });
             collector.on("collect", async (m) => {
@@ -311,7 +309,7 @@ export default {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
-            if (!panel.bannerUrl) return i.reply({ embeds:[embeds.warn("No banner","No banner set")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            if (!panel.bannerUrl) return i.reply({ embeds:[embeds.warn("No banner","No banner configured. Upload one to add it.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const embed = new EmbedBuilder().setTitle(`Preview — ${panelType}`).setImage(panel.bannerUrl).setColor(Theme.accent);
             await i.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
@@ -393,7 +391,7 @@ export default {
             await client.prisma.ticketType.delete({ where:{ id:typeId } }).catch(()=>{});
             await i.update({ embeds:[embeds.success("Deleted","Type deleted")], components:[] }).catch(()=>{});
         });
-        client.components.set("pulse:setup:cancelDeleteType", async (i) => { await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:cancelDeleteType", async (i) => { await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
         client.components.set("pulse:setup:editType", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
@@ -468,7 +466,7 @@ export default {
             const panel = await client.services.panels.get(i.guild.id, panelType);
             const cfg = panel.parsedConfig ?? {};
             const sections = cfg.sections ?? [];
-            const embed = embeds.info("Regulations Sections", sections.length? sections.map((s,idx)=> `**${idx+1}. ${s.title}** — ${(s.content??"").slice(0,60)}`).join("\n") : "No sections.", []);
+            const embed = embeds.info("Regulations Sections", sections.length? sections.map((s,idx)=> `**${idx+1}. ${s.title}** — ${(s.content??"").slice(0,60)}`).join("\n") : "No sections configured. Use Create Section to add one.", []);
             const opts = sections.slice(0,25).map((s,idx)=>({ label:s.title.slice(0,100), value:String(idx), description:`Section ${idx+1}`.slice(0,100) }));
             const rows=[];
             if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`pulse:setup:regSelect:${panelType}`).setPlaceholder("Select section to edit").addOptions(opts)));
@@ -553,12 +551,12 @@ export default {
             await client.services.panels.upsert(i.guild.id, pt, { config: JSON.stringify({...cfg, sections}) });
             await i.update({ embeds:[embeds.success("Deleted","Section removed")], components:[] }).catch(()=>{});
         });
-        client.components.set("pulse:setup:regCancelDel", async (i)=>{ await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:regCancelDel", async (i)=>{ await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
 
         // Ticket / Global settings stubs
         client.components.set("pulse:setup:ticketSettings", async (i) => {
             if (!await ensureOwner(i)) return;
-            const embed = embeds.info("Ticket Settings", "Configure ticket categories, cooldowns, max open tickets per panel. Use panel Ticket Types to set category per type.", [
+            const embed = embeds.info("Ticket Settings", "Configure ticket categories, cooldowns, and limits via Ticket Types.", [
                 { name:"Categories", value:"Set per Ticket Type via Ticket Types" },
                 { name:"Cooldown", value:"Set per type (seconds)" },
                 { name:"Max Open", value:"Set per type" },
@@ -567,7 +565,7 @@ export default {
         });
         client.components.set("pulse:setup:globalSettings", async (i) => {
             if (!await ensureOwner(i)) return;
-            const embed = embeds.info("Global Panel Branding", "Configure embed color, footer, thumbnail via each panel's settings. Global branding coming soon.", []);
+            const embed = embeds.info("Global Panel Branding", "Configure embed color, footer, and thumbnail in each panel's settings.", []);
             await i.update({ embeds:[embed], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
         });
 
@@ -591,7 +589,7 @@ export default {
                 const embed = client.services.panels.buildPanelEmbed(p, types);
                 previews.push(embed);
             }
-            if (!previews.length) return i.reply({ embeds:[embeds.warn("Nothing to preview","Enable at least one panel")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            if (!previews.length) return i.reply({ embeds:[embeds.warn("No panels enabled","Enable at least one panel to preview.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             await i.reply({ embeds: previews.slice(0,10), flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:setup:previewPanel", async (i) => {
@@ -618,7 +616,7 @@ export default {
             const warn = validatePerms(i.guild);
             if (warn.length) return i.editReply({ embeds:[embeds.error("Missing perms", warn.join(", "))], components:[] }).catch(()=>{});
             const results = await client.services.panels.deployAll(i.guild);
-            const lines = Object.entries(results).map(([k,v])=> `${k}: ${v.ok ? (v.action==="skipped"?"— skipped":`✓ ${v.action} <#${v.channelId}>`) : `✗ ${v.reason}` }`);
+            const lines = Object.entries(results).map(([k,v])=> `${k}: ${v.ok ? (v.action==="skipped"?"skipped":`${v.action} <#${v.channelId}>`) : `${v.reason}` }`);
             await i.editReply({ embeds:[embeds.success("Setup complete.","Panels deployment results", [{name:"PANELS", value: lines.join("\n")}])], components:[] }).catch(()=>{});
         });
         client.components.set("pulse:setup:repair", async (i) => {

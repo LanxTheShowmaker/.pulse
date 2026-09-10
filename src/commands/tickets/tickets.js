@@ -103,7 +103,7 @@ export default {
             const options = types.map(t => createSelectOption(t.displayName, t.key, t.description, t.emoji));
             
             const container = createContainer([
-                headerText(`${Brand.mark} Support Tickets`),
+                headerText(`Support Tickets`),
                 divider(),
                 bodyText("Select a category below to create a ticket:"),
                 divider(),

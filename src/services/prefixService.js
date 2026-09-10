@@ -198,7 +198,7 @@ export class PrefixService {
         if (isDM) {
             const guildOnlyCategories = ["Moderation", "Config", "Tickets", "Orders"];
             if (guildOnlyCategories.includes(command.category)) {
-                await message.reply({ content: "❌ This command can only be used in a server. Use it in a guild.", allowedMentions: { repliedUser: false } }).catch(() => {});
+                await message.reply({ content: "This command can only be used in a server. Use it in a guild.", allowedMentions: { repliedUser: false } }).catch(() => {});
                 return true;
             }
             // For DM, we still allow utility/economy etc. with default prefix
@@ -222,7 +222,7 @@ export class PrefixService {
         } catch (e) {
             logger.error("prefix", `Failed to execute ${cmdName}`, e);
             try {
-                await message.reply({ content: `❌ Error executing \`${prefix}${cmdName}\`: ${e.message.slice(0,300)}`, allowedMentions: { repliedUser: false } });
+                await message.reply({ content: `Error executing \`${prefix}${cmdName}\`: ${e.message.slice(0,300)}`, allowedMentions: { repliedUser: false } });
             } catch {}
             return true;
         }
@@ -251,7 +251,7 @@ export class PrefixService {
         } else if (options.length > 0 && options[0].type === 1) {
             // Command requires subcommand but none provided
             const available = options.map(o => o.name).join(", ");
-            await message.reply({ content: `❌ Missing subcommand for \`${prefix}${data.name}\`. Available: ${available}`, allowedMentions: { repliedUser: false } });
+            await message.reply({ content: `Missing subcommand for \`${prefix}${data.name}\`. Available: ${available}`, allowedMentions: { repliedUser: false } });
             return true;
         }
 
@@ -375,7 +375,7 @@ export class PrefixService {
             deferUpdate: async () => {},
             update: async () => {},
             showModal: async () => {
-                await message.reply({ content: "❌ This command requires a modal and cannot be used via prefix. Please use slash command `/" + data.name + "`", allowedMentions: { repliedUser: false } });
+                await message.reply({ content: "This command requires a modal and cannot be used via prefix. Please use slash command `/" + data.name + "`", allowedMentions: { repliedUser: false } });
                 throw new Error("Modal not supported via prefix");
             },
             fetchReply: async () => message,

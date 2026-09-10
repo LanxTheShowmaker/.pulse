@@ -5,8 +5,7 @@ export default {
     category:"Fun",
     async execute(interaction){
         const flip = Math.random()<0.5 ? "Heads" : "Tails";
-        const emoji = flip==="Heads" ? "🪙" : "🌙";
-        const embed = embeds.info(`${emoji}  Coinflip`, `**${flip}!** — *the cosmos has spoken.*`);
+        const embed = embeds.info(`Coinflip`, `**${flip}!**`);
         await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
 };

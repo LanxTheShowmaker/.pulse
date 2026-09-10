@@ -35,8 +35,8 @@ export default {
             .setFooter({ text: guild.name }).setTimestamp();
         const row=new ActionRowBuilder().addComponents(
             new ButtonBuilder().setLabel("Invite").setStyle(ButtonStyle.Link).setURL(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`),
-            new ButtonBuilder().setCustomId("about:help").setLabel("Help").setStyle(ButtonStyle.Secondary).setEmoji("📖"),
-            new ButtonBuilder().setCustomId("about:support").setLabel("Support").setStyle(ButtonStyle.Secondary).setEmoji("🛟")
+            new ButtonBuilder().setCustomId("about:help").setLabel("Help").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId("about:support").setLabel("Support").setStyle(ButtonStyle.Secondary)
         );
         client.components.set("about:help", async(i)=>{
             const e=embeds.info("Help","Run `/help` and pick a topic — Getting Started, Tickets, Moderation, etc.");

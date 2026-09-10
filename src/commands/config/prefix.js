@@ -87,23 +87,23 @@ export default {
         const cfg = await message.client.services.settings.get(guild.id).catch(() => null);
         const { isStaff } = await import("../../core/services.js");
         if (!isStaff(message.member, cfg)) {
-            return message.reply({ content: "❌ Staff only", allowedMentions: { repliedUser: false } });
+            return message.reply({ content: "Staff only", allowedMentions: { repliedUser: false } });
         }
         
         if (sub === "set") {
             const newPrefix = args[1];
-            if (!newPrefix) return message.reply({ content: `❌ Usage: \`${prefix}prefix set <prefix>\``, allowedMentions: { repliedUser: false } });
+            if (!newPrefix) return message.reply({ content: `Usage: \`${prefix}prefix set <prefix>\``, allowedMentions: { repliedUser: false } });
             try {
                 const clean = await prefixService.setPrefix(guild.id, newPrefix);
-                return message.reply({ content: `✅ Prefix set to \`${clean}\` — try \`${clean}ping\``, allowedMentions: { repliedUser: false } });
+                return message.reply({ content: `Prefix set to \`${clean}\` — try \`${clean}ping\``, allowedMentions: { repliedUser: false } });
             } catch (e) {
-                return message.reply({ content: `❌ ${e.message}`, allowedMentions: { repliedUser: false } });
+                return message.reply({ content: `${e.message}`, allowedMentions: { repliedUser: false } });
             }
         }
         
         if (sub === "reset") {
             const clean = await prefixService.resetPrefix(guild.id);
-            return message.reply({ content: `✅ Reset to \`${clean}\``, allowedMentions: { repliedUser: false } });
+            return message.reply({ content: `Reset to \`${clean}\``, allowedMentions: { repliedUser: false } });
         }
     }
 };

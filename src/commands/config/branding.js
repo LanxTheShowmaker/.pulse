@@ -72,7 +72,7 @@ export default {
                 .addFields(
                     { name:"Name", value: updated.displayName||"*default*", inline:true },
                     { name:"Nickname", value: updated.nickname||"*none*", inline:true },
-                    { name:"Avatar", value: updated.avatarUrl? "✅ Custom" : "Default", inline:true }
+                    { name:"Avatar", value: updated.avatarUrl? "Custom" : "Default", inline:true }
                 ).setFooter({ text:"Per-server • will show in tickets & embeds"});
             if(updated.bannerUrl) embed.setImage(updated.bannerUrl);
             await interaction.editReply({ embeds:[embed] }).catch(()=>{});

@@ -43,7 +43,7 @@ export class StarboardService {
             .addComponents(
                 new SectionBuilder()
                     .addComponents(
-                        new TextDisplayBuilder().setContent(`## ${Brand.mark} Starred Message`)
+                        new TextDisplayBuilder().setContent(`## Starred Message`)
                     )
                     .setAccessory(new ThumbnailBuilder().setURL(avatarUrl))
             )

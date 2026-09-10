@@ -20,7 +20,7 @@ export default {
         }
         if(sub==="list"){
             const list=await svc.list(interaction.guildId,10);
-            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Backups").setDescription(list.length? list.map(b=> `\`${b.id}\` <t:${Math.floor(new Date(b.createdAt).getTime()/1000)}:R> by <@${b.createdById}>`).join("\n") : "*No backups*");
+            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Backups").setDescription(list.length? list.map(b=> `\`${b.id}\` <t:${Math.floor(new Date(b.createdAt).getTime()/1000)}:R> by <@${b.createdById}>`).join("\n") : "No backups found. Create one with /backup create.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="restore"){

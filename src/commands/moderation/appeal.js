@@ -23,7 +23,7 @@ export default {
             if(!isStaff(interaction.member, await interaction.client.services.settings.get(interaction.guildId).catch(()=>null))) return interaction.reply({ embeds:[embeds.error("Staff only","")], flags: MessageFlags.Ephemeral});
             const status=interaction.options.getString("status");
             const list=await svc.listAppeals(interaction.guildId, status==="all"?null:status||"PENDING");
-            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Appeals").setDescription(list.length? list.map(a=> `\`${a.id.slice(0,8)}\` Case #${a.caseNumber} by <@${a.appellantId}> ${a.status} — ${a.reason.slice(0,60)}`).join("\n") : "*None*");
+            const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle("Appeals").setDescription(list.length? list.map(a=> `\`${a.id.slice(0,8)}\` Case #${a.caseNumber} by <@${a.appellantId}> ${a.status} — ${a.reason.slice(0,60)}`).join("\n") : "No appeals found.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="review"){

@@ -24,7 +24,7 @@ export default {
         if(sub==="preview") return interaction.reply({ embeds:[embeds.info("Preview","Welcome preview — join/leave messages")], flags: MessageFlags.Ephemeral});
         if(sub==="disable"){
             await interaction.client.services.settings.patch(interaction.guildId,{ welcomeChannelId: null });
-            return interaction.reply({ embeds:[embeds.success("Disabled","")], flags: MessageFlags.Ephemeral});
+            return interaction.reply({ embeds:[embeds.success("Disabled","Welcome messages disabled.")], flags: MessageFlags.Ephemeral});
         }
     }
 };

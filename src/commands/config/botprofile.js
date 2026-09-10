@@ -48,7 +48,7 @@ export default {
                 .addFields(
                     { name:"Display Name (DB)", value: b.displayName || "*Default*", inline:true },
                     { name:"Nickname (Discord API)", value: currentNick, inline:true },
-                    { name:"Can Change Nickname", value: canNick? "✅ Yes":"❌ Missing ChangeNickname/ManageNicknames", inline:true },
+                    { name:"Can Change Nickname", value: canNick? "Yes":"Missing ChangeNickname/ManageNicknames", inline:true },
                     { name:"Avatar (DB)", value: avatarStatus, inline:false },
                     { name:"Banner", value: b.bannerUrl? `[Link](${b.bannerUrl})`:"*Default*", inline:true },
                     { name:"Global Bot Username", value:`\`${interaction.client.user.username}\`#${interaction.client.user.discriminator} (global, cannot be per-server)`, inline:false }
@@ -60,9 +60,9 @@ export default {
                 ).setFooter({ text:"Per-server. Reapplied on restart."}).setTimestamp();
             if(b.avatarUrl) embed.setImage(b.avatarUrl);
             const row=new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId("botprofile:editName").setLabel("Set Nickname").setStyle(ButtonStyle.Primary).setEmoji("✏️"),
-                new ButtonBuilder().setCustomId("botprofile:editAvatar").setLabel("Set Avatar").setStyle(ButtonStyle.Secondary).setEmoji("🖼️"),
-                new ButtonBuilder().setCustomId("botprofile:reset").setLabel("Reset").setStyle(ButtonStyle.Danger).setEmoji("↩️")
+                new ButtonBuilder().setCustomId("botprofile:editName").setLabel("Set Nickname").setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId("botprofile:editAvatar").setLabel("Set Avatar").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId("botprofile:reset").setLabel("Reset").setStyle(ButtonStyle.Danger)
             );
             // Handlers
             interaction.client.components.set("botprofile:editName", async(i)=>{
@@ -130,8 +130,8 @@ export default {
                     }
                     await branding.set(guild.id, { avatarUrl: url||null });
                     let desc = url? `Stored avatar: [Link](${url})` : "Avatar cleared";
-                    if(perGuildSuccess) desc+=`\n✅ Per-guild avatar applied — visible change in **${guild.name}** only (isolated via guildId \`${guild.id}\`)`;
-                    else if(perGuildError) desc+=`\n❌ Failed (error: ${perGuildError.slice(0,120)}). Please try a different image or check permissions.`;
+                    if(perGuildSuccess) desc+=`\nPer-guild avatar applied — visible change in **${guild.name}** only (isolated via guildId \`${guild.id}\`)`;
+                    else if(perGuildError) desc+=`\nFailed (error: ${perGuildError.slice(0,120)}). Please try a different image or check permissions.`;
                     else desc+=`\nStored for embeds/panels.`;
                     await i.reply({ embeds:[embeds.success("Avatar", desc)], flags: MessageFlags.Ephemeral}).catch(()=>{});
                 }catch(e){
@@ -151,7 +151,7 @@ export default {
                 try{ await guild.members.me.edit({ avatar: null }).catch(()=>{}); }catch{}
                 await i.update({ embeds:[embeds.success("Reset","Per-server identity cleared")], components:[]}).catch(()=>{});
             });
-            interaction.client.components.set("botprofile:reset:cancel", async(i)=>{ await i.update({ embeds:[embeds.info("Cancelled","")], components:[]}).catch(()=>{}); });
+            interaction.client.components.set("botprofile:reset:cancel", async(i)=>{ await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[]}).catch(()=>{}); });
             return interaction.reply({ embeds:[embed], components:[row], flags: MessageFlags.Ephemeral});
         }
         if(sub==="name"){
@@ -201,8 +201,8 @@ export default {
                 }catch(e){ err=e.message; }
                 await branding.set(guild.id, { avatarUrl: url });
                 let desc=`Stored avatar: [Link](${url})\n`;
-                if(perGuildSuccess) desc+=`✅ Per-guild avatar applied — visible change in **${guild.name}**`;
-                else desc+=`⚠️ Discord does **not** support true per-guild bot avatars via bot token (error: ${err?err.slice(0,100):"unsupported"}). Stored for embeds/panels — global avatar \`${interaction.client.user.username}\` unchanged. This is the closest legitimate per-server visual.`;
+                if(perGuildSuccess) desc+=`Per-guild avatar applied — visible change in **${guild.name}**`;
+                else desc+=`Discord does not support true per-guild bot avatars via bot token (error: ${err?err.slice(0,100):"unsupported"}). Stored for embeds/panels — global avatar \`${interaction.client.user.username}\` unchanged.`;
                 return interaction.editReply({ embeds:[embeds.success("Avatar", desc)]});
             }catch(e){
                 return interaction.editReply({ embeds:[embeds.error("Failed", e.message.slice(0,400))]});

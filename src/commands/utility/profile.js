@@ -17,7 +17,7 @@ export default {
         const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${user.tag} — Profile`, iconURL:user.displayAvatarURL()}).setThumbnail(user.displayAvatarURL({ size:256})).setTimestamp();
         const fields=[];
         if(rank) fields.push({ name:"Level", value:`**Lv ${rank.level}** ${rank.progress.bar} ${rank.progress.pct}%\nRank #${rank.rank}/${rank.total} • ${rank.xp}/${rank.progress.need} XP`, inline:false });
-        else fields.push({ name:"Level", value:"*No XP yet*", inline:false });
+        else fields.push({ name:"Level", value:"No XP yet. Send messages to earn XP.", inline:false });
         fields.push({ name:"Economy", value:`**${bal}** coins`, inline:true });
         fields.push({ name:"Streak", value: streak? `**${streak.streak}** days (best ${streak.longest})`:"—", inline:true });
         fields.push({ name:"Achievements", value:`**${unlocked}/${ach.length}** unlocked`, inline:true });

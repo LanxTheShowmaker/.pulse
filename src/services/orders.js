@@ -83,7 +83,7 @@ export class OrderService {
     // --- Panel command support -------------------------------------------------
     buildPanelEmbed() {
         const cats = this.getCategories(null);
-        return embeds.info("Design Orders", "Request a commission from our designers. Only you and the design team can see the channel. Pick a category below to start your brief.", [
+        return embeds.info("Design Orders", "Select a category below to start your brief.", [
             { name: "What we take", value: cats.map((c) => `**${c.label}** — ${c.description}`).join("\n"), inline: false },
             { name: "How it works", value: "1) Pick a category  2) Fill the brief  3) A designer claims it  4) Track status live in this channel.", inline: false },
         ]);
@@ -92,8 +92,7 @@ export class OrderService {
         return new ActionRowBuilder().addComponents(new ButtonBuilder()
             .setCustomId("order:open")
             .setLabel("Request Design")
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji("🎨"));
+            .setStyle(ButtonStyle.Primary));
     }
     async handleOpen(i) {
         const member = i.member;
@@ -274,7 +273,7 @@ export class OrderService {
             { name: "Opened by", value: `${openerTag} (\`${order.openerId}\`)`, inline: true },
             { name: "Type", value: order.category, inline: true },
             { name: "Status", value: STATUS_LABELS[order.status] ?? order.status, inline: true },
-            { name: "Brief", value: order.brief || "*(none provided)*" },
+            { name: "Brief", value: order.brief || "—" },
         ];
         if (order.budget)
             fields.push({ name: "Budget", value: order.budget, inline: true });
@@ -290,8 +289,7 @@ export class OrderService {
         const claim = new ButtonBuilder()
             .setCustomId(`order:claim:${channelId}`)
             .setLabel("Claim")
-            .setStyle(ButtonStyle.Success)
-            .setEmoji("✅");
+            .setStyle(ButtonStyle.Success);
         const status = new StringSelectMenuBuilder()
             .setCustomId(`order:status:${channelId}`)
             .setPlaceholder("Update status")
@@ -303,9 +301,9 @@ export class OrderService {
                 { label: "Paid", value: "PAID" },
                 { label: "Close Order", value: "CLOSED" },
             ]);
-        const add = new ButtonBuilder().setCustomId(`order:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕");
-        const remove = new ButtonBuilder().setCustomId(`order:remove:${channelId}`).setLabel("Remove User").setStyle(ButtonStyle.Secondary).setEmoji("➖");
-        const transcript = new ButtonBuilder().setCustomId(`order:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄");
+        const add = new ButtonBuilder().setCustomId(`order:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary);
+        const remove = new ButtonBuilder().setCustomId(`order:remove:${channelId}`).setLabel("Remove User").setStyle(ButtonStyle.Secondary);
+        const transcript = new ButtonBuilder().setCustomId(`order:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary);
         return [
             new ActionRowBuilder().addComponents(claim, status),
             new ActionRowBuilder().addComponents(add, remove, transcript),

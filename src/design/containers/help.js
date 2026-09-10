@@ -21,7 +21,7 @@ const CATEGORIES = [
 
 export function helpMainPanel() {
     const components = [
-        headerText(`${Brand.mark} .pulse — Command Help`),
+        headerText(`.pulse — Command Help`),
         bodyText("Use the buttons below to browse commands by category."),
         divider(),
     ];
@@ -30,7 +30,7 @@ export function helpMainPanel() {
         const row = [];
         for (let j = 0; j < 3 && i + j < CATEGORIES.length; j++) {
             const cat = CATEGORIES[i + j];
-            row.push(createButton(`help:category:${cat.key}`, `${cat.emoji} ${cat.name}`, ButtonStyle.Secondary));
+            row.push(createButton(`help:category:${cat.key}`, cat.name, ButtonStyle.Secondary));
         }
         components.push(createActionRow(...row));
     }
@@ -44,15 +44,14 @@ export function helpMainPanel() {
 export function helpCategoryPanel(categoryKey, commands) {
     const category = CATEGORIES.find(c => c.key === categoryKey);
     const name = category?.name || categoryKey;
-    const emoji = category?.emoji || "";
     
     const components = [
-        headerText(`${emoji} ${name} Commands`),
+        headerText(`${name} Commands`),
         divider(),
     ];
     
     if (commands.length === 0) {
-        components.push(bodyText("No commands in this category."));
+        components.push(bodyText("No commands in this category — select another category."));
     } else {
         for (const cmd of commands) {
             const options = cmd.data.options?.map(o => `\`${o.name}\``).join(", ") || "none";
@@ -73,7 +72,7 @@ export function helpCategoryPanel(categoryKey, commands) {
 
 export function helpCommandPanel(command) {
     const components = [
-        headerText(`${Brand.mark} /${command.data.name}`),
+        headerText(`/${command.data.name}`),
         divider(),
         bodyText(`**Description:** ${command.data.description}`),
     ];

@@ -26,7 +26,7 @@ async function buildLeaderboardEmbed(guild, data, page, totalPages, kind){
         const lines = rows.length ? await Promise.all(rows.map(async (r, i)=>{
             const idx = page*PAGE_SIZE + i;
             return `${medal(idx)} <@${r.userId}> — **${r.balance}** coins`;
-        })) : ["*No wealth yet — be the first to earn coins!*"];
+        })) : ["No entries yet. Earn coins to appear on the leaderboard."];
         const embed = new EmbedBuilder()
             .setColor(Theme.gold)
             .setAuthor({ name:`${guild.name} • Coin Leaderboard`, iconURL: guild.iconURL() ?? undefined })
@@ -42,7 +42,7 @@ async function buildLeaderboardEmbed(guild, data, page, totalPages, kind){
         const need = lvlXp(r.level);
         const pct = Math.min(100, Math.floor((r.xp/need)*100));
         return `${medal(idx)} <@${r.userId}> — **Lv ${r.level}** • ${r.xp}/${need} XP (${pct}%)`;
-    })) : ["*No XP yet — start chatting to climb!*"];
+    })) : ["No entries yet. Send messages to earn XP and appear on the leaderboard."];
     const embed = new EmbedBuilder()
         .setColor(Theme.gold)
         .setAuthor({ name:`${guild.name} • Level Leaderboard`, iconURL: guild.iconURL() ?? undefined })

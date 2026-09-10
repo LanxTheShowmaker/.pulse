@@ -82,8 +82,8 @@ export default {
 async function renderCategory(i, category, cfg) {
     if (category === "logging") {
         const embed = embeds.info("Settings · Logging", "Choose where logs are sent.", [
-            { name: "Log channel", value: cfg.logChannelId ? `<#${cfg.logChannelId}>` : "Not set", inline: true },
-            { name: "Mod-log channel", value: cfg.modLogChannelId ? `<#${cfg.modLogChannelId}>` : "Not set", inline: true },
+            { name: "Log channel", value: cfg.logChannelId ? `<#${cfg.logChannelId}>` : "Not configured", inline: true },
+            { name: "Mod-log channel", value: cfg.modLogChannelId ? `<#${cfg.modLogChannelId}>` : "Not configured", inline: true },
         ]);
         await i.update({
             embeds: [embed],
@@ -93,8 +93,8 @@ async function renderCategory(i, category, cfg) {
     }
     if (category === "welcome") {
         const embed = embeds.info("Settings · Welcome & Goodbye", "Choose where join/leave messages are sent.", [
-            { name: "Welcome channel", value: cfg.welcomeChannelId ? `<#${cfg.welcomeChannelId}>` : "Not set", inline: true },
-            { name: "Goodbye channel", value: cfg.goodbyeChannelId ? `<#${cfg.goodbyeChannelId}>` : "Not set", inline: true },
+            { name: "Welcome channel", value: cfg.welcomeChannelId ? `<#${cfg.welcomeChannelId}>` : "Not configured", inline: true },
+            { name: "Goodbye channel", value: cfg.goodbyeChannelId ? `<#${cfg.goodbyeChannelId}>` : "Not configured", inline: true },
         ]);
         await i.update({
             embeds: [embed],
@@ -113,7 +113,7 @@ async function renderCategory(i, category, cfg) {
     if (category === "orders") {
         const cats = cfg.orders?.categories;
         await i.update({ embeds: [embeds.info("Settings · Orders", "Manage the design-order system. Use `/order categories` to add or remove design types.", [
-            { name: "Categories", value: cats?.length ? cats.map((c) => `**${c.label}** (\`${c.value}\`)`).join(", ") : "*(defaults)*" },
+            { name: "Categories", value: cats?.length ? cats.map((c) => `**${c.label}** (\`${c.value}\`)`).join(", ") : "Default categories in use." },
         ])], components: [backRow()] });
         return;
     }

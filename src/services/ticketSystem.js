@@ -216,8 +216,8 @@ export class TicketSystemService {
         const guild = i.guild;
         // Simple info responses
         const map = {
-            about: ".pulse is a universal panel & ticket framework — each server configures its own content via /config.",
-            services: "Use the Orders and Assistance panels to open tickets. Staff will claim and assist.",
+            about: "Each server configures its own content via /config.",
+            services: "Use the Orders and Assistance panels to open tickets.",
             staff: "Staff listed via server roles — configure via /config.",
             links: "Invite .pulse: https://discord.com/oauth2/authorize?client_id=" + (process.env.CLIENT_ID ?? "") + "&scope=bot%20applications.commands",
             regulations: "See the Regulations panel for server rules.",
@@ -275,7 +275,7 @@ export class TicketSystemService {
         // Build new embed to match image: dark, clean, Terms + Information
         const welcome = new EmbedBuilder().setColor(0x2B2D31) // Discord dark to match image
             .setTitle(`${type.displayName} Ticket`)
-            .setDescription(`Hey there <@${member.id}>. Welcome to your personal order ticket. Please take a moment to answer all the questions in your ticket.`);
+            .setDescription(`<@${member.id}> — answer the questions below so staff can assist.`);
         if (bannerUrl) welcome.setImage(bannerUrl);
         // Terms of Service field (from image)
         const termsText = type.instructions ? type.instructions.slice(0, 1024) : `By placing an order you agree to the full Terms & Conditions.\nAll orders are strictly **non-refundable** unless a member of the Executive Board decides otherwise.`;
@@ -290,10 +290,9 @@ export class TicketSystemService {
         } else {
             infoValue = "Please provide:\n• Detailed description of your request\n• Any relevant images or links\n• Desired timeline";
         }
-        welcome.addFields({ name: "Information:", value: infoValue, inline: false });
+        welcome.addFields({ name: "Information", value: infoValue, inline: false });
         // Footer with branding per-server
         welcome.setFooter({ text: `${display.name} • ${member.user.tag}`, iconURL: display.icon || guild.iconURL() || undefined });
-        if (display.icon) welcome.setAuthor({ name: display.name, iconURL: display.icon });
         welcome.setTimestamp();
         // Thumbnail as user avatar subtle (like image has no thumbnail, but keep for context)
         // Do not set thumbnail to keep clean like image — banner is enough
@@ -317,29 +316,29 @@ export class TicketSystemService {
         const isClaimed = !!ticket?.claimedById;
         const row1 = new ActionRowBuilder().addComponents(
             isClaimed
-                ? new ButtonBuilder().setCustomId(`ticket:unclaim:${channelId}`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary).setEmoji("↩️")
-                : new ButtonBuilder().setCustomId(`ticket:claim:${channelId}`).setLabel("Claim").setStyle(ButtonStyle.Success).setEmoji("🛠️"),
-            new ButtonBuilder().setCustomId(`ticket:close:${channelId}`).setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("🔒"),
-            new ButtonBuilder().setCustomId(`ticket:info:${channelId}`).setLabel("Info").setStyle(ButtonStyle.Secondary).setEmoji("ℹ️"),
+                ? new ButtonBuilder().setCustomId(`ticket:unclaim:${channelId}`).setLabel("Unclaim").setStyle(ButtonStyle.Secondary)
+                : new ButtonBuilder().setCustomId(`ticket:claim:${channelId}`).setLabel("Claim").setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`ticket:close:${channelId}`).setLabel("Close").setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`ticket:info:${channelId}`).setLabel("Info").setStyle(ButtonStyle.Secondary),
         );
         const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`ticket:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary).setEmoji("➕"),
-            new ButtonBuilder().setCustomId(`ticket:remove:${channelId}`).setLabel("Remove").setStyle(ButtonStyle.Secondary).setEmoji("➖"),
-            new ButtonBuilder().setCustomId(`ticket:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary).setEmoji("📄"),
+            new ButtonBuilder().setCustomId(`ticket:add:${channelId}`).setLabel("Add User").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId(`ticket:remove:${channelId}`).setLabel("Remove").setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId(`ticket:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary),
         );
         const priorityMenu = new StringSelectMenuBuilder().setCustomId(`ticket:priority:${channelId}`).setPlaceholder("Priority").addOptions([
-            { label:"Low", value: PRIORITY.LOW, emoji:"🟢" },
-            { label:"Normal", value: PRIORITY.NORMAL, emoji:"🟡" },
-            { label:"High", value: PRIORITY.HIGH, emoji:"🟠" },
-            { label:"Urgent", value: PRIORITY.URGENT, emoji:"🔴" },
+            { label:"Low", value: PRIORITY.LOW },
+            { label:"Normal", value: PRIORITY.NORMAL },
+            { label:"High", value: PRIORITY.HIGH },
+            { label:"Urgent", value: PRIORITY.URGENT },
         ]);
         const statusMenu = new StringSelectMenuBuilder().setCustomId(`ticket:status:${channelId}`).setPlaceholder("Status").addOptions([
-            { label:"Open", value: STATUS.OPEN, emoji:"🟡" },
-            { label:"Claimed", value: STATUS.CLAIMED, emoji:"🔵" },
-            { label:"Waiting", value: STATUS.WAITING, emoji:"🟠" },
-            { label:"In Progress", value: STATUS.IN_PROGRESS, emoji:"🟣" },
-            { label:"Completed", value: STATUS.COMPLETED, emoji:"🟢" },
-            { label:"Closed", value: STATUS.CLOSED, emoji:"🔴" },
+            { label:"Open", value: STATUS.OPEN },
+            { label:"Claimed", value: STATUS.CLAIMED },
+            { label:"Waiting", value: STATUS.WAITING },
+            { label:"In Progress", value: STATUS.IN_PROGRESS },
+            { label:"Completed", value: STATUS.COMPLETED },
+            { label:"Closed", value: STATUS.CLOSED },
         ]);
         return [row1, row2, new ActionRowBuilder().addComponents(priorityMenu), new ActionRowBuilder().addComponents(statusMenu)];
     }
@@ -525,12 +524,10 @@ body{font-family:Inter,system-ui,Arial;background:#313338;color:#dcddde;margin:0
 .badge{display:inline-block;background:#5865f2;color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;margin-left:8px}
 </style></head><body>
 <div class="header"><h1>${esc(ticket.panelType||"Ticket")} — ${esc(channel.name)} <span class="badge">${esc(ticket.status||"CLOSED")}</span></h1><p>Guild: ${esc(guild.name)} • Ticket: ${esc(ticket.id)} • Opener: ${esc(ticket.openerId)} • Closed by: ${esc(closerId||"system")} • ${new Date().toLocaleString()}</p></div>
-<div class="container"><div class="banner" style="background:linear-gradient(135deg,#4f46e5,#0ea5e9);height:80px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;letter-spacing:2px;font-size:28px">.pulse<br><span style="font-size:14px;letter-spacing:1px;font-weight:400;opacity:0.9">Server Management</span></div>
-<h2 style="color:#fff;margin-top:8px">${esc(displayName)} Ticket</h2>
-<p style="color:#b5bac1">Archived transcript — ${messages.length} messages</p>
+<div class="container"><p style="color:#b5bac1">Archived transcript — ${messages.length} messages</p>
 <hr style="border:0;border-top:1px solid #3f4147;margin:16px 0">
 ${rows}
-<div class="footer">${Brand.name} • ${esc(displayName)} • ${esc(guild.name)} • Generated ${new Date().toISOString()}</div></div></body></html>`;
+<div class="footer">Guild: ${esc(guild.name)} • Generated ${new Date().toISOString()}</div></div></body></html>`;
     }
     async handleTranscript(i) {
         const channelId = i.customId.split(":")[2];

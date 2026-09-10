@@ -18,14 +18,14 @@ export default {
             const limit=interaction.options.getInteger("limit")||15;
             const rows=await svc.timeline(interaction.guildId,{ category:cat||undefined, limit });
             const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle(`Audit Timeline ${cat? "• "+cat:""}`).setTimestamp();
-            if(!rows.length) embed.setDescription("*No entries*");
+            if(!rows.length) embed.setDescription("No audit entries found for this filter.");
             else embed.setDescription(rows.map(r=> `<t:${Math.floor(new Date(r.createdAt).getTime()/1000)}:R> **${r.category}** \`${r.action}\` <@${r.actorId||"?" }> → <@${r.targetId||"?" }> ${r.details? JSON.parse(r.details||"{}").reason || "" : ""}`.slice(0,200)).join("\n").slice(0,4000));
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="user"){
             const user=interaction.options.getUser("user");
             const rows=await svc.timeline(interaction.guildId,{ targetId:user.id, limit:20 });
-            const embed=new EmbedBuilder().setColor(0x9b8ecf).setAuthor({ name:`${user.tag} — Audit`, iconURL:user.displayAvatarURL()}).setDescription(rows.length? rows.map(r=> `<t:${Math.floor(new Date(r.createdAt).getTime()/1000)}:R> ${r.category}/${r.action}`).join("\n").slice(0,3000) : "*No history*");
+            const embed=new EmbedBuilder().setColor(0x9b8ecf).setAuthor({ name:`${user.tag} — Audit`, iconURL:user.displayAvatarURL()}).setDescription(rows.length? rows.map(r=> `<t:${Math.floor(new Date(r.createdAt).getTime()/1000)}:R> ${r.category}/${r.action}`).join("\n").slice(0,3000) : "No history found for this user.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="stats"){

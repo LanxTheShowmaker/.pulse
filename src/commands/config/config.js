@@ -120,8 +120,6 @@ export const componentHandlers = {
             bodyText("Select the channel for moderation logs:"),
             divider(),
             createActionRow(menu),
-            spacer(),
-            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });
@@ -151,8 +149,6 @@ export const componentHandlers = {
             bodyText("Select the channel for general logs:"),
             divider(),
             createActionRow(menu),
-            spacer(),
-            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });
@@ -223,8 +219,6 @@ export const componentHandlers = {
             bodyText("Select role(s) to add as staff:"),
             divider(),
             createActionRow(menu),
-            spacer(),
-            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });

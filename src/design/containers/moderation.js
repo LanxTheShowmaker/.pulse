@@ -28,7 +28,7 @@ export function moderationActionPanel(action, target, moderator, reason, caseNum
     const color = actionColors[action] || "info";
     
     const components = [
-        headerText(`${Brand.mark} ${label}`),
+        headerText(label),
         divider(),
         bodyText(`**Target:** <@${target.id}> (\`${target.tag}\`)`),
         bodyText(`**Moderator:** <@${moderator.id}> (\`${moderator.tag}\`)`),
@@ -48,7 +48,7 @@ export function moderationActionPanel(action, target, moderator, reason, caseNum
 
 export function moderationHistoryPanel(history, target, guild) {
     const components = [
-        headerText(`${Brand.mark} Moderation History — ${target.tag}`),
+        headerText(`Moderation History — ${target.tag}`),
         divider(),
         bodyText(`**User:** <@${target.id}> (\`${target.id}\`)`),
         bodyText(`**Total Cases:** ${history.length}`),
@@ -56,10 +56,10 @@ export function moderationHistoryPanel(history, target, guild) {
     ];
     
     if (history.length === 0) {
-        components.push(bodyText("No moderation history found."));
+        components.push(bodyText("No moderation history for this user."));
     } else {
         for (const c of history.slice(0, 10)) {
-            const status = c.resolved ? "✓ Resolved" : "Active";
+            const status = c.resolved ? "Resolved" : "Active";
             components.push(bodyText(`**#${c.caseNumber}** · ${c.action} · ${c.reason || "No reason"} · ${status} · <t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>`));
         }
         
@@ -76,7 +76,7 @@ export function moderationHistoryPanel(history, target, guild) {
 
 export function banConfirmationPanel(target, moderator, reason, deleteDays) {
     const components = [
-        headerText(`${Brand.mark} Confirm Ban`),
+        headerText(`Confirm Ban`),
         divider(),
         bodyText(`**Target:** <@${target.id}> (\`${target.tag}\`)`),
         bodyText(`**Reason:** ${reason || "No reason provided"}`),
@@ -97,7 +97,7 @@ export function banConfirmationPanel(target, moderator, reason, deleteDays) {
 
 export function timeoutConfirmationPanel(target, moderator, reason, duration) {
     const components = [
-        headerText(`${Brand.mark} Confirm Timeout`),
+        headerText(`Confirm Timeout`),
         divider(),
         bodyText(`**Target:** <@${target.id}> (\`${target.tag}\`)`),
         bodyText(`**Reason:** ${reason || "No reason provided"}`),
@@ -116,7 +116,7 @@ export function timeoutConfirmationPanel(target, moderator, reason, duration) {
 
 export function kickConfirmationPanel(target, moderator, reason) {
     const components = [
-        headerText(`${Brand.mark} Confirm Kick`),
+        headerText(`Confirm Kick`),
         divider(),
         bodyText(`**Target:** <@${target.id}> (\`${target.tag}\`)`),
         bodyText(`**Reason:** ${reason || "No reason provided"}`),
@@ -136,7 +136,7 @@ export function kickConfirmationPanel(target, moderator, reason) {
 
 export function warnConfirmationPanel(target, moderator, reason) {
     const components = [
-        headerText(`${Brand.mark} Confirm Warning`),
+        headerText(`Confirm Warning`),
         divider(),
         bodyText(`**Target:** <@${target.id}> (\`${target.tag}\`)`),
         bodyText(`**Reason:** ${reason || "No reason provided"}`),
@@ -159,17 +159,17 @@ export function caseListPanel(cases, guild, page = 0, perPage = 10) {
     const totalPages = Math.ceil(cases.length / perPage);
     
     const components = [
-        headerText(`${Brand.mark} Case List`),
+        headerText(`Case List`),
         divider(),
         bodyText(`**Total Cases:** ${cases.length}`),
         divider(),
     ];
     
     if (pageCases.length === 0) {
-        components.push(bodyText("No cases found."));
+        components.push(bodyText("No cases match the current filter."));
     } else {
         for (const c of pageCases) {
-            const status = c.resolved ? "✓" : "●";
+            const status = c.resolved ? "Resolved" : "Active";
             components.push(bodyText(`${status} **#${c.caseNumber}** · ${c.action} · <@${c.targetId}> · ${c.reason || "No reason"} · <t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>`));
         }
     }
@@ -191,7 +191,7 @@ export function caseListPanel(cases, guild, page = 0, perPage = 10) {
 
 export function modStatsPanel(stats, moderator, guild) {
     const components = [
-        headerText(`${Brand.mark} Moderation Statistics`),
+        headerText(`Moderation Statistics`),
         divider(),
         bodyText(`**Moderator:** ${moderator ? `<@${moderator.id}>` : "All Moderators"}`),
         divider(),

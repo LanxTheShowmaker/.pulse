@@ -19,58 +19,58 @@ const PANEL_META = {
 
 const DEFAULT_PANELS = {
     [PANEL_TYPES.ORDER]: {
-        title: "◆  Place Your Order",
-        description: "Open a ticket for design services. Select a category below to get started.",
+        title: "Place Your Order",
+        description: "Select a category below to open a ticket.",
         bannerUrl: null,
         thumbnailUrl: null,
         embedColor: null,
-        footerText: ".pulse  •  select an option below to begin  •  one ticket per request",
+        footerText: ".pulse • one ticket per request",
         footerIcon: null,
         sections: [
             { title: "What Happens Next", content: "```\n1 — Choose a service from the menu\n2 — Share your vision (references, budget, deadline)\n3 — A designer claims your ticket and begins\n```" },
-            { title: "Before You Order  •  Please Read", content: "> Provide clear references and dimensions\n> Respect payment and revision rules\n> Follow staff guidance with kindness\n> Need help? Open an Assistance ticket" },
+            { title: "Before You Order", content: "> Provide clear references and dimensions\n> Respect payment and revision rules\n> Follow staff guidance with kindness\n> Need help? Open an Assistance ticket" },
         ],
-        dropdownPlaceholder: "◆  Choose a service to begin",
+        dropdownPlaceholder: "Choose a service to begin",
     },
     [PANEL_TYPES.ASSISTANCE]: {
-        title: "🛟  Assistance  •  We're Here to Help",
-        description: "Need guidance, have a concern, or wish to join our team?\nOpen a private ticket — every request is handled with care and confidentiality.",
+        title: "Assistance",
+        description: "Open a private ticket for support.",
         bannerUrl: null,
         sections: [
             { title: "Submitting a Request", content: "> Clearly explain your situation\n> Provide proof, screenshots, or IDs where relevant\n> One request per ticket — be concise and kind" },
             { title: "Review Process", content: "> Staff review within 24 hours\n> You'll be updated directly in the ticket\n> Urgent matters are prioritized" },
         ],
-        dropdownPlaceholder: "🛟  Choose a request",
-        footerText: ".pulse  •  private and confidential",
+        dropdownPlaceholder: "Choose a request",
+        footerText: ".pulse",
     },
     [PANEL_TYPES.REGULATIONS]: {
-        title: "📜  Regulations  •  Our Covenant",
-        description: "*To keep our community safe and fair — please follow these rules.*",
+        title: "Regulations",
+        description: "Follow these rules.",
         bannerUrl: null,
         subtitle: "Respect • Integrity",
         sections: [
-            { title: "Essentials  —  The Foundation", content: "```\n•  Remain respectful and professional at all times\n•  Follow staff guidance\n•  Never impersonate others or misrepresent work\n•  Scamming, fraud, or deceptive practices are forbidden\n•  Do not interfere with another's transaction or order\n•  Honour Discord Terms of Service and community spirit\n```" },
+            { title: "Essentials", content: "```\n•  Remain respectful and professional at all times\n•  Follow staff guidance\n•  Never impersonate others or misrepresent work\n•  Scamming, fraud, or deceptive practices are forbidden\n•  Do not interfere with another's transaction or order\n•  Honour Discord Terms of Service and community spirit\n```" },
             { title: "Conduct", content: "> Customer — Be clear and patient\n> Designer — Deliver with integrity, communicate, respect deadlines\n> Staff — Serve with fairness and transparency\n> AI — Disclose AI assistance where relevant" },
         ],
-        footerText: ".pulse  •  regulations live in respect",
+        footerText: ".pulse",
     },
     [PANEL_TYPES.DASHBOARD]: {
-        title: "◆  .pulse Dashboard",
-        description: "Server overview and quick access.\n\n*Open an Order or Assistance ticket to get started.*",
+        title: ".pulse Dashboard",
+        description: "Server overview and quick access.",
         bannerUrl: null,
         sections: [
-            { title: "Our Community", content: "> Support, design, and development — in one place." },
-            { title: "Our Purpose", content: "> Provide reliable service and support.\n> Every ticket is handled professionally." },
+            { title: "Our Community", content: "> Support and design services." },
+            { title: "Our Purpose", content: "> Support and service requests." },
         ],
-        dropdownPlaceholder: "◆  Explore more",
+        dropdownPlaceholder: "Explore more",
         dropdownOptions: [
-            { label: "About", value: "about", emoji: "📖", description: "Our story and values" },
-            { label: "Services", value: "services", emoji: "🛒", description: "What we create" },
-            { label: "Team", value: "staff", emoji: "👥", description: "Meet the team" },
-            { label: "Connect", value: "links", emoji: "🔗", description: "Links & contact" },
-            { label: "Regulations", value: "regulations", emoji: "📜", description: "Our covenant" },
+            { label: "About", value: "about", description: "Our story and values" },
+            { label: "Services", value: "services", description: "What we create" },
+            { label: "Team", value: "staff", description: "Meet the team" },
+            { label: "Connect", value: "links", description: "Links & contact" },
+            { label: "Regulations", value: "regulations", description: "Our covenant" },
         ],
-        footerText: ".pulse  •  welcome home",
+        footerText: ".pulse",
     },
 };
 
@@ -150,7 +150,7 @@ export class PanelService {
         if ([PANEL_TYPES.ORDER, PANEL_TYPES.ASSISTANCE].includes(panel.panelType)) {
             const hasOptions = (ticketTypes && ticketTypes.length) || this.getFallbackTicketTypes(panel.panelType).length;
             if (hasOptions && !description.includes("Select an option")) {
-                description = description ? `${description}\n\n*— Select an option below to begin —*` : `*Select an option below to begin*`;
+                description = description ? `${description}\n\nSelect an option below to begin.` : `Select an option below to begin.`;
             }
         }
         const color = panel.embedColor ?? cfg.embedColor ?? Theme.panel;
@@ -161,13 +161,13 @@ export class PanelService {
             let value = (s.content ?? s.rules?.join("\n") ?? "—").trim();
             if (value.length > 1024) value = value.slice(0, 1021) + "…";
             // Ensure bullet lists are not cramped
-            return { name: ` ${name}`, value, inline: false };
+            return { name, value, inline: false };
         }).slice(0, 25);
 
         const guildName = panel.guildId ? `${Brand.name} • ${PANEL_META[panel.panelType]?.label ?? panel.panelType}` : Brand.name;
         const embed = embeds.panel(title, description || undefined, fields.length ? fields : undefined, {
             author: { name: guildName },
-            footer: panel.footerText ?? cfg.footerText ?? `${Brand.name}  •  configured for this server`,
+            footer: panel.footerText ?? cfg.footerText ?? `${Brand.name}`,
             footerIcon: panel.footerIcon ?? cfg.footerIcon ?? undefined,
         });
         if (color) embed.setColor(color);
@@ -236,7 +236,7 @@ export class PanelService {
         if (panel.panelType === PANEL_TYPES.DASHBOARD) {
             const opts = cfg.dropdownOptions ?? DEFAULT_PANELS.DASHBOARD.dropdownOptions ?? [];
             if (opts.length) {
-                const menu = new StringSelectMenuBuilder().setCustomId(`panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), emoji:o.emoji??undefined, description:o.description?.slice(0,100)})));
+                const menu = new StringSelectMenuBuilder().setCustomId(`panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), description:o.description?.slice(0,100)})));
                 rows.push(new ActionRowBuilder().addComponents(menu));
             }
         }

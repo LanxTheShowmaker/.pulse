@@ -19,7 +19,7 @@ export function settingsMainPanel(guild, config) {
     ];
     
     const components = [
-        headerText(`${Brand.mark} Server Settings`),
+        headerText(`Server Settings`),
         bodyText(`Configuring **${guild.name}** (\`${guild.id}\`)`),
         divider(),
         subHeaderText("Modules"),
@@ -27,7 +27,7 @@ export function settingsMainPanel(guild, config) {
     
     for (const mod of moduleList) {
         const enabled = modules[mod.key] !== false;
-        components.push(bodyText(`${enabled ? "✓" : "✗"} **${mod.name}** — ${mod.desc}`));
+        components.push(bodyText(`${enabled ? "Enabled" : "Disabled"} **${mod.name}** — ${mod.desc}`));
     }
     
     components.push(divider());
@@ -66,7 +66,7 @@ export function moduleTogglePanel(modules) {
     ];
     
     const components = [
-        headerText(`${Brand.mark} Module Management`),
+        headerText(`Module Management`),
         divider(),
     ];
     
@@ -94,7 +94,7 @@ export function automodConfigPanel(config) {
     const exemptUsers = config.exemptUsers || [];
     
     const components = [
-        headerText(`${Brand.mark} AutoMod Configuration`),
+        headerText(`AutoMod Configuration`),
         divider(),
         subHeaderText("Rules"),
     ];
@@ -115,7 +115,7 @@ export function automodConfigPanel(config) {
     for (const rule of ruleDefs) {
         const enabled = rules[rule.key] !== false;
         const action = rules[rule.key]?.action || "warn";
-        components.push(bodyText(`${enabled ? "✓" : "✗"} **${rule.name}** — ${rule.desc} (Action: ${action})`));
+        components.push(bodyText(`${enabled ? "Enabled" : "Disabled"} **${rule.name}** — ${rule.desc} (Action: ${action})`));
     }
     
     components.push(divider());
@@ -146,7 +146,7 @@ export function automodConfigPanel(config) {
 
 export function logChannelsPanel(config) {
     const components = [
-        headerText(`${Brand.mark} Log Channels`),
+        headerText(`Log Channels`),
         divider(),
         bodyText(`**Moderation Log:** ${config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set"}`),
         bodyText(`**General Log:** ${config.logChannelId ? `<#${config.logChannelId}>` : "Not set"}`),
@@ -171,7 +171,7 @@ export function logChannelsPanel(config) {
 
 export function staffRolesPanel(config) {
     const components = [
-        headerText(`${Brand.mark} Staff Roles`),
+        headerText(`Staff Roles`),
         divider(),
         bodyText(`**Staff Roles:** ${config.staffRoleIds?.length ? config.staffRoleIds.split(",").map(r => `<@&${r}>`).join(", ") : "None"}`),
         bodyText(`**Moderator Roles:** ${config.moderatorRoleIds?.length ? config.moderatorRoleIds.split(",").map(r => `<@&${r}>`).join(", ") : "None"}`),
@@ -197,7 +197,7 @@ export function staffRolesPanel(config) {
 
 export function prefixPanel(prefix) {
     const components = [
-        headerText(`${Brand.mark} Command Prefix`),
+        headerText(`Command Prefix`),
         divider(),
         bodyText(`**Current Prefix:** \`${prefix || "!"}\``),
         divider(),

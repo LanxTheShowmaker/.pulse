@@ -6,7 +6,7 @@ export default {
         const user=interaction.options.getUser("user")||interaction.user;
         const fetched=await interaction.client.users.fetch(user.id).catch(()=>null);
         const banner = fetched?.bannerURL({ size:512 });
-        if(!banner) return interaction.reply({ embeds:[new EmbedBuilder().setColor(0x9b8ecf).setDescription("No banner")], flags: MessageFlags.Ephemeral});
+        if(!banner) return interaction.reply({ embeds:[new EmbedBuilder().setColor(0x9b8ecf).setDescription("This user has no banner set.")], flags: MessageFlags.Ephemeral});
         return interaction.reply({ embeds:[new EmbedBuilder().setColor(0x9b8ecf).setImage(banner).setTitle(user.tag+" — Banner")], flags: MessageFlags.Ephemeral});
     }
 };

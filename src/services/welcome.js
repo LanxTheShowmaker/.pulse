@@ -22,7 +22,7 @@ export class WelcomeService {
         // Autorole from cfg.ignoredRoleIds abuse? Use modules.autoroleIds if stored
         const autoroles = (() => { try { const m = cfg.modules?.autoroleIds; return Array.isArray(m) ? m : []; } catch { return [] } })();
         for (const rid of autoroles) await member.roles.add(rid).catch(() => {});
-        const embed = new EmbedBuilder().setColor(Theme.accent).setTitle(`Welcome — ${guild.name}`).setDescription(`Hey <@${member.id}> — welcome to **${guild.name}**!\n*Read regulations, pick a panel, and enjoy.*`).setThumbnail(member.user.displayAvatarURL({ size: 128 })).setFooter({ text: Brand.name }).setTimestamp();
+        const embed = new EmbedBuilder().setColor(Theme.accent).setTitle(`Welcome — ${guild.name}`).setDescription(`<@${member.id}> — welcome to **${guild.name}**.`).setThumbnail(member.user.displayAvatarURL({ size: 128 })).setFooter({ text: Brand.name }).setTimestamp();
         const row = new ActionRowBuilder();
         // Verification button if verifyRole set in modules.verifyRoleId
         const verifyRole = cfg.modules?.verifyRoleId;
@@ -33,7 +33,7 @@ export class WelcomeService {
         const cfg = await this.settings.get(member.guild.id).catch(() => null);
         const ch = cfg?.goodbyeChannelId ? member.guild.channels.cache.get(cfg.goodbyeChannelId) ?? await member.guild.channels.fetch(cfg.goodbyeChannelId).catch(() => null) : null;
         if (!ch || !ch.isTextBased()) return;
-        const embed = new EmbedBuilder().setColor(Theme.muted).setTitle("Goodbye").setDescription(`**${member.user.tag}** left — we'll miss you.`).setThumbnail(member.user.displayAvatarURL()).setTimestamp();
+        const embed = new EmbedBuilder().setColor(Theme.muted).setTitle("Goodbye").setDescription(`**${member.user.tag}** left.`).setThumbnail(member.user.displayAvatarURL()).setTimestamp();
         await ch.send({ embeds: [embed] }).catch(() => {});
     }
 }

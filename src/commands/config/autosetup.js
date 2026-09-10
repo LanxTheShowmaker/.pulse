@@ -316,8 +316,8 @@ function formatRole(r) {
     if (r.action === "reuse") return `<@&${r.roleId}> (reused)`;
     if (r.action === "repair") return `<@&${r.roleId}> (repaired)`;
     if (r.action === "create") return `\`${r.name}\` (will create)`;
-    if (r.action === "blocked") return `⚠ ${r.reason}`;
-    if (r.action === "skip") return `— ${r.reason}`;
+    if (r.action === "blocked") return `${r.reason}`;
+    if (r.action === "skip") return `${r.reason}`;
     return `—`;
 }
 function formatChannel(c) {
@@ -325,14 +325,14 @@ function formatChannel(c) {
     if (c.action === "reuse") return `<#${c.id}> (reused)`;
     if (c.action === "repair") return `<#${c.id}> (repaired)`;
     if (c.action === "create") return `\`#${c.name}\` (will create)`;
-    if (c.action === "blocked") return `⚠ blocked (no perm)`;
+    if (c.action === "blocked") return `blocked (no perm)`;
     return "—";
 }
 function formatCategory(c) {
     if (!c) return "—";
     if (c.action === "reuse") return `${c.name} (reused)`;
     if (c.action === "create") return `${c.name} (will create)`;
-    if (c.action === "blocked") return `⚠ blocked`;
+    if (c.action === "blocked") return `blocked`;
     return "—";
 }
 
@@ -345,22 +345,21 @@ function renderSetup(guild) {
 
     const staffMenu = new StringSelectMenuBuilder()
         .setCustomId("pulse:setup:staff")
-        .setPlaceholder("✦  Select Staff role")
+        .setPlaceholder("Select Staff role")
         .addOptions(staffOpts);
     const modMenu = new StringSelectMenuBuilder()
         .setCustomId("pulse:setup:mod")
-        .setPlaceholder("✦  Select Moderator role")
+        .setPlaceholder("Select Moderator role")
         .addOptions(modOpts);
 
     const toggle = new ButtonBuilder()
         .setCustomId("pulse:setup:toggleCreate")
         .setLabel(`Create missing: ${sel.createMissing ? "On" : "Off"}`)
-        .setEmoji(sel.createMissing ? "🌱" : "🌿")
         .setStyle(sel.createMissing ? ButtonStyle.Success : ButtonStyle.Secondary);
 
-    const previewBtn = new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️");
-    const repairBtn = new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧");
-    const confirm = new ButtonBuilder().setCustomId("pulse:setup:confirm").setLabel("Run Setup  •  Build").setStyle(ButtonStyle.Success).setEmoji("✨");
+    const previewBtn = new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary);
+    const repairBtn = new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary);
+    const confirm = new ButtonBuilder().setCustomId("pulse:setup:confirm").setLabel("Run Setup").setStyle(ButtonStyle.Success);
 
     // Detection summary (sync quick check)
     const detectedStaff = detectStaffRole(guild);
@@ -372,22 +371,22 @@ function renderSetup(guild) {
     const ordersCat = findMatchingCategory(guild, ORDERS_CATEGORY_CANDIDATES);
 
     const perms = validateSetupPermissions(guild);
-    const permWarnings = perms.warnings.length ? perms.warnings.map((w) => `> ⚠  ${w}`).join("\n") : "> ⬤  All permissions granted  •  ready to build";
+    const permWarnings = perms.warnings.length ? perms.warnings.map((w) => `> ${w}`).join("\n") : "> All permissions granted.";
 
-    const embed = embeds.panel("Auto-setup", "Select **Staff** and **Moderator** roles below. Detected roles are preselected. Toggle **Create missing roles** to create `Server staff` / `Server Moderator` when none exist.\n\nPreview first, then run.", [
-        { name: "  Staff", value: sel.staff.length ? sel.staff.map((id) => `<@&${id}>`).join(", ") : detectedStaff ? `> Detected: <@&${detectedStaff.id}>\n> _Tap to change_` : "> —  _select one_", inline: true },
-        { name: "  Moderator", value: sel.mod.length ? sel.mod.map((id) => `<@&${id}>`).join(", ") : detectedMod ? `> Detected: <@&${detectedMod.id}>\n> _Tap to change_` : "> —  _select one_", inline: true },
-        { name: "  Create missing", value: sel.createMissing ? "```diff\n+ On  —  will create Server staff / Moderator if missing\n```" : "```diff\n- Off\n```", inline: true },
-        { name: "  Channels", value: [
-            logsCh ? `> ⬤  Logs  —  <#${logsCh.id}>` : `> ◯  Logs  —  \`#${NEW_LOG_CHANNEL}\`  *will create*`,
-            modlogCh ? `> ⬤  Mod-log  —  <#${modlogCh.id}>` : `> ◯  Mod-log  —  \`#${NEW_MODLOG_CHANNEL}\`  *will create*`,
-            welcomeCh ? `> ⬤  Welcome  —  <#${welcomeCh.id}>` : `> ◯  Welcome  —  \`#${NEW_WELCOME_CHANNEL}\`  *will create*`,
+    const embed = embeds.panel("Auto-setup", "Select Staff and Moderator roles, then preview and run setup.", [
+        { name: "Staff", value: sel.staff.length ? sel.staff.map((id) => `<@&${id}>`).join(", ") : detectedStaff ? `> Detected: <@&${detectedStaff.id}>` : "> No Staff role selected. Select one below.", inline: true },
+        { name: "Moderator", value: sel.mod.length ? sel.mod.map((id) => `<@&${id}>`).join(", ") : detectedMod ? `> Detected: <@&${detectedMod.id}>` : "> No Moderator role selected. Select one below.", inline: true },
+        { name: "Create missing", value: sel.createMissing ? "```diff\n+ On  —  will create Server staff / Moderator if missing\n```" : "```diff\n- Off\n```", inline: true },
+        { name: "Channels", value: [
+            logsCh ? `> Logs — <#${logsCh.id}>` : `> Logs — \`#${NEW_LOG_CHANNEL}\` (will create)`,
+            modlogCh ? `> Mod-log — <#${modlogCh.id}>` : `> Mod-log — \`#${NEW_MODLOG_CHANNEL}\` (will create)`,
+            welcomeCh ? `> Welcome — <#${welcomeCh.id}>` : `> Welcome — \`#${NEW_WELCOME_CHANNEL}\` (will create)`,
         ].join("\n"), inline: false },
-        { name: "  Categories", value: [
-            logsCat ? `> ⬤  ${logsCat.name}` : `> ◯  ${NEW_LOGS_CATEGORY}  *will create*`,
-            ordersCat ? `> ⬤  ${ordersCat.name}` : `> ◯  ${NEW_ORDERS_CATEGORY}  *will create*`,
+        { name: "Categories", value: [
+            logsCat ? `> ${logsCat.name}` : `> ${NEW_LOGS_CATEGORY} (will create)`,
+            ordersCat ? `> ${ordersCat.name}` : `> ${NEW_ORDERS_CATEGORY} (will create)`,
         ].join("\n"), inline: true },
-        { name: "  Permissions", value: permWarnings, inline: false },
+        { name: "Permissions", value: permWarnings, inline: false },
     ], {
         author: { name: `${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
         footer: `${guild.memberCount} members`,
@@ -406,29 +405,28 @@ function renderSetup(guild) {
 }
 
 function renderPreview(guild, plan) {
-    const embed = embeds.panel("Setup Preview", "No changes have been made yet. Review what will be **reused**, **created**, and **repaired**, then return to build.", [
-        { name: "  Roles", value: [
-            plan.roles.staff.action==="reuse" ? `> ⬤  Reuse  <@&${plan.roles.staff.roleId}>` : plan.roles.staff.action==="create" ? `> ◯  Create  \`${plan.roles.staff.name}\`` : plan.roles.staff.action==="repair" ? `> ↻  Repair  <@&${plan.roles.staff.roleId}>` : `> —  Staff: *${plan.roles.staff.reason||"skip"}*`,
-            plan.roles.mod.action==="reuse" ? `> ⬤  Reuse  <@&${plan.roles.mod.roleId}>` : plan.roles.mod.action==="create" ? `> ◯  Create  \`${plan.roles.mod.name}\`` : plan.roles.mod.action==="repair" ? `> ↻  Repair  <@&${plan.roles.mod.roleId}>` : `> —  Mod: *${plan.roles.mod.reason||"skip"}*`,
+    const embed = embeds.panel("Setup Preview", "Review planned changes before building.", [
+        { name: "Roles", value: [
+            plan.roles.staff.action==="reuse" ? `> Reuse <@&${plan.roles.staff.roleId}>` : plan.roles.staff.action==="create" ? `> Create \`${plan.roles.staff.name}\`` : plan.roles.staff.action==="repair" ? `> Repair <@&${plan.roles.staff.roleId}>` : `> Staff: ${plan.roles.staff.reason||"skip"}`,
+            plan.roles.mod.action==="reuse" ? `> Reuse <@&${plan.roles.mod.roleId}>` : plan.roles.mod.action==="create" ? `> Create \`${plan.roles.mod.name}\`` : plan.roles.mod.action==="repair" ? `> Repair <@&${plan.roles.mod.roleId}>` : `> Mod: ${plan.roles.mod.reason||"skip"}`,
         ].join("\n"), inline: false },
-        { name: "  Channels", value: [
-            plan.channels.log.action==="reuse" ? `> ⬤  Reuse  <#${plan.channels.log.id}>` : plan.channels.log.action==="repair" ? `> ↻  Repair  <#${plan.channels.log.id}>` : plan.channels.log.action==="create" ? `> ◯  Create  \`#${plan.channels.log.name}\`` : `> —  Logs: *blocked*`,
-            plan.channels.modLog.action==="reuse" ? `> ⬤  Reuse  <#${plan.channels.modLog.id}>` : plan.channels.modLog.action==="repair" ? `> ↻  Repair  <#${plan.channels.modLog.id}>` : plan.channels.modLog.action==="create" ? `> ◯  Create  \`#${plan.channels.modLog.name}\`` : `> —  Mod-log: *blocked*`,
-            plan.channels.welcome.action==="reuse" ? `> ⬤  Reuse  <#${plan.channels.welcome.id}>` : plan.channels.welcome.action==="create" ? `> ◯  Create  \`#${plan.channels.welcome.name}\`` : `> —  Welcome: *blocked*`,
+        { name: "Channels", value: [
+            plan.channels.log.action==="reuse" ? `> Reuse <#${plan.channels.log.id}>` : plan.channels.log.action==="repair" ? `> Repair <#${plan.channels.log.id}>` : plan.channels.log.action==="create" ? `> Create \`#${plan.channels.log.name}\`` : `> Logs: blocked`,
+            plan.channels.modLog.action==="reuse" ? `> Reuse <#${plan.channels.modLog.id}>` : plan.channels.modLog.action==="repair" ? `> Repair <#${plan.channels.modLog.id}>` : plan.channels.modLog.action==="create" ? `> Create \`#${plan.channels.modLog.name}\`` : `> Mod-log: blocked`,
+            plan.channels.welcome.action==="reuse" ? `> Reuse <#${plan.channels.welcome.id}>` : plan.channels.welcome.action==="create" ? `> Create \`#${plan.channels.welcome.name}\`` : `> Welcome: blocked`,
         ].join("\n"), inline: false },
-        { name: "  Categories", value: [
-            plan.categories.logs.action==="reuse" ? `> ⬤  Reuse  \`${plan.categories.logs.name}\`` : plan.categories.logs.action==="create" ? `> ◯  Create  \`${plan.categories.logs.name}\`` : `> —  Logs cat: *blocked*`,
-            plan.categories.orders.action==="reuse" ? `> ⬤  Reuse  \`${plan.categories.orders.name}\`` : plan.categories.orders.action==="create" ? `> ◯  Create  \`${plan.categories.orders.name}\`` : `> —  Orders cat: *blocked*`,
+        { name: "Categories", value: [
+            plan.categories.logs.action==="reuse" ? `> Reuse \`${plan.categories.logs.name}\`` : plan.categories.logs.action==="create" ? `> Create \`${plan.categories.logs.name}\`` : `> Logs category: blocked`,
+            plan.categories.orders.action==="reuse" ? `> Reuse \`${plan.categories.orders.name}\`` : plan.categories.orders.action==="create" ? `> Create \`${plan.categories.orders.name}\`` : `> Orders category: blocked`,
         ].join("\n"), inline: false },
-        { name: "  Configuration", value: "> ⬤  Guild configuration will be updated", inline: false },
-        ...(plan.permissions.warnings.length ? [{ name: "  Warnings", value: plan.permissions.warnings.map((w)=>`> ⚠  ${w}`).join("\n") }] : []),
-        ...(plan.hierarchy && !plan.hierarchy.ok ? [{ name: "  Hierarchy", value: plan.hierarchy.problems.map((p)=>`> ⚠  ${p.reason}`).join("\n") }] : []),
+        { name: "Configuration", value: "> Guild configuration will be updated", inline: false },
+        ...(plan.permissions.warnings.length ? [{ name: "Warnings", value: plan.permissions.warnings.map((w)=>`> ${w}`).join("\n") }] : []),
+        ...(plan.hierarchy && !plan.hierarchy.ok ? [{ name: "Hierarchy", value: plan.hierarchy.problems.map((p)=>`> ${p.reason}`).join("\n") }] : []),
     ], {
-        author: { name: `Preview`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
         footer: `No changes made.`,
     });
     embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
-    const back = new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back  •  Return").setStyle(ButtonStyle.Secondary).setEmoji("↩️");
+    const back = new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary);
     return { embeds: [embed], components: [new ActionRowBuilder().addComponents(back)] };
 }
 
@@ -629,19 +627,19 @@ export default {
             const results = await executePlan(i.guild, plan, client);
             const embed = embeds.success("Repair complete.", "Only broken resources were repaired.", [
                 { name: "ROLES", value: [
-                    results.roles.staff ? `${results.roles.staff.action==="repaired"?"↻":"✓"} Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
-                    results.roles.mod ? `${results.roles.mod.action==="repaired"?"↻":"✓"} Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
+                    results.roles.staff ? `Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
+                    results.roles.mod ? `Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
                 ].join("\n") },
                 { name: "CATEGORIES", value: [
-                    results.categories.logs ? `${results.categories.logs.action==="repaired"?"↻":"✓"} ${results.categories.logs.name} (${results.categories.logs.action})` : "—",
-                    results.categories.orders ? `${results.categories.orders.action==="repaired"?"↻":"✓"} ${results.categories.orders.name} (${results.categories.orders.action})` : "—",
+                    results.categories.logs ? `${results.categories.logs.name} (${results.categories.logs.action})` : "—",
+                    results.categories.orders ? `${results.categories.orders.name} (${results.categories.orders.action})` : "—",
                 ].join("\n") },
                 { name: "CHANNELS", value: [
-                    results.channels.log ? `${results.channels.log.action==="repaired"?"↻":"✓"} <#${results.channels.log.id}> (${results.channels.log.action})` : "—",
-                    results.channels.modLog ? `${results.channels.modLog.action==="repaired"?"↻":"✓"} <#${results.channels.modLog.id}> (${results.channels.modLog.action})` : "—",
-                    results.channels.welcome ? `${results.channels.welcome.action==="repaired"?"↻":"✓"} <#${results.channels.welcome.id}> (${results.channels.welcome.action})` : "—",
+                    results.channels.log ? `<#${results.channels.log.id}> (${results.channels.log.action})` : "—",
+                    results.channels.modLog ? `<#${results.channels.modLog.id}> (${results.channels.modLog.action})` : "—",
+                    results.channels.welcome ? `<#${results.channels.welcome.id}> (${results.channels.welcome.action})` : "—",
                 ].join("\n") },
-                { name: "CONFIGURATION", value: results.config?.action==="saved" ? "✓ Guild configuration saved" : `⚠ ${results.config?.reason||"failed"}` },
+                { name: "CONFIGURATION", value: results.config?.action==="saved" ? "Guild configuration saved" : `${results.config?.reason||"failed"}` },
             ]);
             await i.editReply({ embeds: [embed], components: [] }).catch(()=>{});
             selections.delete(i.guild.id);
@@ -686,19 +684,19 @@ export default {
                 const results = await executePlan(i.guild, plan, client);
                 const embed = embeds.success("Setup complete.", "Per-server configuration saved.", [
                     { name: "ROLES", value: [
-                        results.roles.staff ? `${results.roles.staff.action==="created"?"*":"✓"} Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
-                        results.roles.mod ? `${results.roles.mod.action==="created"?"*":"✓"} Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
+                        results.roles.staff ? `Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
+                        results.roles.mod ? `Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
                     ].join("\n") },
                     { name: "CATEGORIES", value: [
-                        results.categories.logs ? `${results.categories.logs.action==="created"?"*":"✓"} ${results.categories.logs.name} (${results.categories.logs.action})` : "—",
-                        results.categories.orders ? `${results.categories.orders.action==="created"?"*":"✓"} ${results.categories.orders.name} (${results.categories.orders.action})` : "—",
+                        results.categories.logs ? `${results.categories.logs.name} (${results.categories.logs.action})` : "—",
+                        results.categories.orders ? `${results.categories.orders.name} (${results.categories.orders.action})` : "—",
                     ].join("\n") },
                     { name: "CHANNELS", value: [
-                        results.channels.log ? `${results.channels.log.action==="created"?"*":"✓"} <#${results.channels.log.id}> (${results.channels.log.action})` : "—",
-                        results.channels.modLog ? `${results.channels.modLog.action==="created"?"*":"✓"} <#${results.channels.modLog.id}> (${results.channels.modLog.action})` : "—",
-                        results.channels.welcome ? `${results.channels.welcome.action==="created"?"*":"✓"} <#${results.channels.welcome.id}> (${results.channels.welcome.action})` : "—",
+                        results.channels.log ? `<#${results.channels.log.id}> (${results.channels.log.action})` : "—",
+                        results.channels.modLog ? `<#${results.channels.modLog.id}> (${results.channels.modLog.action})` : "—",
+                        results.channels.welcome ? `<#${results.channels.welcome.id}> (${results.channels.welcome.action})` : "—",
                     ].join("\n") },
-                    { name: "CONFIGURATION", value: results.config?.action==="saved" ? "✓ Guild configuration saved" : `⚠ ${results.config?.reason||"failed"}` },
+                    { name: "CONFIGURATION", value: results.config?.action==="saved" ? "Guild configuration saved" : `${results.config?.reason||"failed"}` },
                 ]);
                 await i.editReply({ embeds: [embed], components: [] }).catch(()=>{});
             } catch (e) {

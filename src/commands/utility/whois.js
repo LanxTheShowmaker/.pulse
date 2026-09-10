@@ -67,16 +67,16 @@ export default {
             if(memberFetchError && memberFetchError.code===10007) joinStr="Not in server (left)";
             else joinStr="Not in server";
         }
-        const e=new EmbedBuilder().setColor(Theme.info).setAuthor({ name:`User Information`, iconURL: guild.iconURL({ size:64 }) ?? undefined }).setTitle(`✦  ${targetUser.username ?? targetUser.tag}`)
+        const e=new EmbedBuilder().setColor(Theme.info).setAuthor({ name:`User Information`, iconURL: guild.iconURL({ size:64 }) ?? undefined }).setTitle(`${targetUser.username ?? targetUser.tag}`)
             .setThumbnail(targetUser.displayAvatarURL ? targetUser.displayAvatarURL({ size:256, forceStatic:false }) : guild.iconURL({ size:256 }) )
             .addFields(
-                { name:"  ID", value:`\`${targetUser.id}\``, inline:true },
-                { name:"  Tag", value:`> ${targetUser.tag ?? `${targetUser.username}#${targetUser.discriminator??"0"}`}`, inline:true },
-                { name:"  Global", value:`> ${targetUser.globalName ?? "—"}`, inline:true },
-                { name:"  Nickname", value:`> ${nickStr}`, inline:true },
-                { name:"  Joined Server", value:`> ${joinStr}`, inline:true },
-                { name:"  Created Account", value:`> ${targetUser.createdAt ? time(targetUser.createdAt,"R") : "—"}`, inline:true },
-                { name:"  Roles", value:`> ${rolesStr}` }
+                { name:"ID", value:`\`${targetUser.id}\``, inline:true },
+                { name:"Tag", value:`> ${targetUser.tag ?? `${targetUser.username}#${targetUser.discriminator??"0"}`}`, inline:true },
+                { name:"Global", value:`> ${targetUser.globalName ?? "—"}`, inline:true },
+                { name:"Nickname", value:`> ${nickStr}`, inline:true },
+                { name:"Joined Server", value:`> ${joinStr}`, inline:true },
+                { name:"Created Account", value:`> ${targetUser.createdAt ? time(targetUser.createdAt,"R") : "—"}`, inline:true },
+                { name:"Roles", value:`> ${rolesStr}` }
             ).setFooter({ text:`Requested by ${interaction.user.tag} • ${guild.name}` , iconURL: interaction.user.displayAvatarURL()}).setTimestamp();
         // Handle missing avatar
         try{ e.setThumbnail(targetUser.displayAvatarURL({ size:256 })); }catch{}

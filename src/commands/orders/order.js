@@ -59,7 +59,7 @@ export default {
             if (!orders.length) {
                 return interaction.editReply({ embeds: [embeds.info("Open orders", "There are no open design orders right now.")] });
             }
-            const lines = orders.map((o) => `**<#${o.channelId}>** · \`${o.category}\` · ${o.claimedById ? `<@${o.claimedById}>` : "_unclaimed_"} · ${o.status}`);
+            const lines = orders.map((o) => `**<#${o.channelId}>** · \`${o.category}\` · ${o.claimedById ? `<@${o.claimedById}>` : "Unclaimed"} · ${o.status}`);
             return interaction.editReply({ embeds: [embeds.info("Open design orders", lines.join("\n"))] });
         }
         if (sub === "categories") {
@@ -73,7 +73,7 @@ export default {
         const cats = (current.orders?.categories ?? DEFAULT_CATEGORIES).slice();
         if (action === "list") {
             const list = cats.map((c) => `**${c.label}** (\`${c.value}\`) — ${c.description}`).join("\n");
-            return interaction.reply({ embeds: [embeds.info("Design categories", list || "*(none)*")], flags: MessageFlags.Ephemeral });
+            return interaction.reply({ embeds: [embeds.info("Design categories", list || "No categories configured.")], flags: MessageFlags.Ephemeral });
         }
         if (action === "add") {
             const value = interaction.options.getString("value");

@@ -19,12 +19,12 @@ export default {
             const snap=await svc.getSnapshot(guildId);
             const growth=await svc.getMemberGrowth(guildId,7);
             const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${interaction.guild.name} • Analytics`, iconURL:interaction.guild.iconURL()??undefined}).setTimestamp()
-                .setDescription(`*Polished insights — last 7 days*`)
+                .setDescription(`Last 7 days.`)
                 .addFields(
-                    { name:"👥 Members", value:`**${snap.memberCount}** total\n**${snap.active}** active (7d)\nJoins ${snap.joins} / Leaves ${snap.leaves}`, inline:true },
-                    { name:"💬 Engagement", value:`XP users: **${snap.xpCount}**\nMessages tracked: **${snap.messages}**\nTickets: **${snap.ticketCount}**`, inline:true },
-                    { name:"🛡️ Moderation", value:`Cases: **${snap.caseCount}**\nEconomy users: **${snap.economyCount}**`, inline:true },
-                    { name:"📈 7d Net", value: growth.map(g=> `${g.date.slice(5)} ${g.net>=0?"+":""}${g.net}`).join(" • ").slice(0,1024) || "—" }
+                    { name:"Members", value:`**${snap.memberCount}** total\n**${snap.active}** active (7d)\nJoins ${snap.joins} / Leaves ${snap.leaves}`, inline:true },
+                    { name:"Engagement", value:`XP users: **${snap.xpCount}**\nMessages tracked: **${snap.messages}**\nTickets: **${snap.ticketCount}**`, inline:true },
+                    { name:"Moderation", value:`Cases: **${snap.caseCount}**\nEconomy users: **${snap.economyCount}**`, inline:true },
+                    { name:"7d Net", value: growth.map(g=> `${g.date.slice(5)} ${g.net>=0?"+":""}${g.net}`).join(" • ").slice(0,1024) || "—" }
                 );
             return interaction.editReply({ embeds:[embed]});
         }

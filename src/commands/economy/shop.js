@@ -6,7 +6,7 @@ import { isStaff } from "../../core/services.js";
 function shopEmbed(guild, items, balance){
     if(!items.length){
         return new EmbedBuilder().setColor(Theme.gold).setAuthor({ name:`${guild.name} • Shop`, iconURL: guild.iconURL()??undefined })
-            .setDescription("*The shop is empty — staff can add items with* `/shop add`")
+            .setDescription("The shop is empty — staff can add items with `/shop add`")
             .setFooter({ text:`Your balance: ${balance} coins` }).setTimestamp();
     }
     const lines = items.map((it, i)=>{

@@ -5,7 +5,7 @@ export function ticketCreatePanel(types) {
     const options = types.map(t => createSelectOption(t.displayName, t.key, t.description, t.emoji));
     
     const components = [
-        headerText(`${Brand.mark} Create Ticket`),
+        headerText(`Create Ticket`),
         divider(),
         bodyText("Select the type of ticket you'd like to create:"),
         divider(),
@@ -21,7 +21,7 @@ export function ticketCreatePanel(types) {
 
 export function ticketControlPanel(ticket, typeConfig, isStaff, isClaimer) {
     const components = [
-        headerText(`${Brand.mark} Ticket #${ticket.id.slice(0, 8)}`),
+        headerText(`Ticket #${ticket.id.slice(0, 8)}`),
         divider(),
         bodyText(`**Type:** ${typeConfig?.displayName || ticket.panelType}`),
         bodyText(`**Status:** ${ticket.status}`),
@@ -66,7 +66,7 @@ export function ticketControlPanel(ticket, typeConfig, isStaff, isClaimer) {
 
 export function ticketClosedPanel(ticket, transcriptUrl = null) {
     const components = [
-        headerText(`${Brand.mark} Ticket Closed`),
+        headerText(`Ticket Closed`),
         divider(),
         bodyText(`**Ticket:** #${ticket.id.slice(0, 8)}`),
         bodyText(`**Status:** Closed`),
@@ -88,7 +88,7 @@ export function ticketClosedPanel(ticket, transcriptUrl = null) {
 
 export function ticketTypeConfigPanel(types, guild) {
     const components = [
-        headerText(`${Brand.mark} Ticket Types Configuration`),
+        headerText(`Ticket Types Configuration`),
         bodyText(`Managing ticket types for **${guild.name}**`),
         divider(),
     ];
@@ -97,7 +97,7 @@ export function ticketTypeConfigPanel(types, guild) {
         components.push(bodyText("No ticket types configured. Use the button below to create one."));
     } else {
         for (const t of types) {
-            components.push(bodyText(`**${t.displayName}** (\`${t.key}\`)\n${t.description || "No description"}\n-# Category: <#${t.categoryId || "none"}> | Staff: ${t.staffRoleIds ? t.staffRoleIds.split(",").map(r => `<@&${r}>`).join(", ") : "none"} | Enabled: ${t.enabled ? "Yes" : "No"}`));
+            components.push(bodyText(`**${t.displayName}** (\`${t.key}\`)\n${t.description || "No description"}\n-# Category: <#${t.categoryId || "none"}> | Staff: ${t.staffRoleIds ? t.staffRoleIds.split(",").map(r => `<@&${r}>`).join(", ") : "none"} | Enabled: ${t.enabled ? "Enabled" : "Disabled"}`));
             components.push(divider());
         }
     }
@@ -115,7 +115,7 @@ export function ticketTypeConfigPanel(types, guild) {
 
 export function ticketTypeEditPanel(type, guild) {
     const components = [
-        headerText(`${Brand.mark} Edit Ticket Type — ${type.displayName}`),
+        headerText(`Edit Ticket Type — ${type.displayName}`),
         divider(),
         bodyText(`**Key:** \`${type.key}\``),
         bodyText(`**Description:** ${type.description || "None"}`),
@@ -126,8 +126,8 @@ export function ticketTypeEditPanel(type, guild) {
         bodyText(`**Priority:** ${type.priority}`),
         bodyText(`**Cooldown:** ${type.cooldown}s`),
         bodyText(`**Max Open:** ${type.maxOpen}`),
-        bodyText(`**Allow Claim:** ${type.allowClaim ? "Yes" : "No"}`),
-        bodyText(`**Enabled:** ${type.enabled ? "Yes" : "No"}`),
+        bodyText(`**Allow Claim:** ${type.allowClaim ? "Enabled" : "Disabled"}`),
+        bodyText(`**Enabled:** ${type.enabled ? "Enabled" : "Disabled"}`),
         divider(),
         createActionRow(
             createButton(`ticket:type:edit:${type.key}`, "Edit", ButtonStyle.Primary),

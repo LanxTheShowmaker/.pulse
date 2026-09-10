@@ -11,8 +11,8 @@ export class GiveawayService {
         });
     }
     async create(guild, channel, prize, winners, endsAt) {
-        const embed = new EmbedBuilder().setColor(Theme.gold).setTitle(`Giveaway — ${prize}`).setDescription(`React 🎉 to enter • Ends <t:${Math.floor(endsAt.getTime() / 1000)}:R>\nWinners: **${winners}**`).setFooter({ text: `${Brand.name} • Giveaways` }).setTimestamp(endsAt);
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("giveaway:enter").setLabel("Enter 🎉").setStyle(ButtonStyle.Primary));
+        const embed = new EmbedBuilder().setColor(Theme.gold).setTitle(`Giveaway — ${prize}`).setDescription(`React 🎉 to enter • Ends <t:${Math.floor(endsAt.getTime() / 1000)}:R>\nWinners: **${winners}**`).setFooter({ text: Brand.name }).setTimestamp(endsAt);
+        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("giveaway:enter").setLabel("Enter").setStyle(ButtonStyle.Primary));
         const msg = await channel.send({ embeds: [embed], components: [row] });
         await msg.react("🎉").catch(() => {});
         await this.prisma.giveaway.create({ data: { guildId: guild.id, channelId: channel.id, messageId: msg.id, prize, winners, endsAt } });

@@ -38,12 +38,12 @@ export default {
         if(sub==="history"){
             const user=interaction.options.getUser("user") ?? interaction.user;
             const hist=await svc.getHistory(interaction.guildId, user.id, 8);
-            const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${user.tag} — History`, iconURL:user.displayAvatarURL()}).setDescription(hist.length? hist.map(h=> `\`${h.type}\` **${h.amount>=0?"+":""}${h.amount}** → ${h.balanceAfter} <t:${Math.floor(new Date(h.createdAt).getTime()/1000)}:R>`).join("\n") : "*No history*");
+            const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${user.tag} — History`, iconURL:user.displayAvatarURL()}).setDescription(hist.length? hist.map(h=> `\`${h.type}\` **${h.amount>=0?"+":""}${h.amount}** → ${h.balanceAfter} <t:${Math.floor(new Date(h.createdAt).getTime()/1000)}:R>`).join("\n") : "No transaction history yet.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="leaderboard"){
             const board=await svc.getLeaderboard(interaction.guildId,10);
-            const embed=new EmbedBuilder().setColor(Theme.gold).setTitle("Economy Leaderboard").setDescription(board.rows.map((r,i)=> `${i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} <@${r.userId}> **${r.balance}**`).join("\n") || "*Empty*");
+            const embed=new EmbedBuilder().setColor(Theme.gold).setTitle("Economy Leaderboard").setDescription(board.rows.map((r,i)=> `${i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} <@${r.userId}> **${r.balance}**`).join("\n") || "No leaderboard entries yet.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="admin"){

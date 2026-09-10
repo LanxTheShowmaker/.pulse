@@ -22,7 +22,7 @@ export default {
         if (sub === "avatar") {
             const user = interaction.options.getUser("user") ?? interaction.user;
             const url = user.displayAvatarURL({ size: 512, forceStatic: false });
-            const e = embeds.panel(`✦  ${user.username}`, `*Avatar for **${user.tag}**.*`, [], { author: { name: `Avatar`, iconURL: user.displayAvatarURL() } });
+            const e = embeds.panel(`${user.username}`, `Avatar for **${user.tag}**.`, [], { author: { name: `Avatar`, iconURL: user.displayAvatarURL() } });
             e.setImage(url);
             e.setColor(Theme.soft);
             const row = interaction.client.services.utility.makeAvatarButton(url);
@@ -39,14 +39,14 @@ export default {
             try{ await interaction.client.users.fetch(user.id).catch(()=>null); }catch{}
         }
         const roles = member ? member.roles.cache.filter((r) => r.id !== guild.id).sort((a, b) => b.position - a.position).first(10).map((r) => r.name).join(", ") || "—" : "—";
-        const e = embeds.panel(`✦  ${user.username}`, `*Member insight for **${user.tag}**.*`, [
-            { name: "  ID", value: `\`${user.id}\``, inline: true },
-            { name: "  Username", value: `> ${user.username}`, inline: true },
-            { name: "  Global", value: `> ${user.globalName ?? "—"}`, inline: true },
-            { name: "  Nickname", value: `> ${member?.nickname ?? "—"}`, inline: true },
-            { name: "  Joined", value: `> ${member?.joinedAt ? time(member.joinedAt, "R") : "—"}`, inline: true },
-            { name: "  Created", value: `> ${time(user.createdAt, "R")}`, inline: true },
-            { name: "  Roles", value: `> ${roles}` },
+        const e = embeds.panel(`${user.username}`, `Member info for **${user.tag}**.`, [
+            { name: "ID", value: `\`${user.id}\``, inline: true },
+            { name: "Username", value: `> ${user.username}`, inline: true },
+            { name: "Global", value: `> ${user.globalName ?? "—"}`, inline: true },
+            { name: "Nickname", value: `> ${member?.nickname ?? "—"}`, inline: true },
+            { name: "Joined", value: `> ${member?.joinedAt ? time(member.joinedAt, "R") : "—"}`, inline: true },
+            { name: "Created", value: `> ${time(user.createdAt, "R")}`, inline: true },
+            { name: "Roles", value: `> ${roles}` },
         ], { author: { name: `Member`, iconURL: user.displayAvatarURL() } });
         e.setThumbnail(user.displayAvatarURL({ size: 256 }));
         e.setColor(Theme.info);

@@ -6,7 +6,7 @@ export default {
     async execute(interaction){
         const user=interaction.options.getUser("user")||interaction.user;
         const inv=await interaction.client.prisma.shopInventory.findMany({ where:{ guildId: interaction.guildId, userId: user.id }}).catch(()=>[]);
-        if(!inv.length) return interaction.reply({ embeds:[new EmbedBuilder().setColor(Theme.muted).setDescription(`No items for <@${user.id}>`)], flags: MessageFlags.Ephemeral});
+        if(!inv.length) return interaction.reply({ embeds:[new EmbedBuilder().setColor(Theme.muted).setDescription(`No items for <@${user.id}> yet — buy one with /shop buy`)], flags: MessageFlags.Ephemeral});
         const ids=[...new Set(inv.map(i=>i.itemId))];
         const items=await interaction.client.prisma.shopItem.findMany({ where:{ id:{ in:ids }}}).catch(()=>[]);
         const map=new Map(items.map(it=>[it.id,it]));

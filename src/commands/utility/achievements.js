@@ -15,12 +15,12 @@ export default {
             const all=await svc.getForGuild(guildId);
             const byCat={};
             for(const a of all){ (byCat[a.category]=byCat[a.category]||[]).push(a); }
-            const embed=new EmbedBuilder().setColor(Theme.panel).setTitle("✦ Achievements").setTimestamp();
+            const embed=new EmbedBuilder().setColor(Theme.panel).setTitle("Achievements").setTimestamp();
             let desc="";
             for(const [cat, arr] of Object.entries(byCat)){
                 desc+=`\n**${cat}**\n` + arr.map(a=> `${a.icon||"🏆"} **${a.name}** — ${a.description} *(rewards: ${Object.entries(JSON.parse(a.rewards||"{}")).map(([k,v])=>`${v} ${k}`).join(", ")||"—"})*`).join("\n")+"\n";
             }
-            embed.setDescription(desc.slice(0,4000)||"No achievements");
+            embed.setDescription(desc.slice(0,4000)||"No achievements configured. An admin can add achievements for this server.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="view"){
@@ -36,7 +36,7 @@ export default {
         if(sub==="leaderboard"){
             const board=await svc.leaderboard(guildId,10);
             const embed=new EmbedBuilder().setColor(Theme.gold).setTitle("Achievement Leaderboard");
-            if(!board.length) embed.setDescription("*No unlocks yet*");
+            if(!board.length) embed.setDescription("No achievement unlocks yet. Complete actions to earn achievements.");
             else embed.setDescription(board.map((r,i)=> `${i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} <@${r.userId}> — **${r.count}**`).join("\n"));
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }

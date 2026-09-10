@@ -379,9 +379,9 @@ async function handleCaseList(interaction, client) {
         const { Brand } = await import("../../design/theme.js");
 
         const container = createContainer([
-            headerText(`${Brand.mark} Cases`),
+            headerText(`Cases`),
             divider(),
-            ...cases.map(c => bodyText(`#${c.caseNumber} · ${c.action} · <@${c.targetId}> · ${c.reason ?? "No reason"} · ${c.resolved ? "✓ Resolved" : "● Active"}`)),
+            ...cases.map(c => bodyText(`#${c.caseNumber} · ${c.action} · <@${c.targetId}> · ${c.reason ?? "No reason"} · ${c.resolved ? "Resolved" : "Active"}`)),
             spacer(),
             mutedText(Brand.footer),
         ]);
@@ -411,7 +411,7 @@ async function handleHistory(interaction, client) {
         const { Brand } = await import("../../design/theme.js");
 
         const container = createContainer([
-            headerText(`${Brand.mark} History — ${user.tag}`),
+            headerText(`History — ${user.tag}`),
             divider(),
             bodyText(`**User:** <@${user.id}> (\`${user.id}\`)`),
             bodyText(`**Warnings:** ${history.warns} | **Total:** ${history.total}`),
@@ -421,7 +421,7 @@ async function handleHistory(interaction, client) {
         if (history.history.length) {
             container.components.push(subHeaderText("Actions"));
             for (const c of history.history.slice(0, 20)) {
-                const status = c.resolved ? "✓" : "●";
+                const status = c.resolved ? "Resolved" : "Active";
                 container.components.push(bodyText(`${status} #${c.caseNumber} · ${c.action} · ${c.reason ?? "No reason"} · <t:${Math.floor(new Date(c.createdAt).getTime() / 1000)}:R>`));
             }
         }
@@ -430,7 +430,7 @@ async function handleHistory(interaction, client) {
             container.components.push(divider());
             container.components.push(subHeaderText("Notes"));
             for (const n of history.notes.slice(0, 10)) {
-                container.components.push(bodyText(`📝 <@${n.authorId}> · ${n.content.slice(0, 200)} · <t:${Math.floor(new Date(n.createdAt).getTime() / 1000)}:R>`));
+                container.components.push(bodyText(`<@${n.authorId}> · ${n.content.slice(0, 200)} · <t:${Math.floor(new Date(n.createdAt).getTime() / 1000)}:R>`));
             }
         }
 
@@ -458,7 +458,7 @@ async function handleStats(interaction, client) {
         const { Brand } = await import("../../design/theme.js");
 
         const container = createContainer([
-            headerText(`${Brand.mark} Moderation Stats`),
+            headerText(`Moderation Stats`),
             divider(),
             bodyText(`**Scope:** ${moderator ? `Moderator <@${moderator.id}>` : "All moderators"}`),
             divider(),
@@ -622,9 +622,9 @@ async function handleRaid(interaction, client) {
             const { Brand } = await import("../../design/theme.js");
 
             const container = createContainer([
-                headerText(`${Brand.mark} Raid Protection`),
+                headerText(`Raid Protection`),
                 divider(),
-                bodyText(`**Status:** ${status.active ? "🟢 Active" : "🔴 Inactive"}`),
+                bodyText(`**Status:** ${status.active ? "Enabled" : "Disabled"}`),
                 bodyText(`**Risk level:** ${status.risk}/100`),
                 bodyText(`**Recent joins:** ${status.recentJoins}`),
                 spacer(),
@@ -662,9 +662,9 @@ async function handleFortress(interaction, client) {
             const { Brand } = await import("../../design/theme.js");
 
             const container = createContainer([
-                headerText(`${Brand.mark} Fortress Mode`),
+                headerText(`Fortress Mode`),
                 divider(),
-                bodyText(`**Status:** ${state.active ? "🟢 Active" : "🔴 Inactive"}`),
+                bodyText(`**Status:** ${state.active ? "Enabled" : "Disabled"}`),
                 bodyText(`**Enabled by:** ${state.enabledByTag ?? "Unknown"}`),
                 bodyText(`**Started:** ${state.startedAt ? `<t:${Math.floor(new Date(state.startedAt).getTime() / 1000)}:R>` : "N/A"}`),
                 spacer(),
@@ -703,12 +703,12 @@ async function handleAppeal(interaction, client) {
             const { Brand } = await import("../../design/theme.js");
 
             const container = createContainer([
-                headerText(`${Brand.mark} Appeals`),
+                headerText(`Appeals`),
                 divider(),
             ]);
 
             if (!appeals.length) {
-                container.components.push(bodyText("No pending appeals."));
+                container.components.push(bodyText("No pending appeals to review."));
             } else {
                 for (const a of appeals.slice(0, 10)) {
                     container.components.push(bodyText(`#${a.caseNumber} · <@${a.appellantId}> · ${a.status} · <t:${Math.floor(new Date(a.createdAt).getTime() / 1000)}:R>`));

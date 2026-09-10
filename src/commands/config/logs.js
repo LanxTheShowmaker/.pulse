@@ -35,7 +35,7 @@ export default {
             const q=interaction.options.getString("query")||"";
             const logs=await interaction.client.services.audit.timeline(interaction.guildId,{ limit:10 }).catch(()=>[]);
             const filtered=logs.filter(l=> l.action.includes(q) || l.category.includes(q));
-            return interaction.reply({ embeds:[embeds.info("Search", filtered.map(l=> `${l.category}/${l.action}`).join("\n")||"None")], flags: MessageFlags.Ephemeral});
+            return interaction.reply({ embeds:[embeds.info("Search", filtered.map(l=> `${l.category}/${l.action}`).join("\n")||"No matching log entries found.")], flags: MessageFlags.Ephemeral});
         }
     }
 };

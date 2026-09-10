@@ -38,7 +38,7 @@ export function infoPanel(title, description, fields = [], opts = {}) {
 
 export function moderationCasePanel(caseData, guild, moderator, target) {
     const components = [
-        headerText(`${Brand.mark} Case #${caseData.caseNumber} · ${caseData.action}`),
+        headerText(`Case #${caseData.caseNumber} · ${caseData.action}`),
         divider(),
         bodyText(`**Target:** <@${caseData.targetId}> (\`${caseData.targetTag}\`)`),
         bodyText(`**Moderator:** <@${caseData.moderatorId}> (\`${caseData.moderatorTag}\`)`),
@@ -77,7 +77,7 @@ export function moderationCasePanel(caseData, guild, moderator, target) {
 
 export function ticketPanel(ticketData, typeConfig = null) {
     const components = [
-        headerText(`${Brand.mark} Ticket #${ticketData.id.slice(0, 8)}`),
+        headerText(`Ticket #${ticketData.id.slice(0, 8)}`),
         divider(),
         bodyText(`**Type:** ${typeConfig?.displayName || ticketData.panelType || "General"}`),
         bodyText(`**Status:** ${ticketData.status}`),
@@ -101,7 +101,7 @@ export function ticketPanel(ticketData, typeConfig = null) {
 
 export function settingsPanel(guild, config, sections = []) {
     const components = [
-        headerText(`${Brand.mark} Server Settings`),
+        headerText(`Server Settings`),
         bodyText(`Configuring **${guild.name}**`),
         divider(),
     ];
@@ -127,7 +127,7 @@ export function settingsPanel(guild, config, sections = []) {
 
 export function helpPanel(commands, category = null) {
     const components = [
-        headerText(`${Brand.mark} Command Help`),
+        headerText(`Command Help`),
     ];
     
     if (category) {
@@ -260,7 +260,7 @@ export function serverInfoPanel(guild, stats = {}) {
 
 export function errorPanel(title, message, details = null) {
     const components = [
-        headerText(`⚠ ${title}`),
+        headerText(title),
         divider(),
         bodyText(message),
     ];
@@ -278,7 +278,7 @@ export function errorPanel(title, message, details = null) {
 
 export function successPanel(title, message, details = null) {
     const components = [
-        headerText(`✓ ${title}`),
+        headerText(title),
         divider(),
         bodyText(message),
     ];
