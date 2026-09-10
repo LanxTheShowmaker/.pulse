@@ -28,7 +28,7 @@ export default {
                     { name:"Nickname", value: b.nickname || "*None*", inline:true },
                     { name:"Avatar", value: b.avatarUrl ? `[Link](${b.avatarUrl})` : "*Default bot avatar*", inline:true },
                     { name:"Banner", value: b.bannerUrl ? `[Link](${b.bannerUrl})` : "*Default ORDER-HERE*", inline:true }
-                ).setFooter({ text:"Per-server — not global • A.N.G.E.L."}).setTimestamp();
+                ).setFooter({ text:"Per-server. Not global."}).setTimestamp();
             if(b.avatarUrl) embed.setImage(b.avatarUrl);
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }

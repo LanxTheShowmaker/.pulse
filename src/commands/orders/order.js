@@ -1,5 +1,5 @@
 import {
-    SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, UserSelectMenuBuilder,
+    SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, UserSelectMenuBuilder, MessageFlags,
 } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
@@ -51,7 +51,7 @@ export default {
                 return interaction.editReply({ embeds: [embeds.error("Could not post panel", "I may be missing permission to send messages here.")] });
             }
             await interaction.editReply({ embeds: [embeds.success("Panel posted", "The design-order panel was sent to this channel.")] });
-            return interaction.followUp({ embeds: [embeds.info("Heads up — Legacy", "This `/order` panel is **legacy**. For new servers, use `/setuptickets` → **Orders** panel (per-guild banners, ticket types, categories). Your existing tickets still work.", [], { footer: "A.N.G.E.L.  •  use /setuptickets Orders" })], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            return interaction.followUp({ embeds: [embeds.info("Heads up — Legacy", "This `/order` panel is **legacy**. For new servers, use `/setuptickets` → **Orders** panel (per-guild banners, ticket types, categories). Your existing tickets still work.", [], { footer: "Legacy command. Use /setuptickets Orders." })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
         if (sub === "list") {
             await interaction.deferReply({ flags: MessageFlags.Ephemeral });

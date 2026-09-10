@@ -5,10 +5,10 @@ node_modules/
 *.log
 dist/
 *.js.map
-prisma/wings.db
-prisma/wings.db-journal
-prisma/wings.db-wal
-prisma/wings.db-shm
+prisma/pulse.db
+prisma/pulse.db-journal
+prisma/pulse.db-wal
+prisma/pulse.db-shm
 *.db
 *.db-journal
 *.db-wal

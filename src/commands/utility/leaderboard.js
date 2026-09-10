@@ -31,7 +31,7 @@ async function buildLeaderboardEmbed(guild, data, page, totalPages, kind){
             .setColor(Theme.gold)
             .setAuthor({ name:`${guild.name} • Coin Leaderboard`, iconURL: guild.iconURL() ?? undefined })
             .setDescription(lines.join("\n"))
-            .setFooter({ text:`Page ${page+1}/${Math.max(1,totalPages)} • ${total} wealthy souls • A.N.G.E.L.` })
+            .setFooter({ text:`Page ${page+1}/${Math.max(1,totalPages)} • ${total} entries` })
             .setTimestamp();
         if(guild.iconURL()) embed.setThumbnail(guild.iconURL({ size:128 }));
         return embed;
@@ -47,7 +47,7 @@ async function buildLeaderboardEmbed(guild, data, page, totalPages, kind){
         .setColor(Theme.gold)
         .setAuthor({ name:`${guild.name} • Level Leaderboard`, iconURL: guild.iconURL() ?? undefined })
         .setDescription(lines.join("\n"))
-        .setFooter({ text:`Page ${page+1}/${Math.max(1,totalPages)} • ${total} ranked • A.N.G.E.L.` })
+        .setFooter({ text:`Page ${page+1}/${Math.max(1,totalPages)} • ${total} entries` })
         .setTimestamp();
     if(guild.iconURL()) embed.setThumbnail(guild.iconURL({ size:128 }));
     return embed;
@@ -85,7 +85,7 @@ export default {
         }
 
         const embed = await buildLeaderboardEmbed(guild, data, page, totalPages, kind==="coins"?"economy":"levels");
-        const baseId = `wings:leaderboard:${kind}:${guildId}:${interaction.user.id}`;
+        const baseId = `pulse:leaderboard:${kind}:${guildId}:${interaction.user.id}`;
         const comps = totalPages>1 ? pageButtons(page, totalPages, baseId) : [];
 
         // Register component handler for pagination (per-user, per-guild)

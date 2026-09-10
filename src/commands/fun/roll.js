@@ -8,7 +8,7 @@ export default {
         const count=interaction.options.getInteger("count")??1;
         const rolls = Array.from({length:count}, ()=> Math.floor(Math.random()*sides)+1);
         const total = rolls.reduce((a,b)=>a+b,0);
-        const embed = embeds.panel(`🎲  Roll`, `> **${rolls.join(" + ")}** = **${total}**\n> *${count}d${sides}*`, [], { footer:`A.N.G.E.L. • luck be with you` });
+        const embed = embeds.panel(`Roll`, `> **${rolls.join(" + ")}** = **${total}**\n> *${count}d${sides}*`, []);
         await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
 };

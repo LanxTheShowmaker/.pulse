@@ -8,7 +8,7 @@ export default {
         .setName("prefix")
         .setDescription("Configure server prefix for traditional commands")
         .addSubcommand(s => s.setName("view").setDescription("View current prefix"))
-        .addSubcommand(s => s.setName("set").setDescription("Set new prefix (1-10 chars)").addStringOption(o => o.setName("prefix").setDescription("New prefix, e.g. ! or ? or .angel").setRequired(true).setMinLength(1).setMaxLength(10)))
+        .addSubcommand(s => s.setName("set").setDescription("Set new prefix (1-10 chars)").addStringOption(o => o.setName("prefix").setDescription("New prefix, e.g. ! or ? or $").setRequired(true).setMinLength(1).setMaxLength(10)))
         .addSubcommand(s => s.setName("reset").setDescription("Reset to default prefix (!)")),
     category: "Config",
     async execute(interaction) {
@@ -28,7 +28,7 @@ export default {
                     { name: "Slash Equivalent", value: "`/prefix view`", inline: true },
                     { name: "Prefix Equivalent", value: `\`${prefix}prefix\``, inline: true }
                 )
-                .setFooter({ text: `A.N.G.E.L. • prefix is per-server` })
+                .setFooter({ text: `Prefix is per-server.` })
                 .setTimestamp();
             return interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }

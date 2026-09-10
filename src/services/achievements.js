@@ -2,7 +2,7 @@ import { logger } from "../core/logger.js";
 export const DEFAULT_ACHIEVEMENTS = [
     { key:"first_message", name:"First Words", description:"Send your first message", category:"leveling", rewards:{ xp:50, coins:10 }, conditions:{ messages:1 } },
     { key:"level_5", name:"Rising Star", description:"Reach level 5", category:"leveling", rewards:{ coins:100 }, conditions:{ level:5 } },
-    { key:"level_10", name:"Angel Ascendant", description:"Reach level 10", category:"leveling", rewards:{ coins:250, xp:200 }, conditions:{ level:10 } },
+    { key:"level_10", name:"Level 10", description:"Reach level 10", category:"leveling", rewards:{ coins:250, xp:200 }, conditions:{ level:10 } },
     { key:"level_25", name:"Level 25", description:"Reach level 25", category:"leveling", rewards:{ coins:1000 }, conditions:{ level:25 } },
     { key:"rich_1000", name:"Coin Keeper", description:"Hold 1,000 coins", category:"economy", rewards:{ xp:100 }, conditions:{ balance:1000 } },
     { key:"rich_5000", name:"Treasurer", description:"Hold 5,000 coins", category:"economy", rewards:{ xp:300 }, conditions:{ balance:5000 } },

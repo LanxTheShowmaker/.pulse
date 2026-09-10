@@ -2,7 +2,7 @@ import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 
 export default {
-    data: new SlashCommandBuilder().setName("ping").setDescription("Check A.N.G.E.L. latency"),
+    data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency."),
     category: "Utility",
     async execute(interaction) {
         const sent = Date.now();

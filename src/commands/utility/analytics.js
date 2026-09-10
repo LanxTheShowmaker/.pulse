@@ -25,7 +25,7 @@ export default {
                     { name:"💬 Engagement", value:`XP users: **${snap.xpCount}**\nMessages tracked: **${snap.messages}**\nTickets: **${snap.ticketCount}**`, inline:true },
                     { name:"🛡️ Moderation", value:`Cases: **${snap.caseCount}**\nEconomy users: **${snap.economyCount}**`, inline:true },
                     { name:"📈 7d Net", value: growth.map(g=> `${g.date.slice(5)} ${g.net>=0?"+":""}${g.net}`).join(" • ").slice(0,1024) || "—" }
-                ).setFooter({ text:"A.N.G.E.L. • analytics" });
+                );
             return interaction.editReply({ embeds:[embed]});
         }
         if(sub==="growth"){

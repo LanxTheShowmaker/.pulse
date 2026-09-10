@@ -7,7 +7,7 @@ export default {
     async execute(interaction){
         const q = interaction.options.getString("question");
         const a = answers[Math.floor(Math.random()*answers.length)];
-        const embed = embeds.panel("✦  Magic 8-Ball", `> **Q:** ${q}\n\n> **A:** *${a}*`, [], { author:{ name:`A.N.G.E.L. • 8-Ball`, iconURL: interaction.user.displayAvatarURL() }});
+        const embed = embeds.panel("8-Ball", `> **Q:** ${q}\n\n> **A:** *${a}*`, []);
         await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
 };

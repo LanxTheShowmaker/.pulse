@@ -8,7 +8,7 @@ export default {
         .addSubcommand(s=> s.setName("list").setDescription("List module statuses"))
         .addSubcommand(s=> s.setName("enable").setDescription("Enable module").addStringOption(o=>o.setName("module").setDescription("Module").setRequired(true).addChoices(...ALL.map(m=>({name:m,value:m})))))
         .addSubcommand(s=> s.setName("disable").setDescription("Disable module").addStringOption(o=>o.setName("module").setDescription("Module").setRequired(true).addChoices(...ALL.map(m=>({name:m,value:m})))))
-        .addSubcommand(s=> s.setName("preset").setDescription("Apply preset").addStringOption(o=>o.setName("preset").setDescription("Preset").setRequired(true).addChoices({name:"Full",value:"full"},{name:"Minimal",value:"minimal"},{name:"Cherub Light",value:"cherub"}))),
+        .addSubcommand(s=> s.setName("preset").setDescription("Apply preset").addStringOption(o=>o.setName("preset").setDescription("Preset").setRequired(true).addChoices({name:"Full",value:"full"},{name:"Minimal",value:"minimal"},{name:"Light",value:"light"}))),
     category:"Config",
     async execute(interaction){
         const sub=interaction.options.getSubcommand();
@@ -35,7 +35,7 @@ export default {
             let next={};
             if(preset==="full") ALL.forEach(m=> next[m]=true);
             else if(preset==="minimal") { ALL.forEach(m=> next[m]=false); ["moderation","automod","logging","welcome"].forEach(m=> next[m]=true); }
-            else if(preset==="cherub") { ALL.forEach(m=> next[m]=true); ["analytics","achievements","automation"].forEach(m=> next[m]=false); }
+            else if(preset==="light") { ALL.forEach(m=> next[m]=true); ["analytics","achievements","automation"].forEach(m=> next[m]=false); }
             await interaction.client.services.settings.patch(interaction.guildId,{ modules: next });
             return interaction.reply({ embeds:[embeds.success("Preset applied",preset)], flags: MessageFlags.Ephemeral});
         }

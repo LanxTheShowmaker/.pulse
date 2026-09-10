@@ -14,7 +14,7 @@ export const Theme = {
 
 export const Brand = {
     name: ".pulse",
-    footer: ".pulse · Pulse Variant 2",
+    footer: ".pulse",
     mark: "◆",
     icon: null,
 };

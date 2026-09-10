@@ -67,7 +67,7 @@ export default {
             if(memberFetchError && memberFetchError.code===10007) joinStr="Not in server (left)";
             else joinStr="Not in server";
         }
-        const e=new EmbedBuilder().setColor(Theme.info).setAuthor({ name:`A.N.G.E.L. • Whois`, iconURL: guild.iconURL({ size:64 }) ?? undefined }).setTitle(`✦  ${targetUser.username ?? targetUser.tag}`)
+        const e=new EmbedBuilder().setColor(Theme.info).setAuthor({ name:`User Information`, iconURL: guild.iconURL({ size:64 }) ?? undefined }).setTitle(`✦  ${targetUser.username ?? targetUser.tag}`)
             .setThumbnail(targetUser.displayAvatarURL ? targetUser.displayAvatarURL({ size:256, forceStatic:false }) : guild.iconURL({ size:256 }) )
             .addFields(
                 { name:"  ID", value:`\`${targetUser.id}\``, inline:true },

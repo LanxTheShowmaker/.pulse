@@ -10,68 +10,68 @@ const CATEGORIES = [
     { value: "general", label: "General", description: "Overview & roles" },
 ];
 function mainEmbed(config) {
-    return embeds.info("A.N.G.E.L. · Server Settings", "Select a category to configure.", [
+    return embeds.info("Server Settings", "Select a category to configure.", [
         { name: "Prefix", value: config.prefix, inline: true },
         { name: "Staff roles", value: `${config.staffRoleIds.length}`, inline: true },
         { name: "Mod roles", value: `${config.moderatorRoleIds.length}`, inline: true },
     ]);
 }
 function mainRow() {
-    const menu = new StringSelectMenuBuilder().setCustomId("wings:settings:menu").setPlaceholder("Choose a category").addOptions(CATEGORIES);
+    const menu = new StringSelectMenuBuilder().setCustomId("pulse:settings:menu").setPlaceholder("Choose a category").addOptions(CATEGORIES);
     return new ActionRowBuilder().addComponents(menu);
 }
 function backRow() {
-    return new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("wings:settings:back").setLabel("Back").setStyle(ButtonStyle.Secondary));
+    return new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:settings:back").setLabel("Back").setStyle(ButtonStyle.Secondary));
 }
 function channelRow(customId, placeholder) {
     const menu = new ChannelSelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder);
     return new ActionRowBuilder().addComponents(menu);
 }
 export default {
-    data: new SlashCommandBuilder().setName("settings").setDescription("Configure A.N.G.E.L. for this server"),
+    data: new SlashCommandBuilder().setName("settings").setDescription("Configure settings for this server"),
     category: "Config",
     async execute(interaction) {
         const client = interaction.client;
         const member = interaction.member;
         const config = await client.services.settings.get(interaction.guildId).catch(() => null);
         if (!isStaff(member, config)) {
-            return interaction.reply({ embeds: [embeds.error("Missing permission", "Only staff can configure A.N.G.E.L.")], flags: MessageFlags.Ephemeral });
+            return interaction.reply({ embeds: [embeds.error("Missing permission", "Only staff can change settings.")], flags: MessageFlags.Ephemeral });
         }
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const cfg = await client.services.settings.get(interaction.guildId);
-        client.components.set("wings:settings:menu", async (i) => {
+        client.components.set("pulse:settings:menu", async (i) => {
             const category = i.values[0];
             await renderCategory(i, category, await client.services.settings.get(i.guildId));
         });
-        client.components.set("wings:settings:back", async (i) => {
+        client.components.set("pulse:settings:back", async (i) => {
             await i.update({ embeds: [mainEmbed(await client.services.settings.get(i.guildId))], components: [mainRow()] });
         });
-        client.components.set("wings:settings:channel:logChannelId", async (i) => {
+        client.components.set("pulse:settings:channel:logChannelId", async (i) => {
             const id = i.values[0];
             await         i.client.services.settings.patch(i.guildId, { logChannelId: id });
             await renderCategory(i, "logging", await client.services.settings.get(i.guildId));
         });
-        client.components.set("wings:settings:channel:modLogChannelId", async (i) => {
+        client.components.set("pulse:settings:channel:modLogChannelId", async (i) => {
             const id = i.values[0];
             await         i.client.services.settings.patch(i.guildId, { modLogChannelId: id });
             await renderCategory(i, "logging", await client.services.settings.get(i.guildId));
         });
-        client.components.set("wings:settings:channel:welcomeChannelId", async (i) => {
+        client.components.set("pulse:settings:channel:welcomeChannelId", async (i) => {
             const id = i.values[0];
             await         i.client.services.settings.patch(i.guildId, { welcomeChannelId: id });
             await renderCategory(i, "welcome", await client.services.settings.get(i.guildId));
         });
-        client.components.set("wings:settings:channel:goodbyeChannelId", async (i) => {
+        client.components.set("pulse:settings:channel:goodbyeChannelId", async (i) => {
             const id = i.values[0];
             await         i.client.services.settings.patch(i.guildId, { goodbyeChannelId: id });
             await renderCategory(i, "welcome", await client.services.settings.get(i.guildId));
         });
-        client.components.set("wings:settings:prefix", async (i) => {
-            const modal = new ModalBuilder().setCustomId("wings:settings:prefix:modal").setTitle("Set command prefix");
+        client.components.set("pulse:settings:prefix", async (i) => {
+            const modal = new ModalBuilder().setCustomId("pulse:settings:prefix:modal").setTitle("Set command prefix");
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("prefix").setLabel("Prefix").setStyle(TextInputStyle.Short).setMaxLength(3).setValue(cfg.prefix)));
             await i.showModal(modal);
         });
-        client.components.set("wings:settings:prefix:modal", async (i) => {
+        client.components.set("pulse:settings:prefix:modal", async (i) => {
             const prefix = i.fields.getTextInputValue("prefix");
             await client.services.settings.patch(i.guildId, { prefix });
             await i.reply({ embeds: [embeds.success("Prefix updated", `Commands prefix set to \`${prefix}\`.`)], flags: MessageFlags.Ephemeral });
@@ -81,13 +81,13 @@ export default {
 };
 async function renderCategory(i, category, cfg) {
     if (category === "logging") {
-        const embed = embeds.info("Settings · Logging", "Choose where A.N.G.E.L. sends logs.", [
+        const embed = embeds.info("Settings · Logging", "Choose where logs are sent.", [
             { name: "Log channel", value: cfg.logChannelId ? `<#${cfg.logChannelId}>` : "Not set", inline: true },
             { name: "Mod-log channel", value: cfg.modLogChannelId ? `<#${cfg.modLogChannelId}>` : "Not set", inline: true },
         ]);
         await i.update({
             embeds: [embed],
-            components: [channelRow("wings:settings:channel:logChannelId", "Log channel"), channelRow("wings:settings:channel:modLogChannelId", "Mod-log channel"), backRow()],
+            components: [channelRow("pulse:settings:channel:logChannelId", "Log channel"), channelRow("pulse:settings:channel:modLogChannelId", "Mod-log channel"), backRow()],
         });
         return;
     }
@@ -98,7 +98,7 @@ async function renderCategory(i, category, cfg) {
         ]);
         await i.update({
             embeds: [embed],
-            components: [channelRow("wings:settings:channel:welcomeChannelId", "Welcome channel"), channelRow("wings:settings:channel:goodbyeChannelId", "Goodbye channel"), backRow()],
+            components: [channelRow("pulse:settings:channel:welcomeChannelId", "Welcome channel"), channelRow("pulse:settings:channel:goodbyeChannelId", "Goodbye channel"), backRow()],
         });
         return;
     }
@@ -106,7 +106,7 @@ async function renderCategory(i, category, cfg) {
         const embed = embeds.info("Settings · Moderation", "Adjust moderation behavior.", [
             { name: "Prefix", value: cfg.prefix, inline: true },
         ]);
-        const prefixBtn = new ButtonBuilder().setCustomId("wings:settings:prefix").setLabel("Edit prefix").setStyle(ButtonStyle.Primary);
+        const prefixBtn = new ButtonBuilder().setCustomId("pulse:settings:prefix").setLabel("Edit prefix").setStyle(ButtonStyle.Primary);
         await i.update({ embeds: [embed], components: [new ActionRowBuilder().addComponents(prefixBtn), backRow()] });
         return;
     }

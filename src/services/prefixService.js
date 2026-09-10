@@ -30,7 +30,7 @@ export class PrefixService {
     }
 
     async setPrefix(guildId, prefix) {
-        // Validate: allow 1-10 chars to support ".angel" etc. (spec example)
+        // Validate: allow 1-10 chars
         if (typeof prefix !== "string" || prefix.length < 1 || prefix.length > 10) {
             throw new Error("Prefix must be 1-10 characters");
         }

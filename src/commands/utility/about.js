@@ -2,7 +2,7 @@ import { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, Butt
 import { Theme } from "../../design/theme.js";
 import { embeds } from "../../design/embeds.js";
 export default {
-    data: new SlashCommandBuilder().setName("about").setDescription("About A.N.G.E.L. — how to use the bot"),
+    data: new SlashCommandBuilder().setName("about").setDescription("About this bot."),
     category:"Utility",
     async execute(interaction){
         const guild=interaction.guild;
@@ -12,7 +12,7 @@ export default {
         const dispIcon=branding?.avatarUrl || client.user.displayAvatarURL({ size:128 });
         const embed=new EmbedBuilder().setColor(Theme.panel)
             .setAuthor({ name:`${dispName} • About`, iconURL: dispIcon })
-            .setTitle("A.N.G.E.L.")
+            .setTitle(dispName)
             .setDescription(`Discord bot for server management.`)
             .addFields(
                 { name:"Features", value:
@@ -32,7 +32,7 @@ export default {
                     `\`/support\` — Get help`, inline:false },
             )
             .setThumbnail(dispIcon)
-            .setFooter({ text:`A.N.G.E.L. • ${guild.name}`}).setTimestamp();
+            .setFooter({ text: guild.name }).setTimestamp();
         const row=new ActionRowBuilder().addComponents(
             new ButtonBuilder().setLabel("Invite").setStyle(ButtonStyle.Link).setURL(`https://discord.com/oauth2/authorize?client_id=${client.user.id}&permissions=8&scope=bot%20applications.commands`),
             new ButtonBuilder().setCustomId("about:help").setLabel("Help").setStyle(ButtonStyle.Secondary).setEmoji("📖"),

@@ -11,7 +11,7 @@ async function buildServerEmbed(guild){
         { name: "  Channels", value: `> **${guild.channels.cache.size}**`, inline: true },
         { name: "  Roles", value: `> **${guild.roles.cache.size}**`, inline: true },
         { name: "  Created", value: `> ${time(guild.createdAt, "R")}`, inline: true },
-    ], { author: { name: `A.N.G.E.L. • Server Info`, iconURL: guild.iconURL({ size: 64 }) ?? undefined } });
+    ], { author: { name: `Server Information`, iconURL: guild.iconURL({ size: 64 }) ?? undefined } });
     e.setThumbnail(guild.iconURL({ size: 256 }) ?? null);
     e.setColor(Theme.panel);
     return e;

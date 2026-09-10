@@ -8,8 +8,8 @@ export default {
         const u2=interaction.options.getUser("user2");
         const pct=Math.floor(Math.random()*101);
         const bar="█".repeat(Math.floor(pct/10)) + "░".repeat(10-Math.floor(pct/10));
-        const love = pct>80?"Heavenly match!":pct>60?"Sweet!":pct>40?"Maybe...":pct>20?"Not great":"Doomed";
-        const embed = embeds.panel(`💘  Ship`, `> **${u1.username}** ❤ **${u2.username}**\n\n\`${bar}\` **${pct}%** — *${love}*`, [], { footer:"A.N.G.E.L. • love is in the air"});
+        const love = pct>80?"Great match":pct>60?"Good":pct>40?"Average":pct>20?"Low":"Very low";
+        const embed = embeds.panel(`Ship`, `> **${u1.username}** + **${u2.username}**\n\n\`${bar}\` **${pct}%** — *${love}*`, []);
         await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
 };

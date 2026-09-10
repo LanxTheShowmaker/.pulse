@@ -334,14 +334,12 @@ export class OrderService {
     }
     // --- Control handlers ------------------------------------------------------
     parseChannelId(customId, prefix) {
-        // customId format: prefix:channelId:action
+        // customId format: order:<action>:<channelId>[:suffix]
         // e.g., "order:claim:123456" or "order:close:123456:confirm"
         const parts = customId.split(":");
-        if (parts[0] !== "order")
-            return null;
-        // parts[1] is channelId for simple actions
-        // parts[2] might be action for confirm/cancel
-        return parts[1] ?? null;
+        if (parts[0] !== "order") return null;
+        if (prefix && `order:${parts[1]}` !== prefix) return null;
+        return parts[2] ?? null;
     }
     async fetchOrder(channelId) {
         return this.prisma.order.findUnique({ where: { channelId } }).catch(() => null);

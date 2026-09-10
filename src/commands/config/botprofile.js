@@ -57,7 +57,7 @@ export default {
                     `Changing this server **does not** affect other servers — guildId \`${guild.id}\` isolation.\n\n`+
                     `**Nickname:** Applied via \`guild.members.me.setNickname()\` — real visible change in this server.\n`+
                     `**Avatar:** ${avatarNote}`
-                ).setFooter({ text:"A.N.G.E.L. • per-server • reapplied on restart"}).setTimestamp();
+                ).setFooter({ text:"Per-server. Reapplied on restart."}).setTimestamp();
             if(b.avatarUrl) embed.setImage(b.avatarUrl);
             const row=new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId("botprofile:editName").setLabel("Set Nickname").setStyle(ButtonStyle.Primary).setEmoji("✏️"),

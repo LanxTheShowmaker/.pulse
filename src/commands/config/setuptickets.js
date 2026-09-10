@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 import { embeds, confirmationRow } from "../../design/embeds.js";
 import { logger } from "../../core/logger.js";
+import { Theme } from "../../design/theme.js";
 import { PANEL_TYPES } from "../../services/panels.js";
 
 const SESSIONS = new Map(); // `${guildId}:${userId}` -> { ownerId, guildId, expires, timeout }
@@ -66,20 +67,19 @@ async function buildStatusEmbed(guild, client) {
     const ticketEnabled = panels.some((p) => p.enabled);
     lines.push(`\n🎫  **Tickets**  ${ticketEnabled ? "⬤  Enabled" : "◯  Disabled"}     📄  **Transcripts**  ${(await client.services.settings.get(guild.id).catch(()=>null))?.logChannelId ? "⬤  Enabled" : "◯  Disabled"}`);
 
-    const embed = embeds.panel("A.N.G.E.L. — Ticket & Panel Manager", `Server configuration for panels, tickets, and support.\n\n${lines.join("\n")}`, [
+    const embed = embeds.panel("Ticket and Panel Manager", `Server configuration for panels, tickets, and support.\n\n${lines.join("\n")}`, [
         { name: "  Guild", value: `> **${guild.name}**`, inline: true },
         { name: "  Panels", value: `> **${panels.filter((p) => p.enabled).length}/4** live`, inline: true },
         { name: "  Tip", value: `> *Select a panel below to configure*`, inline: true },
     ], {
-        author: { name: `A.N.G.E.L. • ${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
-        footer: `A.N.G.E.L. • Discord Management Platform`,
+        author: { name: `${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
     });
     embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
     return embed;
 }
 
 function dashboardComponents() {
-    const panelMenu = new StringSelectMenuBuilder().setCustomId("angel:setup:panelMenu").setPlaceholder("Configure a panel").addOptions([
+    const panelMenu = new StringSelectMenuBuilder().setCustomId("pulse:setup:panelMenu").setPlaceholder("Configure a panel").addOptions([
         { label: "Orders", value: PANEL_TYPES.ORDER, emoji: "🛒", description: "Order panel & ticket types" },
         { label: "Assistance", value: PANEL_TYPES.ASSISTANCE, emoji: "🛟", description: "Assistance requests" },
         { label: "Regulations", value: PANEL_TYPES.REGULATIONS, emoji: "📜", description: "Rules & sections" },
@@ -87,14 +87,14 @@ function dashboardComponents() {
     ]);
     const row1 = new ActionRowBuilder().addComponents(panelMenu);
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("angel:setup:ticketSettings").setLabel("Ticket Settings").setStyle(ButtonStyle.Secondary).setEmoji("🎫"),
-        new ButtonBuilder().setCustomId("angel:setup:globalSettings").setLabel("Global Settings").setStyle(ButtonStyle.Secondary).setEmoji("⚙️"),
-        new ButtonBuilder().setCustomId("angel:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
+        new ButtonBuilder().setCustomId("pulse:setup:ticketSettings").setLabel("Ticket Settings").setStyle(ButtonStyle.Secondary).setEmoji("🎫"),
+        new ButtonBuilder().setCustomId("pulse:setup:globalSettings").setLabel("Global Settings").setStyle(ButtonStyle.Secondary).setEmoji("⚙️"),
+        new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
     );
     const row3 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId("angel:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧"),
-        new ButtonBuilder().setCustomId("angel:setup:deploy").setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"),
-        new ButtonBuilder().setCustomId("angel:setup:close").setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("❌"),
+        new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧"),
+        new ButtonBuilder().setCustomId("pulse:setup:deploy").setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"),
+        new ButtonBuilder().setCustomId("pulse:setup:close").setLabel("Close").setStyle(ButtonStyle.Danger).setEmoji("❌"),
     );
     return [row1, row2, row3];
 }
@@ -122,7 +122,7 @@ async function panelEditorEmbed(guild, panelType, client) {
         ...(types.length ? [{ name: "  Ticket Types", value: `> **${types.length}** configured`, inline: true }] : []),
     ], {
         author: { name: `${meta.title}`, iconURL: guild.iconURL({ size:64 }) ?? undefined },
-        footer: `A.N.G.E.L. • ${guild.name}`,
+        footer: `${guild.name}`,
     });
     if (panel.bannerUrl) embed.setImage(panel.bannerUrl);
     embed.setThumbnail(guild.iconURL({ size:128 }) ?? null);
@@ -130,34 +130,34 @@ async function panelEditorEmbed(guild, panelType, client) {
 }
 
 function panelEditorComponents(panelType) {
-    const channelRow = new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId(`angel:setup:panelChannel:${panelType}`).setPlaceholder("Select panel channel").addChannelTypes(ChannelType.GuildText));
+    const channelRow = new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId(`pulse:setup:panelChannel:${panelType}`).setPlaceholder("Select panel channel").addChannelTypes(ChannelType.GuildText));
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`angel:setup:editTitle:${panelType}`).setLabel("Title").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`angel:setup:editDesc:${panelType}`).setLabel("Description").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`angel:setup:toggleEnabled:${panelType}`).setLabel("Toggle Enabled").setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId(`pulse:setup:editTitle:${panelType}`).setLabel("Title").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`pulse:setup:editDesc:${panelType}`).setLabel("Description").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`pulse:setup:toggleEnabled:${panelType}`).setLabel("Toggle Enabled").setStyle(ButtonStyle.Primary),
     );
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`angel:setup:bannerUpload:${panelType}`).setLabel("Upload Banner").setStyle(ButtonStyle.Secondary).setEmoji("🖼️"),
-        new ButtonBuilder().setCustomId(`angel:setup:bannerUrl:${panelType}`).setLabel("Banner URL").setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId(`angel:setup:bannerRemove:${panelType}`).setLabel("Remove Banner").setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId(`angel:setup:bannerPreview:${panelType}`).setLabel("Preview Banner").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerUpload:${panelType}`).setLabel("Upload Banner").setStyle(ButtonStyle.Secondary).setEmoji("🖼️"),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerUrl:${panelType}`).setLabel("Banner URL").setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerRemove:${panelType}`).setLabel("Remove Banner").setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId(`pulse:setup:bannerPreview:${panelType}`).setLabel("Preview Banner").setStyle(ButtonStyle.Secondary).setEmoji("👁️"),
     );
     const row3 = new ActionRowBuilder();
     if (panelType === PANEL_TYPES.ORDER || panelType === PANEL_TYPES.ASSISTANCE) {
-        row3.addComponents(new ButtonBuilder().setCustomId(`angel:setup:manageTypes:${panelType}`).setLabel("Ticket Types").setStyle(ButtonStyle.Primary).setEmoji("🎫"));
+        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageTypes:${panelType}`).setLabel("Ticket Types").setStyle(ButtonStyle.Primary).setEmoji("🎫"));
     } else if (panelType === PANEL_TYPES.REGULATIONS) {
-        row3.addComponents(new ButtonBuilder().setCustomId(`angel:setup:manageRegs:${panelType}`).setLabel("Sections").setStyle(ButtonStyle.Primary).setEmoji("📜"));
+        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:manageRegs:${panelType}`).setLabel("Sections").setStyle(ButtonStyle.Primary).setEmoji("📜"));
     } else {
-        row3.addComponents(new ButtonBuilder().setCustomId(`angel:setup:editSections:${panelType}`).setLabel("Edit Sections").setStyle(ButtonStyle.Primary));
+        row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:editSections:${panelType}`).setLabel("Edit Sections").setStyle(ButtonStyle.Primary));
     }
-    row3.addComponents(new ButtonBuilder().setCustomId(`angel:setup:previewPanel:${panelType}`).setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"));
-    row3.addComponents(new ButtonBuilder().setCustomId(`angel:setup:deployPanel:${panelType}`).setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"));
-    const row4 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary));
+    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:previewPanel:${panelType}`).setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️"));
+    row3.addComponents(new ButtonBuilder().setCustomId(`pulse:setup:deployPanel:${panelType}`).setLabel("Deploy").setStyle(ButtonStyle.Success).setEmoji("🚀"));
+    const row4 = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary));
     return [channelRow, row1, row2, row3, row4];
 }
 
 export default {
-    data: new SlashCommandBuilder().setName("setuptickets").setDescription("Configure A.N.G.E.L. panels and ticket systems").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+    data: new SlashCommandBuilder().setName("setuptickets").setDescription("Configure panels and ticket systems.").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
     category: "Config",
     async execute(interaction) {
         const client = interaction.client;
@@ -179,7 +179,7 @@ export default {
         };
 
         // Panel menu
-        client.components.set("angel:setup:panelMenu", async (i) => {
+        client.components.set("pulse:setup:panelMenu", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.values[0];
             const embed = await panelEditorEmbed(i.guild, panelType, client);
@@ -187,14 +187,14 @@ export default {
         });
 
         // Back to dashboard
-        client.components.set("angel:setup:back", async (i) => {
+        client.components.set("pulse:setup:back", async (i) => {
             if (!await ensureOwner(i)) return;
             const embed = await buildStatusEmbed(i.guild, client);
             await i.update({ embeds: [embed], components: dashboardComponents() }).catch(() => {});
         });
 
         // Channel select
-        client.components.set("angel:setup:panelChannel", async (i) => {
+        client.components.set("pulse:setup:panelChannel", async (i) => {
             if (!await ensureOwner(i)) return;
             if (!i.isChannelSelectMenu()) return;
             const panelType = i.customId.split(":")[3];
@@ -205,15 +205,15 @@ export default {
         });
 
         // Edit Title
-        client.components.set("angel:setup:editTitle", async (i) => {
+        client.components.set("pulse:setup:editTitle", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalTitle:${panelType}`).setTitle("Edit Title");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalTitle:${panelType}`).setTitle("Edit Title");
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Title").setStyle(TextInputStyle.Short).setMaxLength(256).setRequired(true).setValue(panel.title ?? "")));
             await i.showModal(modal).catch(() => {});
         });
-        client.components.set("angel:setup:modalTitle", async (i) => {
+        client.components.set("pulse:setup:modalTitle", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return i.reply({ embeds: [embeds.error("Not your session","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const panelType = i.customId.split(":")[3];
@@ -226,15 +226,15 @@ export default {
         });
 
         // Edit Description
-        client.components.set("angel:setup:editDesc", async (i) => {
+        client.components.set("pulse:setup:editDesc", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalDesc:${panelType}`).setTitle("Edit Description");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalDesc:${panelType}`).setTitle("Edit Description");
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Description").setStyle(TextInputStyle.Paragraph).setMaxLength(4000).setRequired(false).setValue(panel.description ?? "")));
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalDesc", async (i) => {
+        client.components.set("pulse:setup:modalDesc", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const panelType = i.customId.split(":")[3];
@@ -244,7 +244,7 @@ export default {
         });
 
         // Toggle enabled
-        client.components.set("angel:setup:toggleEnabled", async (i) => {
+        client.components.set("pulse:setup:toggleEnabled", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
@@ -254,14 +254,14 @@ export default {
         });
 
         // Banner URL
-        client.components.set("angel:setup:bannerUrl", async (i) => {
+        client.components.set("pulse:setup:bannerUrl", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalBannerUrl:${panelType}`).setTitle("Banner URL");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalBannerUrl:${panelType}`).setTitle("Banner URL");
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("url").setLabel("Image URL (https)").setStyle(TextInputStyle.Short).setRequired(true).setPlaceholder("https://cdn.discordapp.com/.../banner.png")));
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalBannerUrl", async (i) => {
+        client.components.set("pulse:setup:modalBannerUrl", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const panelType = i.customId.split(":")[3];
@@ -276,10 +276,10 @@ export default {
         });
 
         // Banner upload
-        client.components.set("angel:setup:bannerUpload", async (i) => {
+        client.components.set("pulse:setup:bannerUpload", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
-            await i.reply({ embeds:[embeds.info("Upload Banner", "Please **upload an image attachment** in this channel within 60 seconds. I'll store it in `angel-assets`.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await i.reply({ embeds:[embeds.info("Upload Banner", "Please **upload an image attachment** in this channel within 60 seconds. I'll store it in `pulse-assets`.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const filter = (m) => m.author.id === i.user.id && m.attachments.size > 0;
             const collector = i.channel.createMessageCollector({ filter, time: 60_000, max: 1 });
             collector.on("collect", async (m) => {
@@ -299,7 +299,7 @@ export default {
         });
 
         // Remove banner
-        client.components.set("angel:setup:bannerRemove", async (i) => {
+        client.components.set("pulse:setup:bannerRemove", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             await client.services.panels.removeBanner(i.guild, panelType);
@@ -307,7 +307,7 @@ export default {
             await i.update({ embeds:[embed], components: panelEditorComponents(panelType) }).catch(()=>{});
         });
         // Preview banner
-        client.components.set("angel:setup:bannerPreview", async (i) => {
+        client.components.set("pulse:setup:bannerPreview", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
@@ -317,24 +317,24 @@ export default {
         });
 
         // Manage ticket types
-        client.components.set("angel:setup:manageTypes", async (i) => {
+        client.components.set("pulse:setup:manageTypes", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const types = await client.prisma.ticketType.findMany({ where:{ guildId:i.guild.id, panelType } }).catch(()=>[]);
             const embed = embeds.info(`${panelType} Ticket Types`, types.length ? types.map((t)=> `${t.emoji ?? "•"} **${t.displayName}** (\`${t.key}\`) ${t.enabled?"🟢":"🔴"}`).join("\n") : "No ticket types yet. Create one.", []);
             const opts = types.slice(0,25).map((t)=>({ label:t.displayName.slice(0,100), value:t.id, description:`${t.key}`.slice(0,100) }));
             const rows = [];
-            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`angel:setup:typeSelect:${panelType}`).setPlaceholder("Select type to edit").addOptions(opts)));
+            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`pulse:setup:typeSelect:${panelType}`).setPlaceholder("Select type to edit").addOptions(opts)));
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`angel:setup:createType:${panelType}`).setLabel("Create Type").setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)
+                new ButtonBuilder().setCustomId(`pulse:setup:createType:${panelType}`).setLabel("Create Type").setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)
             ));
             await i.update({ embeds:[embed], components: rows }).catch(()=>{});
         });
-        client.components.set("angel:setup:createType", async (i) => {
+        client.components.set("pulse:setup:createType", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalCreateType:${panelType}`).setTitle("Create Ticket Type");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalCreateType:${panelType}`).setTitle("Create Ticket Type");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("key").setLabel("Internal key (no spaces)").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(32).setPlaceholder("uniform")),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("name").setLabel("Display name").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100).setPlaceholder("Uniform")),
@@ -343,7 +343,7 @@ export default {
             );
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalCreateType", async (i) => {
+        client.components.set("pulse:setup:modalCreateType", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const panelType = i.customId.split(":")[3];
@@ -359,7 +359,7 @@ export default {
                 await i.reply({ embeds:[embeds.error("Failed",msg)], flags: MessageFlags.Ephemeral }).catch(()=>{});
             }
         });
-        client.components.set("angel:setup:typeSelect", async (i) => {
+        client.components.set("pulse:setup:typeSelect", async (i) => {
             if (!await ensureOwner(i)) return;
             if (!i.isStringSelectMenu()) return;
             const panelType = i.customId.split(":")[3];
@@ -373,33 +373,33 @@ export default {
                 { name:"Questions", value: (()=>{ try{ return JSON.parse(type.questions ?? "[]").length + " questions"; }catch{ return "0"; }})() },
             ]);
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`angel:setup:editType:${typeId}`).setLabel("Edit").setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`angel:setup:deleteType:${typeId}`).setLabel("Delete").setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId(`angel:setup:editQuestions:${typeId}`).setLabel("Questions").setStyle(ButtonStyle.Secondary),
-                new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId(`pulse:setup:editType:${typeId}`).setLabel("Edit").setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId(`pulse:setup:deleteType:${typeId}`).setLabel("Delete").setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId(`pulse:setup:editQuestions:${typeId}`).setLabel("Questions").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
             );
             await i.update({ embeds:[embed], components:[row] }).catch(()=>{});
         });
-        client.components.set("angel:setup:deleteType", async (i) => {
+        client.components.set("pulse:setup:deleteType", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
             const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
             if (!type) return;
-            await i.reply({ embeds:[embeds.warn("Delete?",`Delete **${type.displayName}**?`)], components:[confirmationRow({ acceptCustomId:`angel:setup:confirmDeleteType:${typeId}`, cancelCustomId:`angel:setup:cancelDeleteType:${typeId}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await i.reply({ embeds:[embeds.warn("Delete?",`Delete **${type.displayName}**?`)], components:[confirmationRow({ acceptCustomId:`pulse:setup:confirmDeleteType:${typeId}`, cancelCustomId:`pulse:setup:cancelDeleteType:${typeId}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:confirmDeleteType", async (i) => {
+        client.components.set("pulse:setup:confirmDeleteType", async (i) => {
             if (i.user.id !== interaction.user.id) return;
             const typeId = i.customId.split(":")[3];
             await client.prisma.ticketType.delete({ where:{ id:typeId } }).catch(()=>{});
             await i.update({ embeds:[embeds.success("Deleted","Type deleted")], components:[] }).catch(()=>{});
         });
-        client.components.set("angel:setup:cancelDeleteType", async (i) => { await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
-        client.components.set("angel:setup:editType", async (i) => {
+        client.components.set("pulse:setup:cancelDeleteType", async (i) => { await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:editType", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
             const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
             if (!type) return;
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalEditType:${typeId}`).setTitle("Edit Type");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalEditType:${typeId}`).setTitle("Edit Type");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("name").setLabel("Display name").setStyle(TextInputStyle.Short).setRequired(true).setValue(type.displayName).setMaxLength(100)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("desc").setLabel("Description").setStyle(TextInputStyle.Short).setRequired(false).setValue(type.description??"").setMaxLength(100)),
@@ -408,7 +408,7 @@ export default {
             );
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalEditType", async (i) => {
+        client.components.set("pulse:setup:modalEditType", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const typeId = i.customId.split(":")[3];
@@ -420,30 +420,30 @@ export default {
             await i.reply({ embeds:[embeds.success("Updated","Saved")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         // Questions editor
-        client.components.set("angel:setup:editQuestions", async (i) => {
+        client.components.set("pulse:setup:editQuestions", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
             const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
             let qs=[]; try{ qs=JSON.parse(type.questions??"[]"); }catch{}
             const embed = embeds.info("Questions", qs.length? qs.map((q,idx)=> `${idx+1}. ${q.label??q.question} ${q.required===false?"(optional)":""}`).join("\n") : "No questions. Add up to 5.");
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`angel:setup:addQuestion:${typeId}`).setLabel("Add").setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`angel:setup:clearQuestions:${typeId}`).setLabel("Clear").setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId(`pulse:setup:addQuestion:${typeId}`).setLabel("Add").setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`pulse:setup:clearQuestions:${typeId}`).setLabel("Clear").setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
             );
             await i.update({ embeds:[embed], components:[row] }).catch(()=>{});
         });
-        client.components.set("angel:setup:addQuestion", async (i) => {
+        client.components.set("pulse:setup:addQuestion", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalAddQ:${typeId}`).setTitle("Add Question");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalAddQ:${typeId}`).setTitle("Add Question");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("label").setLabel("Question").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(45).setPlaceholder("What are you ordering?")),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("placeholder").setLabel("Placeholder").setStyle(TextInputStyle.Short).setRequired(false).setMaxLength(100)),
             );
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalAddQ", async (i) => {
+        client.components.set("pulse:setup:modalAddQ", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const typeId = i.customId.split(":")[3];
@@ -454,7 +454,7 @@ export default {
             await client.prisma.ticketType.update({ where:{ id:typeId }, data:{ questions: JSON.stringify(qs) } }).catch(()=>{});
             await i.reply({ embeds:[embeds.success("Added","Question added")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:clearQuestions", async (i) => {
+        client.components.set("pulse:setup:clearQuestions", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
             await client.prisma.ticketType.update({ where:{ id:typeId }, data:{ questions:"[]" } }).catch(()=>{});
@@ -462,7 +462,7 @@ export default {
         });
 
         // Regulations editor (sections stored in Panel.config.sections)
-        client.components.set("angel:setup:manageRegs", async (i) => {
+        client.components.set("pulse:setup:manageRegs", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
@@ -471,24 +471,24 @@ export default {
             const embed = embeds.info("Regulations Sections", sections.length? sections.map((s,idx)=> `**${idx+1}. ${s.title}** — ${(s.content??"").slice(0,60)}`).join("\n") : "No sections.", []);
             const opts = sections.slice(0,25).map((s,idx)=>({ label:s.title.slice(0,100), value:String(idx), description:`Section ${idx+1}`.slice(0,100) }));
             const rows=[];
-            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`angel:setup:regSelect:${panelType}`).setPlaceholder("Select section to edit").addOptions(opts)));
+            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`pulse:setup:regSelect:${panelType}`).setPlaceholder("Select section to edit").addOptions(opts)));
             rows.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`angel:setup:regCreate:${panelType}`).setLabel("Create Section").setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)
+                new ButtonBuilder().setCustomId(`pulse:setup:regCreate:${panelType}`).setLabel("Create Section").setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)
             ));
             await i.update({ embeds:[embed], components: rows }).catch(()=>{});
         });
-        client.components.set("angel:setup:regCreate", async (i) => {
+        client.components.set("pulse:setup:regCreate", async (i) => {
             if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalRegCreate:${panelType}`).setTitle("Create Section");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalRegCreate:${panelType}`).setTitle("Create Section");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Section title").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(100)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Rules (one per line)").setStyle(TextInputStyle.Paragraph).setRequired(true).setMaxLength(4000)),
             );
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalRegCreate", async (i) => {
+        client.components.set("pulse:setup:modalRegCreate", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const panelType = i.customId.split(":")[3];
@@ -498,7 +498,7 @@ export default {
             await client.services.panels.upsert(i.guild.id, panelType, { config: JSON.stringify({ ...cfg, sections }) });
             await i.reply({ embeds:[embeds.success("Created","Section added")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:regSelect", async (i) => {
+        client.components.set("pulse:setup:regSelect", async (i) => {
             if (!await ensureOwner(i)) return;
             if (!i.isStringSelectMenu()) return;
             const panelType = i.customId.split(":")[3];
@@ -508,28 +508,28 @@ export default {
             if (!sec) return;
             const embed = embeds.info(sec.title, sec.content.slice(0,4000));
             const row = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`angel:setup:regEdit:${panelType}:${idx}`).setLabel("Edit").setStyle(ButtonStyle.Primary),
-                new ButtonBuilder().setCustomId(`angel:setup:regDelete:${panelType}:${idx}`).setLabel("Delete").setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder().setCustomId(`pulse:setup:regEdit:${panelType}:${idx}`).setLabel("Edit").setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId(`pulse:setup:regDelete:${panelType}:${idx}`).setLabel("Delete").setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary),
             );
             await i.update({ embeds:[embed], components:[row] }).catch(()=>{});
         });
-        client.components.set("angel:setup:regEdit", async (i) => {
+        client.components.set("pulse:setup:regEdit", async (i) => {
             if (!await ensureOwner(i)) return;
-            const [_,panelType,idxStr] = i.customId.split(":").slice(3); // angel:setup:regEdit:REGULATIONS:0 -> need split correctly
-            // customId is angel:setup:regEdit:REGULATIONS:0
+            const [_,panelType,idxStr] = i.customId.split(":").slice(3); // pulse:setup:regEdit:REGULATIONS:0 -> need split correctly
+            // customId is pulse:setup:regEdit:REGULATIONS:0
             const parts = i.customId.split(":");
             const pt = parts[3]; const idx = Number(parts[4]);
             const panel = await client.services.panels.get(i.guild.id, pt);
             const sec = (panel.parsedConfig?.sections ?? [])[idx];
-            const modal = new ModalBuilder().setCustomId(`angel:setup:modalRegEdit:${pt}:${idx}`).setTitle("Edit Section");
+            const modal = new ModalBuilder().setCustomId(`pulse:setup:modalRegEdit:${pt}:${idx}`).setTitle("Edit Section");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("title").setLabel("Title").setStyle(TextInputStyle.Short).setRequired(true).setValue(sec.title).setMaxLength(100)),
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("content").setLabel("Content").setStyle(TextInputStyle.Paragraph).setRequired(true).setValue(sec.content).setMaxLength(4000)),
             );
             await i.showModal(modal).catch(()=>{});
         });
-        client.components.set("angel:setup:modalRegEdit", async (i) => {
+        client.components.set("pulse:setup:modalRegEdit", async (i) => {
             if (!i.isModalSubmit()) return;
             if (i.user.id !== interaction.user.id) return;
             const parts = i.customId.split(":"); const pt=parts[3]; const idx=Number(parts[4]);
@@ -539,12 +539,12 @@ export default {
             await client.services.panels.upsert(i.guild.id, pt, { config: JSON.stringify({ ...cfg, sections }) });
             await i.reply({ embeds:[embeds.success("Updated","Section saved")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:regDelete", async (i) => {
+        client.components.set("pulse:setup:regDelete", async (i) => {
             if (!await ensureOwner(i)) return;
             const parts = i.customId.split(":"); const pt=parts[3]; const idx=Number(parts[4]);
-            await i.reply({ embeds:[embeds.warn("Delete?","Confirm delete")], components:[confirmationRow({ acceptCustomId:`angel:setup:regConfirmDel:${pt}:${idx}`, cancelCustomId:`angel:setup:regCancelDel:${pt}:${idx}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await i.reply({ embeds:[embeds.warn("Delete?","Confirm delete")], components:[confirmationRow({ acceptCustomId:`pulse:setup:regConfirmDel:${pt}:${idx}`, cancelCustomId:`pulse:setup:regCancelDel:${pt}:${idx}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:regConfirmDel", async (i) => {
+        client.components.set("pulse:setup:regConfirmDel", async (i) => {
             if (i.user.id !== interaction.user.id) return;
             const parts=i.customId.split(":"); const pt=parts[3]; const idx=Number(parts[4]);
             const panel=await client.services.panels.get(i.guild.id, pt);
@@ -553,22 +553,22 @@ export default {
             await client.services.panels.upsert(i.guild.id, pt, { config: JSON.stringify({...cfg, sections}) });
             await i.update({ embeds:[embeds.success("Deleted","Section removed")], components:[] }).catch(()=>{});
         });
-        client.components.set("angel:setup:regCancelDel", async (i)=>{ await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:regCancelDel", async (i)=>{ await i.update({ embeds:[embeds.info("Cancelled","")], components:[] }).catch(()=>{}); });
 
         // Ticket / Global settings stubs
-        client.components.set("angel:setup:ticketSettings", async (i) => {
+        client.components.set("pulse:setup:ticketSettings", async (i) => {
             if (!await ensureOwner(i)) return;
             const embed = embeds.info("Ticket Settings", "Configure ticket categories, cooldowns, max open tickets per panel. Use panel Ticket Types to set category per type.", [
                 { name:"Categories", value:"Set per Ticket Type via Ticket Types" },
                 { name:"Cooldown", value:"Set per type (seconds)" },
                 { name:"Max Open", value:"Set per type" },
             ]);
-            await i.update({ embeds:[embed], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
+            await i.update({ embeds:[embed], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
         });
-        client.components.set("angel:setup:globalSettings", async (i) => {
+        client.components.set("pulse:setup:globalSettings", async (i) => {
             if (!await ensureOwner(i)) return;
             const embed = embeds.info("Global Panel Branding", "Configure embed color, footer, thumbnail via each panel's settings. Global branding coming soon.", []);
-            await i.update({ embeds:[embed], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
+            await i.update({ embeds:[embed], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
         });
 
         // Preview / Repair / Deploy
@@ -581,7 +581,7 @@ export default {
             if (!me?.permissions.has(PermissionFlagsBits.EmbedLinks)) warnings.push("Embed Links");
             return warnings;
         };
-        client.components.set("angel:setup:preview", async (i) => {
+        client.components.set("pulse:setup:preview", async (i) => {
             if (!await ensureOwner(i)) return;
             const panels = await client.services.panels.list(i.guild.id);
             const previews = [];
@@ -594,7 +594,7 @@ export default {
             if (!previews.length) return i.reply({ embeds:[embeds.warn("Nothing to preview","Enable at least one panel")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             await i.reply({ embeds: previews.slice(0,10), flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:previewPanel", async (i) => {
+        client.components.set("pulse:setup:previewPanel", async (i) => {
             if (!await ensureOwner(i)) return;
             const pt = i.customId.split(":")[3];
             const p = await client.services.panels.get(i.guild.id, pt);
@@ -602,7 +602,7 @@ export default {
             const embed = client.services.panels.buildPanelEmbed(p, types);
             await i.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
-        client.components.set("angel:setup:deployPanel", async (i) => {
+        client.components.set("pulse:setup:deployPanel", async (i) => {
             if (!await ensureOwner(i)) return;
             await i.deferUpdate().catch(()=>{});
             const pt = i.customId.split(":")[3];
@@ -612,23 +612,23 @@ export default {
             if (res.ok) await i.editReply({ embeds:[embeds.success("Deployed",`${pt} ${res.action} in <#${res.channelId}>`)], components:[] }).catch(()=>{});
             else await i.editReply({ embeds:[embeds.error("Deploy failed", res.reason)], components:[] }).catch(()=>{});
         });
-        client.components.set("angel:setup:deploy", async (i) => {
+        client.components.set("pulse:setup:deploy", async (i) => {
             if (!await ensureOwner(i)) return;
             await i.deferUpdate().catch(()=>{});
             const warn = validatePerms(i.guild);
             if (warn.length) return i.editReply({ embeds:[embeds.error("Missing perms", warn.join(", "))], components:[] }).catch(()=>{});
             const results = await client.services.panels.deployAll(i.guild);
             const lines = Object.entries(results).map(([k,v])=> `${k}: ${v.ok ? (v.action==="skipped"?"— skipped":`✓ ${v.action} <#${v.channelId}>`) : `✗ ${v.reason}` }`);
-            await i.editReply({ embeds:[embeds.success("A.N.G.E.L. SETUP COMPLETE","Panels deployment results", [{name:"PANELS", value: lines.join("\n")}])], components:[] }).catch(()=>{});
+            await i.editReply({ embeds:[embeds.success("Setup complete.","Panels deployment results", [{name:"PANELS", value: lines.join("\n")}])], components:[] }).catch(()=>{});
         });
-        client.components.set("angel:setup:repair", async (i) => {
+        client.components.set("pulse:setup:repair", async (i) => {
             if (!await ensureOwner(i)) return;
             await i.deferUpdate().catch(()=>{});
             const report = await client.services.panels.repair(i.guild);
             const info = report.length? report.join("\n") : "No repairs needed — all resources healthy.";
-            await i.editReply({ embeds:[embeds.info("Repair Report", info)], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("angel:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
+            await i.editReply({ embeds:[embeds.info("Repair Report", info)], components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
         });
-        client.components.set("angel:setup:close", async (i) => {
+        client.components.set("pulse:setup:close", async (i) => {
             if (!await ensureOwner(i)) return;
             clearSession(i.guild.id, i.user.id);
             await i.update({ embeds:[embeds.info("Closed","Setup closed")], components:[] }).catch(()=>{});

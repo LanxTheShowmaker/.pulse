@@ -27,7 +27,6 @@ export class WelcomeService {
         // Verification button if verifyRole set in modules.verifyRoleId
         const verifyRole = cfg.modules?.verifyRoleId;
         if (verifyRole) row.addComponents(new ButtonBuilder().setCustomId(`welcome:verify:${verifyRole}`).setLabel("Verify").setStyle(ButtonStyle.Success).setEmoji("✅"));
-        row.addComponents(new ButtonBuilder().setCustomId("welcome:rules").setLabel("Rules").setStyle(ButtonStyle.Secondary));
         try { await ch.send({ content: `<@${member.id}>`, embeds: [embed], components: row.components.length ? [row] : [] }); } catch (e) { logger.error("welcome", "send failed", e); }
     }
     async handleLeave(member) {

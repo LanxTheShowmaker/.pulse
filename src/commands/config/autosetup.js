@@ -5,33 +5,31 @@ import {
 import { embeds } from "../../design/embeds.js";
 import { logger } from "../../core/logger.js";
 
-// Keep wings: prefix for backwards compat (code-wise wings, frontend Server-x)
 const selections = new Map(); // guildId -> { staff:string[], mod:string[], createMissing:boolean }
 
 // Keywords per spec — conservative, case-insensitive
 const STAFF_KEYWORDS = ["staff", "staffs", "administrator", "admin", "management", "manager"];
 const MOD_KEYWORDS = ["moderator", "moderators", "mod", "moderation", "support"];
 
-// Channel candidates — most specific (Server-x / A.N.G.E.L.) first, legacy wings last, generic last
-// Frontend new names are Server-x per user request; detection includes all legacy
+// Channel candidates — Server-x naming first, legacy names last
 const LOGS_CHANNEL_CANDIDATES = [
-    "server-log", "server-logs", "angel-log", "angel-logs", "wings-log", "wings-logs",
+    "server-log", "server-logs", "pulse-log", "pulse-logs",
     "bot-logs", "logs", "server-logs"
 ];
 const MODLOG_CHANNEL_CANDIDATES = [
     "server-modlog", "server-mod-log", "server-modlogs",
-    "angel-modlog", "wings-modlog",
+    "pulse-modlog",
     "mod-log", "modlog", "modlogs", "moderation-logs", "moderator-logs"
 ];
 const WELCOME_CHANNEL_CANDIDATES = [
-    "server-welcome", "angel-welcome", "wings-welcome",
+    "server-welcome", "pulse-welcome",
     "welcome", "welcomes", "server-welcome"
 ];
 const ORDERS_CATEGORY_CANDIDATES = [
     "design-orders", "orders", "commissions", "commission-orders"
 ];
 const LOGS_CATEGORY_CANDIDATES = [
-    "server logs", "a.n.g.e.l. logs", "angel logs", "wings logs", "logs"
+    "server logs", "pulse logs", "logs"
 ];
 
 // New frontend names when creating (Server-x per user)
@@ -346,23 +344,23 @@ function renderSetup(guild) {
     if (!modOpts.length) modOpts.push({ label: "No roles found", value: "none", description: "Create a role first" });
 
     const staffMenu = new StringSelectMenuBuilder()
-        .setCustomId("wings:setup:staff")
+        .setCustomId("pulse:setup:staff")
         .setPlaceholder("✦  Select Staff role")
         .addOptions(staffOpts);
     const modMenu = new StringSelectMenuBuilder()
-        .setCustomId("wings:setup:mod")
+        .setCustomId("pulse:setup:mod")
         .setPlaceholder("✦  Select Moderator role")
         .addOptions(modOpts);
 
     const toggle = new ButtonBuilder()
-        .setCustomId("wings:setup:toggleCreate")
+        .setCustomId("pulse:setup:toggleCreate")
         .setLabel(`Create missing: ${sel.createMissing ? "On" : "Off"}`)
         .setEmoji(sel.createMissing ? "🌱" : "🌿")
         .setStyle(sel.createMissing ? ButtonStyle.Success : ButtonStyle.Secondary);
 
-    const previewBtn = new ButtonBuilder().setCustomId("wings:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️");
-    const repairBtn = new ButtonBuilder().setCustomId("wings:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧");
-    const confirm = new ButtonBuilder().setCustomId("wings:setup:confirm").setLabel("Run Setup  •  Build").setStyle(ButtonStyle.Success).setEmoji("✨");
+    const previewBtn = new ButtonBuilder().setCustomId("pulse:setup:preview").setLabel("Preview").setStyle(ButtonStyle.Secondary).setEmoji("👁️");
+    const repairBtn = new ButtonBuilder().setCustomId("pulse:setup:repair").setLabel("Repair").setStyle(ButtonStyle.Secondary).setEmoji("🔧");
+    const confirm = new ButtonBuilder().setCustomId("pulse:setup:confirm").setLabel("Run Setup  •  Build").setStyle(ButtonStyle.Success).setEmoji("✨");
 
     // Detection summary (sync quick check)
     const detectedStaff = detectStaffRole(guild);
@@ -376,7 +374,7 @@ function renderSetup(guild) {
     const perms = validateSetupPermissions(guild);
     const permWarnings = perms.warnings.length ? perms.warnings.map((w) => `> ⚠  ${w}`).join("\n") : "> ⬤  All permissions granted  •  ready to build";
 
-    const embed = embeds.panel("✦  A.N.G.E.L.  •  Auto-setup", "*Craft your server's foundation — roles, channels, and categories, in one flow.*\nPick **Staff** and **Moderator** roles below. Detected roles are preselected. Toggle **Create missing roles** to let A.N.G.E.L. create `Server staff` / `Server Moderator` when none exist.\n\n*Preview first — then Run.*", [
+    const embed = embeds.panel("Auto-setup", "Select **Staff** and **Moderator** roles below. Detected roles are preselected. Toggle **Create missing roles** to create `Server staff` / `Server Moderator` when none exist.\n\nPreview first, then run.", [
         { name: "  Staff", value: sel.staff.length ? sel.staff.map((id) => `<@&${id}>`).join(", ") : detectedStaff ? `> Detected: <@&${detectedStaff.id}>\n> _Tap to change_` : "> —  _select one_", inline: true },
         { name: "  Moderator", value: sel.mod.length ? sel.mod.map((id) => `<@&${id}>`).join(", ") : detectedMod ? `> Detected: <@&${detectedMod.id}>\n> _Tap to change_` : "> —  _select one_", inline: true },
         { name: "  Create missing", value: sel.createMissing ? "```diff\n+ On  —  will create Server staff / Moderator if missing\n```" : "```diff\n- Off\n```", inline: true },
@@ -391,8 +389,8 @@ function renderSetup(guild) {
         ].join("\n"), inline: true },
         { name: "  Permissions", value: permWarnings, inline: false },
     ], {
-        author: { name: `A.N.G.E.L.  •  ${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
-        footer: `A.N.G.E.L.  •  intelligent setup  •  ${guild.memberCount} members`,
+        author: { name: `${guild.name}`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
+        footer: `${guild.memberCount} members`,
     });
     embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
 
@@ -408,7 +406,7 @@ function renderSetup(guild) {
 }
 
 function renderPreview(guild, plan) {
-    const embed = embeds.panel("✦  Preview  •  A.N.G.E.L. Auto-setup", "*No changes have been made yet — this is a dry run.*\nReview what will be **reused**, **created**, and **repaired**, then return to build.", [
+    const embed = embeds.panel("Setup Preview", "No changes have been made yet. Review what will be **reused**, **created**, and **repaired**, then return to build.", [
         { name: "  Roles", value: [
             plan.roles.staff.action==="reuse" ? `> ⬤  Reuse  <@&${plan.roles.staff.roleId}>` : plan.roles.staff.action==="create" ? `> ◯  Create  \`${plan.roles.staff.name}\`` : plan.roles.staff.action==="repair" ? `> ↻  Repair  <@&${plan.roles.staff.roleId}>` : `> —  Staff: *${plan.roles.staff.reason||"skip"}*`,
             plan.roles.mod.action==="reuse" ? `> ⬤  Reuse  <@&${plan.roles.mod.roleId}>` : plan.roles.mod.action==="create" ? `> ◯  Create  \`${plan.roles.mod.name}\`` : plan.roles.mod.action==="repair" ? `> ↻  Repair  <@&${plan.roles.mod.roleId}>` : `> —  Mod: *${plan.roles.mod.reason||"skip"}*`,
@@ -426,11 +424,11 @@ function renderPreview(guild, plan) {
         ...(plan.permissions.warnings.length ? [{ name: "  Warnings", value: plan.permissions.warnings.map((w)=>`> ⚠  ${w}`).join("\n") }] : []),
         ...(plan.hierarchy && !plan.hierarchy.ok ? [{ name: "  Hierarchy", value: plan.hierarchy.problems.map((p)=>`> ⚠  ${p.reason}`).join("\n") }] : []),
     ], {
-        author: { name: `A.N.G.E.L.  •  Preview`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
-        footer: `A.N.G.E.L.  •  preview  •  no changes made`,
+        author: { name: `Preview`, iconURL: guild.iconURL({ size: 64 }) ?? undefined },
+        footer: `No changes made.`,
     });
     embed.setThumbnail(guild.iconURL({ size: 128 }) ?? null);
-    const back = new ButtonBuilder().setCustomId("wings:setup:back").setLabel("Back  •  Return").setStyle(ButtonStyle.Secondary).setEmoji("↩️");
+    const back = new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back  •  Return").setStyle(ButtonStyle.Secondary).setEmoji("↩️");
     return { embeds: [embed], components: [new ActionRowBuilder().addComponents(back)] };
 }
 
@@ -442,7 +440,7 @@ async function executePlan(guild, plan, client) {
         if (!r) continue;
         if (r.action === "create") {
             try {
-                const created = await guild.roles.create({ name: r.name, reason: "A.N.G.E.L. autosetup" });
+                const created = await guild.roles.create({ name: r.name, reason: "autosetup" });
                 // Try to position below bot if possible (do not move above bot)
                 const me = guild.members.me;
                 if (me && created.position >= me.roles.highest.position) {
@@ -564,7 +562,7 @@ async function executePlan(guild, plan, client) {
 export default {
     data: new SlashCommandBuilder()
         .setName("autosetup")
-        .setDescription("Bootstrap A.N.G.E.L. for this server: roles, log channels, and order channels"),
+        .setDescription("Set up roles, log channels, and order channels for this server."),
     category: "Config",
     async execute(interaction) {
         const client = interaction.client;
@@ -621,15 +619,15 @@ export default {
             const plan = await buildSetupPlan(i.guild, sel, config, { repairMode: true });
             // Validate hierarchy/permissions before repair
             if (plan.permissions.warnings.length) {
-                await i.editReply({ embeds: [embeds.warn("Repair blocked", plan.permissions.warnings.join("\n"))], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("wings:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
+                await i.editReply({ embeds: [embeds.warn("Repair blocked", plan.permissions.warnings.join("\n"))], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
                 return;
             }
             if (plan.hierarchy && !plan.hierarchy.ok) {
-                await i.editReply({ embeds: [embeds.warn("Hierarchy blocked", plan.hierarchy.problems.map((p)=>p.reason).join("\n"))], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("wings:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
+                await i.editReply({ embeds: [embeds.warn("Hierarchy blocked", plan.hierarchy.problems.map((p)=>p.reason).join("\n"))], components: [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary))] }).catch(()=>{});
                 return;
             }
             const results = await executePlan(i.guild, plan, client);
-            const embed = embeds.success("A.N.G.E.L. REPAIR COMPLETE", "Only broken resources were repaired.", [
+            const embed = embeds.success("Repair complete.", "Only broken resources were repaired.", [
                 { name: "ROLES", value: [
                     results.roles.staff ? `${results.roles.staff.action==="repaired"?"↻":"✓"} Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
                     results.roles.mod ? `${results.roles.mod.action==="repaired"?"↻":"✓"} Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
@@ -675,18 +673,18 @@ export default {
                 }
             }
             if (plan.permissions.warnings.length) {
-                await i.editReply({ embeds: [embeds.warn("Missing bot permissions", plan.permissions.warnings.join("\n") + "\n\nGive A.N.G.E.L. **Manage Channels** and **Manage Roles** then try again.")], components: [] }).catch(()=>{});
+                await i.editReply({ embeds: [embeds.warn("Missing bot permissions", plan.permissions.warnings.join("\n") + "\n\nGive the bot **Manage Channels** and **Manage Roles** then try again.")], components: [] }).catch(()=>{});
                 selections.delete(i.guild.id);
                 return;
             }
             if (plan.hierarchy && !plan.hierarchy.ok) {
-                await i.editReply({ embeds: [embeds.warn("Hierarchy blocked", plan.hierarchy.problems.map((p)=>p.reason).join("\n") + "\n\nMove A.N.G.E.L.'s role above the target roles.")], components: [] }).catch(()=>{});
+                await i.editReply({ embeds: [embeds.warn("Hierarchy blocked", plan.hierarchy.problems.map((p)=>p.reason).join("\n") + "\n\nMove the bot role above the target roles.")], components: [] }).catch(()=>{});
                 selections.delete(i.guild.id);
                 return;
             }
             try {
                 const results = await executePlan(i.guild, plan, client);
-                const embed = embeds.success("A.N.G.E.L. SETUP COMPLETE", "Your server is set up. Per-server configuration saved.", [
+                const embed = embeds.success("Setup complete.", "Per-server configuration saved.", [
                     { name: "ROLES", value: [
                         results.roles.staff ? `${results.roles.staff.action==="created"?"*":"✓"} Staff: ${results.roles.staff.id?`<@&${results.roles.staff.id}>`:`\`${results.roles.staff.name??"—"}\``} (${results.roles.staff.action})` : "—",
                         results.roles.mod ? `${results.roles.mod.action==="created"?"*":"✓"} Moderator: ${results.roles.mod.id?`<@&${results.roles.mod.id}>`:`\`${results.roles.mod.name??"—"}\``} (${results.roles.mod.action})` : "—",
@@ -705,18 +703,18 @@ export default {
                 await i.editReply({ embeds: [embed], components: [] }).catch(()=>{});
             } catch (e) {
                 logger.error("autosetup", "run failed", e);
-                await i.editReply({ embeds: [embeds.error("Setup failed", "Could not finish setup. Ensure A.N.G.E.L. has **Manage Channels** and **Manage Roles**.")], components: [] }).catch(()=>{});
+                await i.editReply({ embeds: [embeds.error("Setup failed", "Could not finish setup. Ensure the bot has **Manage Channels** and **Manage Roles**.")], components: [] }).catch(()=>{});
             }
             selections.delete(i.guild.id);
         };
 
-        client.components.set("wings:setup:staff", handlerStaff);
-        client.components.set("wings:setup:mod", handlerMod);
-        client.components.set("wings:setup:toggleCreate", handlerToggle);
-        client.components.set("wings:setup:preview", handlerPreview);
-        client.components.set("wings:setup:repair", handlerRepair);
-        client.components.set("wings:setup:back", handlerBack);
-        client.components.set("wings:setup:confirm", handlerConfirm);
+        client.components.set("pulse:setup:staff", handlerStaff);
+        client.components.set("pulse:setup:mod", handlerMod);
+        client.components.set("pulse:setup:toggleCreate", handlerToggle);
+        client.components.set("pulse:setup:preview", handlerPreview);
+        client.components.set("pulse:setup:repair", handlerRepair);
+        client.components.set("pulse:setup:back", handlerBack);
+        client.components.set("pulse:setup:confirm", handlerConfirm);
 
         await interaction.editReply(renderSetup(guild));
     },

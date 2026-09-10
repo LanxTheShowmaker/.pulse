@@ -8,7 +8,7 @@ export default {
         try{
             const res = await fetch("https://meme-api.com/gimme");
             const data = await res.json();
-            const embed = embeds.panel(`😂  ${data.title ?? "Meme"}`, `> *r/${data.subreddit}* • by *${data.author}*`, [], { footer:"A.N.G.E.L. • meme heavens"});
+            const embed = embeds.panel(`${data.title ?? "Meme"}`, `> *r/${data.subreddit}* • by *${data.author}*`, []);
             if(data.url) embed.setImage(data.url);
             embed.setURL(data.postLink ?? null);
             await interaction.editReply({ embeds:[embed] }).catch(()=>{});

@@ -1,5 +1,6 @@
 import { ComponentType, MessageFlags } from "discord.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";
+import { moderationActionPanel } from "../../design/containers/moderation.js";
 import { isModerator } from "../../core/services.js";
 
 export async function defer(interaction, ephemeral = false) {

@@ -120,7 +120,7 @@ export class BrandingService {
             banner,
             logo: branding?.avatarUrl || null,
             thumbnail: branding?.avatarUrl || null,
-            footerText: ".pulse · Pulse Variant 2",
+            footerText: ".pulse",
             footerIcon: icon,
         };
     }

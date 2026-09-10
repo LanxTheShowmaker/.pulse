@@ -23,7 +23,6 @@ export default {
         fields.push({ name:"Achievements", value:`**${unlocked}/${ach.length}** unlocked`, inline:true });
         if(unlocked>0) fields.push({ name:"Recent Unlocks", value: ach.filter(a=>a.progress?.unlocked).slice(0,3).map(a=> `${a.achievement.icon||"🏆"} ${a.achievement.name}`).join("\n").slice(0,1000) || "—"});
         embed.addFields(fields);
-        embed.setFooter({ text:"A.N.G.E.L. • V5 profile"});
         return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
     }
 };

@@ -1,4 +1,4 @@
-import { createContainer, createSection, createTextDisplay, createThumbnail, createActionRow, createButton, ButtonStyle, divider, headerText, bodyText, mutedText, spacer, createSelectMenu, createSelectOption } from "./base.js";
+import { createContainer, createSection, createTextDisplay, createThumbnail, createActionRow, createButton, ButtonStyle, divider, headerText, subHeaderText, bodyText, mutedText, spacer, createSelectMenu, createSelectOption } from "./base.js";
 import { Theme, Brand } from "../../design/theme.js";
 
 export function infoPanel(title, description, fields = [], opts = {}) {

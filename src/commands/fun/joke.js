@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 const jokes=[
-    "Why do angels never get lost? They always follow their halo.",
+    "There are only 10 kinds of people: those who understand binary and those who don't.",
     "I told my computer a joke — it had a byte.",
     "Why did the server go to therapy? Too many breakdowns.",
     "Parallel lines have so much in common — they’ll never meet.",
@@ -13,7 +13,7 @@ export default {
     category:"Fun",
     async execute(interaction){
         const j = jokes[Math.floor(Math.random()*jokes.length)];
-        const embed = embeds.panel("😂  Joke", `> *${j}*`, [], { footer:"A.N.G.E.L. • keep smiling"});
+        const embed = embeds.panel("Joke", `> *${j}*`, []);
         await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
 };

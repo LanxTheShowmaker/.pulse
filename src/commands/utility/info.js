@@ -22,7 +22,7 @@ export default {
         if (sub === "avatar") {
             const user = interaction.options.getUser("user") ?? interaction.user;
             const url = user.displayAvatarURL({ size: 512, forceStatic: false });
-            const e = embeds.panel(`✦  ${user.username}`, `*Avatar for **${user.tag}**.*`, [], { author: { name: `A.N.G.E.L. • Avatar`, iconURL: user.displayAvatarURL() } });
+            const e = embeds.panel(`✦  ${user.username}`, `*Avatar for **${user.tag}**.*`, [], { author: { name: `Avatar`, iconURL: user.displayAvatarURL() } });
             e.setImage(url);
             e.setColor(Theme.soft);
             const row = interaction.client.services.utility.makeAvatarButton(url);
@@ -47,7 +47,7 @@ export default {
             { name: "  Joined", value: `> ${member?.joinedAt ? time(member.joinedAt, "R") : "—"}`, inline: true },
             { name: "  Created", value: `> ${time(user.createdAt, "R")}`, inline: true },
             { name: "  Roles", value: `> ${roles}` },
-        ], { author: { name: `A.N.G.E.L. • Member`, iconURL: user.displayAvatarURL() } });
+        ], { author: { name: `Member`, iconURL: user.displayAvatarURL() } });
         e.setThumbnail(user.displayAvatarURL({ size: 256 }));
         e.setColor(Theme.info);
         return interaction.editReply({ embeds: [e] }).catch(() => {});

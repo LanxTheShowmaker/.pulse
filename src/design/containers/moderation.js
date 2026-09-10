@@ -1,4 +1,4 @@
-import { createContainer, createSection, createTextDisplay, createActionRow, createButton, ButtonStyle, divider, headerText, bodyText, mutedText, spacer, createThumbnail } from "./base.js";
+import { createContainer, createSection, createTextDisplay, createActionRow, createButton, ButtonStyle, divider, headerText, subHeaderText, bodyText, mutedText, spacer, createThumbnail } from "./base.js";
 import { Theme, Brand } from "../../design/theme.js";
 
 export function moderationActionPanel(action, target, moderator, reason, caseNumber, duration = null) {

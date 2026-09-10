@@ -7,7 +7,7 @@ function shopEmbed(guild, items, balance){
     if(!items.length){
         return new EmbedBuilder().setColor(Theme.gold).setAuthor({ name:`${guild.name} • Shop`, iconURL: guild.iconURL()??undefined })
             .setDescription("*The shop is empty — staff can add items with* `/shop add`")
-            .setFooter({ text:`Your balance: ${balance} coins • A.N.G.E.L.` }).setTimestamp();
+            .setFooter({ text:`Your balance: ${balance} coins` }).setTimestamp();
     }
     const lines = items.map((it, i)=>{
         const emoji = it.emoji ? `${it.emoji} ` : "";
@@ -18,7 +18,7 @@ function shopEmbed(guild, items, balance){
     }).join("\n\n");
     return new EmbedBuilder().setColor(Theme.gold).setAuthor({ name:`${guild.name} • Shop`, iconURL: guild.iconURL()??undefined })
         .setDescription(lines.slice(0,4000))
-        .setFooter({ text:`Your balance: ${balance} coins • Use /shop buy • A.N.G.E.L.` }).setTimestamp();
+        .setFooter({ text:`Your balance: ${balance} coins. Use /shop buy.` }).setTimestamp();
 }
 
 export default {
@@ -65,12 +65,12 @@ export default {
             // Add quick-buy select if items exist and <=25
             let comps = [];
             if(items.length && items.length <= 25){
-                const menu = new StringSelectMenuBuilder().setCustomId(`wings:shop:buy:${guildId}`).setPlaceholder("Quick buy — choose an item")
+                const menu = new StringSelectMenuBuilder().setCustomId(`pulse:shop:buy:${guildId}`).setPlaceholder("Quick buy — choose an item")
                     .addOptions(items.map(it=>({ label: `${it.name} — ${it.price}c`, value: it.name, description: (it.description??"").slice(0,100) || undefined, emoji: it.emoji && !it.emoji.startsWith("<") ? it.emoji : undefined })));
                 // Discord requires emoji as string if unicode; custom emoji parsing omitted for simplicity
                 comps = [new ActionRowBuilder().addComponents(menu)];
                 // Register handler once
-                const key = `wings:shop:buy:${guildId}`;
+                const key = `pulse:shop:buy:${guildId}`;
                 if(!interaction.client.components.has(key)){
                     interaction.client.components.set(key, async (i)=>{
                         const chosen = i.values?.[0];

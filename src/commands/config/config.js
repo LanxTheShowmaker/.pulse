@@ -121,7 +121,7 @@ export const componentHandlers = {
             divider(),
             createActionRow(menu),
             spacer(),
-            mutedText(".pulse · Pulse Variant 2"),
+            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });
@@ -152,7 +152,7 @@ export const componentHandlers = {
             divider(),
             createActionRow(menu),
             spacer(),
-            mutedText(".pulse · Pulse Variant 2"),
+            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });
@@ -224,7 +224,7 @@ export const componentHandlers = {
             divider(),
             createActionRow(menu),
             spacer(),
-            mutedText(".pulse · Pulse Variant 2"),
+            mutedText(".pulse"),
         ]);
         
         await i.update({ components: [container] });
