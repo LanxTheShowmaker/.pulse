@@ -89,6 +89,20 @@ export async function initDatabase(prisma) {
             throw e;
         }
     }
+
+    // Data migration: convert legacy ended=1 to status='ENDED'
+    // The ended column is kept in the schema for prisma db push compatibility
+    // but application code uses status exclusively
+    try {
+        const cols = await prisma.$queryRaw`PRAGMA table_info("Giveaway")`;
+        const hasStatus = cols.some(c => c.name === "status");
+        if (hasStatus) {
+            const updated = await prisma.$executeRaw`UPDATE "Giveaway" SET "status" = 'ENDED' WHERE "ended" = 1 AND "status" != 'ENDED'`;
+            if (updated > 0) logger.info("db", `migrated ${updated} ended giveaway(s) to status='ENDED'`);
+        }
+    } catch (e) {
+        logger.warn("db", "giveaway data migration skipped", e.message);
+    }
 }
 
 export function isStaff(member, config) {

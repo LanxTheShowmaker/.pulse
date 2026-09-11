@@ -251,6 +251,7 @@ model Giveaway {
   prize      String
   winners    Int      @default(1)
   endsAt     DateTime
+  ended      Boolean  @default(false)
   status     String   @default("ACTIVE")
   winnerIds  String   @default("[]")
   entryCount Int      @default(0)
