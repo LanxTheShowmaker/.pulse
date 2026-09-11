@@ -194,10 +194,25 @@ model Xp {
 }
 
 model Economy {
-  guildId   String
-  userId    String
-  balance   Int      @default(0)
-  updatedAt DateTime @updatedAt
+  guildId           String
+  userId            String
+  balance           Int      @default(0)
+  bank              Int      @default(0)
+  dailyStreak       Int      @default(0)
+  weeklyStreak      Int      @default(0)
+  lastDaily         DateTime?
+  lastWeekly        DateTime?
+  lastWork          DateTime?
+  lastCrime         DateTime?
+  lastRob           DateTime?
+  totalEarned       Int      @default(0)
+  totalSpent        Int      @default(0)
+  crimesCommitted   Int      @default(0)
+  crimesFailed      Int      @default(0)
+  timesRobbed       Int      @default(0)
+  slotsPlayed       Int      @default(0)
+  slotsWon          Int      @default(0)
+  updatedAt         DateTime @updatedAt
 
   @@id([guildId, userId])
 }
