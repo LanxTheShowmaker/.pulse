@@ -18,8 +18,14 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@discordjs/builders": "^0.16.0",
+    "@discordjs/collection": "3.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/formatters": "1.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/rest": "3.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/util": "2.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/ws": "3.0.0-pr-11602.1789066132-275cd4b42",
     "@prisma/client": "^5.22.0",
-    "discord.js": "^15.0.0-pr-11602.1789066132-275cd4b42",
+    "discord.js": "15.0.0-pr-11602.1789066132-275cd4b42",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
