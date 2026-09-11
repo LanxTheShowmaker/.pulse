@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { EmbedBuilder, ButtonBuilder, ActionRowBuilder } from "@discordjs/builders";
 import { MessageFlags, ButtonStyle } from "discord.js";
 import { Theme, Brand } from "../design/theme.js";
@@ -5,12 +6,22 @@ import { logger } from "../core/logger.js";
 
 const STATUS = { ACTIVE: "ACTIVE", ENDED: "ENDED" };
 
+function shuffle(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+}
+
 export class GiveawayService {
     prisma;
     client;
     _ticking = false;
     _tickInterval = null;
     _recovered = false;
+    _refreshPending = new Map(); // giveawayId -> timeout
 
     constructor(prisma, client) {
         this.prisma = prisma;
@@ -37,7 +48,7 @@ export class GiveawayService {
             if (giveaway.status !== STATUS.ACTIVE) return i.reply({ embeds: [this.errorEmbed("This giveaway has ended")], flags: MessageFlags.Ephemeral }).catch(() => {});
             if (giveaway.guildId !== i.guild.id) return i.reply({ embeds: [this.errorEmbed("Wrong server")], flags: MessageFlags.Ephemeral }).catch(() => {});
 
-            const result = await this.enter(giveaway.id, i.user.id);
+            const result = await this.enter(giveaway.id, i.user.id, giveaway.guildId);
             if (result.ok) {
                 await i.reply({ embeds: [this.successEmbed("Entered", `You're now entered to win **${giveaway.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
                 await this.refreshMessage(giveaway).catch(() => {});
@@ -58,7 +69,7 @@ export class GiveawayService {
 
     // ─── Entry Management ──────────────────────────────────
 
-    async enter(giveawayId, userId) {
+    async enter(giveawayId, userId, guildId) {
         try {
             const existing = await this.prisma.giveawayEntry.findUnique({
                 where: { giveawayId_userId: { giveawayId, userId } },
@@ -67,7 +78,7 @@ export class GiveawayService {
 
             // Atomic: create entry + increment count
             await this.prisma.giveawayEntry.create({
-                data: { guildId: (await this.prisma.giveaway.findUnique({ where: { id: giveawayId }, select: { guildId: true } })).guildId, giveawayId, userId },
+                data: { guildId, giveawayId, userId },
             });
             await this.prisma.giveaway.update({
                 where: { id: giveawayId },
@@ -163,14 +174,14 @@ export class GiveawayService {
 
         const eligibleIds = entries.map(e => e.userId);
         const winnerCount = Math.min(giveaway.winners, eligibleIds.length);
-        const shuffled = [...eligibleIds].sort(() => Math.random() - 0.5);
-        const winnerIds = shuffled.slice(0, winnerCount);
+        const winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
 
         // Store winners
-        await this.prisma.giveaway.update({
+        const storeResult = await this.prisma.giveaway.update({
             where: { id: giveawayId },
             data: { winnerIds: JSON.stringify(winnerIds) },
-        }).catch(() => {});
+        }).catch(e => { logger.error("giveaway", "winner store failed", { giveawayId, error: e }); return null; });
+        if (!storeResult) return { ok: false, error: "Failed to store winners" };
 
         // Update the original message
         await this.updateMessage(giveaway, winnerIds).catch(() => {});
@@ -204,8 +215,7 @@ export class GiveawayService {
         const eligible = entries.filter(e => !currentWinners.includes(e.userId));
         if (eligible.length === 0) {
             // If all entries are current winners, allow re-selection from all
-            const shuffled = [...entries].sort(() => Math.random() - 0.5);
-            const newWinners = shuffled.slice(0, Math.min(count, entries.length)).map(e => e.userId);
+            const newWinners = shuffle(entries).slice(0, Math.min(count, entries.length)).map(e => e.userId);
             await this.prisma.giveaway.update({
                 where: { id: giveawayId },
                 data: { winnerIds: JSON.stringify(newWinners) },
@@ -214,8 +224,7 @@ export class GiveawayService {
             return { ok: true, winnerIds: newWinners };
         }
 
-        const shuffled = [...eligible].sort(() => Math.random() - 0.5);
-        const newWinners = shuffled.slice(0, Math.min(count, eligible.length)).map(e => e.userId);
+        const newWinners = shuffle(eligible).slice(0, Math.min(count, eligible.length)).map(e => e.userId);
         const allWinners = [...currentWinners, ...newWinners];
         await this.prisma.giveaway.update({
             where: { id: giveawayId },
@@ -254,7 +263,7 @@ export class GiveawayService {
                 where: { status: STATUS.ACTIVE, endsAt: { lte: new Date() } },
                 orderBy: { endsAt: "asc" },
                 take: 25,
-            }).catch(() => []);
+            }).catch(e => { logger.error("giveaway", "tick query failed", e); return []; });
 
             for (const g of due) {
                 await this.processGiveaway(g).catch(e => logger.error("giveaway", `process failed: ${g.id}`, e));
@@ -286,13 +295,13 @@ export class GiveawayService {
 
         const eligibleIds = entries.map(e => e.userId);
         const winnerCount = Math.min(giveaway.winners, eligibleIds.length);
-        const shuffled = [...eligibleIds].sort(() => Math.random() - 0.5);
-        const winnerIds = shuffled.slice(0, winnerCount);
+        const winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
 
-        await this.prisma.giveaway.update({
+        const storeResult = await this.prisma.giveaway.update({
             where: { id: giveaway.id },
             data: { winnerIds: JSON.stringify(winnerIds) },
-        }).catch(() => {});
+        }).catch(e => { logger.error("giveaway", "winner store failed", { giveawayId: giveaway.id, error: e }); return null; });
+        if (!storeResult) return;
 
         // Update original message
         await this.updateMessage(giveaway, winnerIds).catch(() => {});
@@ -398,6 +407,14 @@ export class GiveawayService {
     }
 
     async refreshMessage(giveaway) {
+        // Debounce: batch multiple entry clicks into one refresh per 3 seconds
+        if (this._refreshPending.has(giveaway.id)) return;
+        this._refreshPending.set(giveaway.id, true);
+        setTimeout(() => this._refreshPending.delete(giveaway.id), 3_000);
+
+        // Small delay to batch concurrent entries
+        await new Promise(r => setTimeout(r, 500));
+
         const guild = this.client.guilds.cache.get(giveaway.guildId);
         if (!guild) return;
         const ch = guild.channels.cache.get(giveaway.channelId) ?? await guild.channels.fetch(giveaway.channelId).catch(() => null);
@@ -405,7 +422,6 @@ export class GiveawayService {
         const msg = await ch.messages.fetch(giveaway.messageId).catch(() => null);
         if (!msg) return;
 
-        // Re-fetch fresh data
         const fresh = await this.prisma.giveaway.findUnique({ where: { id: giveaway.id } });
         if (!fresh) return;
 
