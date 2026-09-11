@@ -242,17 +242,34 @@ model ReactionRole {
 }
 
 model Giveaway {
-  id        String   @id @default(uuid())
-  guildId   String
-  channelId String
-  messageId String   @unique
-  prize     String
-  winners   Int      @default(1)
-  endsAt    DateTime
-  ended     Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  guildId    String
+  channelId  String
+  messageId  String   @unique
+  hostId     String?
+  hostTag    String?
+  prize      String
+  winners    Int      @default(1)
+  endsAt     DateTime
+  status     String   @default("ACTIVE")
+  winnerIds  String   @default("[]")
+  entryCount Int      @default(0)
+  createdAt  DateTime @default(now())
 
   @@index([endsAt])
+  @@index([guildId, status])
+}
+
+model GiveawayEntry {
+  id         String   @id @default(uuid())
+  guildId    String
+  giveawayId String
+  userId     String
+  enteredAt  DateTime @default(now())
+
+  @@unique([giveawayId, userId])
+  @@index([guildId])
+  @@index([giveawayId])
 }
 
 model Suggestion {
