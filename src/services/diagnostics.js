@@ -50,7 +50,7 @@ export class DiagnosticsService {
         // Tickets
         try{
             const panels=await this.prisma.panel.findMany({ where:{ guildId }}).catch(()=>[]);
-            if(!panels.length) push("Tickets Panels","WARNING","No panels configured","Run /setuptickets");
+            if(!panels.length) push("Tickets Panels","WARNING","No panels configured","Run /tickets panel");
             else push("Tickets Panels","OK",`${panels.length} panels`);
             const tts=await this.prisma.ticketType.count({ where:{ guildId }}).catch(()=>0);
             if(tts===0) push("Ticket Types","WARNING","No ticket types");

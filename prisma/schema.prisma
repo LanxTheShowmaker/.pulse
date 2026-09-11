@@ -162,21 +162,24 @@ model TicketType {
 }
 
 model Ticket {
-  id          String    @id @default(uuid())
-  guildId     String
-  channelId   String    @unique
-  openerId    String
-  typeId      String?
-  panelType   String?
-  status      String    @default("OPEN")
-  priority    String    @default("NORMAL")
-  claimedById String?
-  createdAt   DateTime  @default(now())
-  closedAt    DateTime?
-  transcript  String?
+  id            String    @id @default(uuid())
+  guildId       String
+  channelId     String    @unique
+  openerId      String
+  typeId        String?
+  panelType     String?
+  status        String    @default("OPEN")
+  priority      String    @default("NORMAL")
+  claimedById   String?
+  closedById    String?
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  closedAt      DateTime?
+  transcript    String?
 
   @@index([guildId, openerId])
   @@index([guildId, status])
+  @@index([guildId, closedAt])
 }
 
 model Xp {

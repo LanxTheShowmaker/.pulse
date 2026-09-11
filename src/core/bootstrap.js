@@ -3,6 +3,7 @@ import { GatewayIntentBits, Partials } from "discord.js";
 import { PulseClient } from "./client.js";
 import { loadCommands, loadEvents } from "./registry.js";
 import { createServices, initDatabase } from "./services.js";
+import { registerTicketHandlers } from "../services/ticketService.js";
 import { logger } from "./logger.js";
 
 process.on("unhandledRejection", (e) => logger.error("process", "unhandledRejection", e));
@@ -53,6 +54,9 @@ async function main() {
             }
         }
     }
+
+    // Register ticket system handlers
+    registerTicketHandlers(client, client.services.tickets);
 
     // Load and register events
     const events = await loadEvents();

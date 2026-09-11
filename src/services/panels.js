@@ -261,7 +261,10 @@ export class PanelService {
             if (!msg) return { ok:false, status:"missing_message" };
         }
         try {
-            const res = await fetch(panel.bannerUrl, { method:"HEAD" }).catch(()=>null);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10_000);
+            const res = await fetch(panel.bannerUrl, { method:"HEAD", signal: controller.signal }).catch(()=>null);
+            clearTimeout(timeout);
             if (res && res.status===404) return { ok:false, status:"404" };
         } catch {}
         return { ok:true, status:"ok" };
@@ -283,7 +286,9 @@ export class PanelService {
         }
         if (channel.type !== ChannelType.GuildText) return { ok:false, reason:"Panel channel must be text" };
         const me = guild.members.me;
-        if (!me?.permissionsIn(channel).has(PermissionFlagsBits.SendMessages) || !me.permissionsIn(channel).has(PermissionFlagsBits.EmbedLinks)) return { ok:false, reason:"Missing SendMessages/EmbedLinks in " + channel.name };
+        const requiredPerms = [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks];
+        const missing = requiredPerms.filter(p => !me?.permissionsIn(channel).has(p));
+        if (missing.length) return { ok:false, reason:`Missing permissions in ${channel.name}: ${missing.join(", ")}` };
 
         // Build embed/components — seed defaults if missing so dropdown always appears
         let ticketTypes = [];
@@ -327,9 +332,13 @@ export class PanelService {
     async deployAll(guild) {
         const results = {};
         for (const t of Object.values(PANEL_TYPES)) {
-            const panel = await this.get(guild.id, t);
-            if (!panel.enabled) { results[t] = { ok:true, action:"skipped", reason:"disabled" }; continue; }
-            results[t] = await this.deploy(guild, t);
+            try {
+                const panel = await this.get(guild.id, t);
+                if (!panel.enabled) { results[t] = { ok:true, action:"skipped", reason:"disabled" }; continue; }
+                results[t] = await this.deploy(guild, t);
+            } catch (e) {
+                results[t] = { ok:false, reason: String(e.message).slice(0,200) };
+            }
         }
         return results;
     }
@@ -345,16 +354,24 @@ export class PanelService {
                     const found = this.findChannel(guild, [PANEL_META[t].defaultChannel, t.toLowerCase()]);
                     if (found) {
                         await this.upsert(guild.id, t, { channelId: found.id });
-                        report.push(`${t}: channel repaired → #${found.name}`);
+                        report.push(`${t}: channel repaired \u2192 #${found.name}`);
                     } else report.push(`${t}: channel missing ${panel.channelId}`);
                 }
             }
-            // Message deleted?
+            // Message deleted — attempt re-deploy
             if (panel.messageId && panel.channelId) {
                 const ch = guild.channels.cache.get(panel.channelId) ?? await guild.channels.fetch(panel.channelId).catch(()=>null);
                 if (ch) {
                     const msg = await ch.messages.fetch(panel.messageId).catch(()=>null);
-                    if (!msg) report.push(`${t}: message missing — will recreate on deploy`);
+                    if (!msg) {
+                        try {
+                            const result = await this.deploy(guild, t);
+                            if (result.ok) report.push(`${t}: message recreated \u2192 <#${result.channelId}>`);
+                            else report.push(`${t}: message missing \u2014 redeploy failed: ${result.reason}`);
+                        } catch (e) {
+                            report.push(`${t}: message missing \u2014 redeploy failed: ${e.message}`);
+                        }
+                    }
                 }
             }
             // Banner missing?

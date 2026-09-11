@@ -9,7 +9,7 @@ import { UtilityService } from "../services/utility.js";
 import { FortressService } from "../services/fortress.js";
 import { AssetService } from "../services/assets.js";
 import { PanelService } from "../services/panels.js";
-import { TicketSystemService } from "../services/ticketSystem.js";
+import { TicketService, registerTicketHandlers } from "../services/ticketService.js";
 import { WelcomeService } from "../services/welcome.js";
 import { LevelingService } from "../services/leveling.js";
 import { ReactionRoleService } from "../services/reactionRoles.js";
@@ -43,7 +43,7 @@ export function createServices(client) {
     const utility = new UtilityService(prisma, client);
     const assets = new AssetService(client);
     const panels = new PanelService(prisma, client);
-    const tickets = new TicketSystemService(prisma, client, settings, logging);
+    const tickets = new TicketService(prisma, client, settings, logging);
     const welcome = new WelcomeService(prisma, client, settings);
     const leveling = new LevelingService(prisma, client);
     const reactionRoles = new ReactionRoleService(prisma, client);
