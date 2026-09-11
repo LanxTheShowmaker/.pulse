@@ -74,11 +74,18 @@ export function createServices(client) {
 
 export async function initDatabase(prisma) {
     await prisma.$connect();
-    for (const sql of ["PRAGMA journal_mode=WAL;", "PRAGMA busy_timeout=5000;", "PRAGMA synchronous=NORMAL;"]) {
+    // All PRAGMAs return their new value when set, so $queryRawUnsafe is required
+    const pragmas = [
+        { sql: "PRAGMA journal_mode=WAL", name: "journal_mode" },
+        { sql: "PRAGMA busy_timeout=5000", name: "busy_timeout" },
+        { sql: "PRAGMA synchronous=NORMAL", name: "synchronous" },
+    ];
+    for (const { sql, name } of pragmas) {
         try {
-            await prisma.$executeRawUnsafe(sql);
+            const result = await prisma.$queryRawUnsafe(sql);
+            logger.info("db", `${name} = ${result[0]?.[name]}`);
         } catch (e) {
-            logger.error("db", `pragma failed: ${sql}`, e.message);
+            logger.error("db", `${sql} failed`, e.message);
             throw e;
         }
     }
