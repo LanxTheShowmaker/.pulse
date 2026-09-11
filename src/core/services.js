@@ -8,6 +8,11 @@ import { LevelingService } from "../services/leveling.js";
 import { EconomyService } from "../services/economy.js";
 import { GiveawayService } from "../services/giveaways.js";
 import { TicketService } from "../services/tickets.js";
+import { ShopService } from "../services/shop.js";
+import { SuggestionService } from "../services/suggestions.js";
+import { StarboardService } from "../services/starboard.js";
+import { AfkService } from "../services/afk.js";
+import { AuditService } from "../services/audit.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
@@ -22,9 +27,14 @@ export function createServices(client) {
     const economy = new EconomyService(prisma, client);
     const giveaways = new GiveawayService(prisma, client);
     const tickets = new TicketService(prisma, client, settings, logging);
+    const shop = new ShopService(prisma, client, economy);
+    const suggestions = new SuggestionService(prisma, client);
+    const starboard = new StarboardService(prisma, client);
+    const afk = new AfkService(prisma, client);
+    const audit = new AuditService(prisma, client);
 
     client.prisma = prisma;
-    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit };
 }
 
 export async function shutdownServices(services) {
