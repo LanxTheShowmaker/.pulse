@@ -2,7 +2,7 @@ import "dotenv/config";
 import { GatewayIntentBits, Partials } from "discord.js";
 import { PulseClient } from "./client.js";
 import { loadCommands, loadEvents } from "./registry.js";
-import { createServices, initDatabase } from "./services.js";
+import { createServices, initDatabase, shutdownServices } from "./services.js";
 import { logger } from "./logger.js";
 
 process.on("unhandledRejection", e => logger.error("process", "unhandledRejection", e));
@@ -52,6 +52,7 @@ async function main() {
     const shutdown = async (signal) => {
         logger.info("bootstrap", `${signal}, shutting down`);
         try {
+            await shutdownServices(client.services);
             await client.services.prisma.$disconnect();
         } catch {}
         client.destroy();

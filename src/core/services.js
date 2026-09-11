@@ -1,18 +1,38 @@
 import { PrismaClient } from "@prisma/client";
+import { SettingsService } from "../services/settings.js";
 import { CasesService } from "../services/cases.js";
 import { LoggingService } from "../services/logging.js";
 import { ModerationService } from "../services/moderation.js";
+import { AutoModService } from "../services/automod.js";
+import { LevelingService } from "../services/leveling.js";
+import { EconomyService } from "../services/economy.js";
+import { GiveawayService } from "../services/giveaways.js";
+import { TicketService } from "../services/tickets.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
     const prisma = new PrismaClient();
 
+    const settings = new SettingsService(prisma, client);
     const cases = new CasesService(prisma);
     const logging = new LoggingService(prisma, client);
     const moderation = new ModerationService(prisma, cases, logging, client);
+    const automod = new AutoModService(prisma, client, settings, logging);
+    const leveling = new LevelingService(prisma, client);
+    const economy = new EconomyService(prisma, client);
+    const giveaways = new GiveawayService(prisma, client);
+    const tickets = new TicketService(prisma, client, settings, logging);
 
     client.prisma = prisma;
-    return { prisma, cases, logging, moderation };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets };
+}
+
+export async function shutdownServices(services) {
+    for (const svc of Object.values(services)) {
+        if (svc && typeof svc.shutdown === "function") {
+            await svc.shutdown().catch(() => {});
+        }
+    }
 }
 
 export async function initDatabase(prisma) {

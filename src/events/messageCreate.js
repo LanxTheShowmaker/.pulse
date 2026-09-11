@@ -6,7 +6,11 @@ export default {
     async execute(message, client) {
         if (message.author.bot || !message.guild) return;
 
-        // Prefix commands — check if message starts with prefix
-        // TODO: implement prefix routing when prefix service is built
+        // AutoMod
+        try {
+            await client.services.automod.handleMessage(message);
+        } catch (e) {
+            logger.error("events", "automod handler failed", e.message);
+        }
     },
 };
