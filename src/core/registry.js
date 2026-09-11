@@ -1,110 +1,67 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { Collection } from "discord.js";
+import { readdir } from "node:fs/promises";
+import { join, extname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { logger } from "./logger.js";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-
 async function walk(dir) {
-    const out = [];
-    if (!fs.existsSync(dir))
-        return out;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-        const full = path.join(dir, entry.name);
-        if (entry.isDirectory())
-            out.push(...(await walk(full)));
-        else if (entry.name.endsWith(".js"))
-            out.push(full);
+    const entries = await readdir(dir, { withFileTypes: true });
+    const files = [];
+    for (const e of entries) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) files.push(...await walk(full));
+        else if (extname(e.name) === ".js") files.push(full);
     }
-    return out;
+    return files;
 }
 
 export async function loadCommands() {
-    const commands = new Collection();
-    const dir = path.join(here, "..", "commands");
-    const files = await walk(dir);
-    const commandFiles = files.filter(f => {
-        const base = path.basename(f);
-        if (base === "shared.js") return false;
-        return true;
-    });
+    const commands = new Map();
+    const dir = join(import.meta.dirname, "..", "commands");
+    let failed = 0;
 
-    let loaded = 0, failed = 0;
-    const failures = [];
+    let files;
+    try { files = await walk(dir); } catch { return commands; }
 
-    for (const file of commandFiles) {
+    for (const file of files) {
         try {
             const mod = await import(pathToFileURL(file).href);
             const cmd = mod.default ?? mod;
-            if (!cmd?.data?.name) {
-                failed++;
-                failures.push({ file: path.relative(process.cwd(), file), error: "Missing data.name" });
-                logger.error("registry", `Command missing data.name: ${file}`);
-                continue;
-            }
-            try {
-                cmd.data.toJSON();
-            } catch (e) {
-                failed++;
-                failures.push({ file: path.relative(process.cwd(), file), name: cmd.data.name, error: e.message });
-                logger.error("registry", `Command serialization failed: ${cmd.data.name}`, e);
-                continue;
-            }
-            if (commands.has(cmd.data.name)) {
-                failed++;
-                failures.push({ file: path.relative(process.cwd(), file), error: `Duplicate command name: ${cmd.data.name}` });
-                logger.error("registry", `Duplicate command name: ${cmd.data.name}`);
-                continue;
-            }
+            if (!cmd?.data?.name) { logger.warn("registry", `skip ${file} — no data.name`); continue; }
+            if (commands.has(cmd.data.name)) { logger.warn("registry", `duplicate: ${cmd.data.name}`); continue; }
             commands.set(cmd.data.name, cmd);
-            loaded++;
         } catch (e) {
+            logger.error("registry", `failed: ${file}`, e.message);
             failed++;
-            failures.push({ file: path.relative(process.cwd(), file), error: e.message });
-            logger.error("registry", `Command load failed: ${file}`, e);
         }
     }
 
-    logger.info("registry", `Commands loaded: ${loaded}, failed: ${failed}`);
-    if (failures.length) {
-        for (const f of failures) logger.warn("registry", `Failure: ${f.file} - ${f.error}`);
-    }
+    logger.info("registry", `commands loaded: ${commands.size}, failed: ${failed}`);
     return commands;
 }
 
 export async function loadEvents() {
     const events = [];
-    const seen = new Set();
+    const dir = join(import.meta.dirname, "..", "events");
     let failed = 0;
-    const files = await walk(path.join(here, "..", "events"));
+
+    let files;
+    try { files = await walk(dir); } catch { return events; }
+
     for (const file of files) {
         try {
             const mod = await import(pathToFileURL(file).href);
-            const ev = mod.default ?? mod;
-            if (!ev?.name) {
-                failed++;
-                logger.error("registry", `Event missing name: ${file}`);
+            const evt = mod.default ?? mod;
+            if (!evt?.name || typeof evt.execute !== "function") {
+                logger.warn("registry", `skip ${file} — no name/execute`);
                 continue;
             }
-            if (typeof ev.execute !== "function") {
-                failed++;
-                logger.error("registry", `Event missing execute: ${ev.name} (${file})`);
-                continue;
-            }
-            if (seen.has(ev.name)) {
-                failed++;
-                logger.error("registry", `Duplicate event name: ${ev.name} (${file})`);
-                continue;
-            }
-            seen.add(ev.name);
-            events.push(ev);
+            events.push(evt);
         } catch (e) {
+            logger.error("registry", `failed: ${file}`, e.message);
             failed++;
-            logger.error("registry", `Event load failed: ${file}`, e);
         }
     }
-    logger.info("registry", `Events loaded: ${events.length}, failed: ${failed}`);
+
+    logger.info("registry", `events loaded: ${events.length}, failed: ${failed}`);
     return events;
 }
-//# sourceMappingURL=registry.js.map

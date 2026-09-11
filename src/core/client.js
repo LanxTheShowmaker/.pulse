@@ -1,11 +1,7 @@
-import { Client, Collection } from "discord.js";
+import { Client } from "discord.js";
 
 export class PulseClient extends Client {
-    constructor(options) {
-        super(options);
-        this.services = {};
-        this.commands = new Collection();
-        this.components = new Collection();
-    }
+    commands = new Map();
+    components = new Map();
+    services = {};
 }
-//# sourceMappingURL=client.js.map

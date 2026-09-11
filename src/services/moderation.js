@@ -1,188 +1,122 @@
-import { GuildMember } from "discord.js";
-import { userTag } from "../design/format.js";
+import { EmbedBuilder } from "@discordjs/builders";
+import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
-const DEFAULT_THRESHOLDS = { warn: 3, timeout: 5, kick: 7, ban: 10 };
+
 export class ModerationService {
-    prisma;
-    cases;
-    logging;
-    client;
-    expiryTimer;
-    constructor(prisma, cases, logging, client=null) {
+    constructor(prisma, cases, logging, client) {
         this.prisma = prisma;
         this.cases = cases;
         this.logging = logging;
         this.client = client;
-        // Expiration checker every 60s
-        this.expiryTimer = setInterval(()=> this.checkExpirations().catch((e)=> logger.error("moderation", "expiry sweep failed", e?.message)), 60_000);
-        if(this.expiryTimer?.unref) this.expiryTimer.unref();
     }
-    shutdown(){ if(this.expiryTimer) clearInterval(this.expiryTimer); this.expiryTimer=null; }
-    setClient(client){ this.client=client; }
-    async _markFailed(guildId, caseNumber, error){
-        try{
-            await this.cases.edit(guildId, caseNumber, { metadata:{ failed:true, error: String(error?.message ?? error).slice(0,500) } }).catch(()=>null);
-        }catch{}
-        try{
-            const sys = this.client?.user ? { id: this.client.user.id, tag: this.client.user.tag } : { id: "system", tag: "system" };
-            await this.cases.resolve(guildId, caseNumber, sys).catch(()=>null);
-        }catch{}
-    }
-    async record(guild, target, moderator, action, reason, duration) {
-        const created = await this.cases.create({
-            guildId: guild.id,
-            targetId: target.id,
-            targetTag: userTag(target instanceof GuildMember ? target.user : target),
-            moderatorId: moderator.id,
-            moderatorTag: userTag(moderator),
-            action,
-            reason,
-            duration: duration?.label,
-            durationMs: duration?.ms,
+
+    async warn(guildId, moderator, target, reason) {
+        const case_ = await this.cases.create(guildId, {
+            targetId: target.id, targetTag: target.tag ?? target.user?.tag ?? "unknown",
+            moderatorId: moderator.id, moderatorTag: moderator.tag ?? moderator.user?.tag ?? "unknown",
+            action: "warn", reason,
         });
-        await this.logging.logCase(created).catch((e) => logger.error("moderation", "case log failed", e));
-        // Audit & automation via client.services if available (awaited; caller catches failures)
-        const audit = this.client?.services?.audit ?? null;
-        if (audit) await audit.log(guild.id, { actorId: moderator.id, targetId: target.id, action: action.toLowerCase(), category: "moderation", details: { caseNumber: created.caseNumber, reason } });
-        if (this.client?.services?.automation) await this.client.services.automation.trigger(guild.id, "moderationCase", { caseNumber: created.caseNumber, action, targetId: target.id, moderatorId: moderator.id });
-        return created;
+
+        const embed = this.buildModEmbed("Warned", target, moderator, reason, case_.caseNumber);
+        await this.logging.logMod(guildId, embed);
+
+        return { case: case_ };
     }
-    async ban(guild, target, moderator, reason, days = 0) {
-        const c = await this.record(guild, target, moderator, "BAN", reason);
-        try{
-            await guild.bans.create(target.id, { reason: `${reason ?? "No reason"} · Case #${c.caseNumber}`, deleteMessageSeconds: days * 86400 });
-        }catch(e){
-            logger.error("moderation", "ban failed", e);
-            await this._markFailed(guild.id, c.caseNumber, e);
-            throw e;
+
+    async ban(guildId, moderator, target, reason, duration) {
+        const member = await this.client.guilds.cache.get(guildId)?.members.fetch(target.id).catch(() => null);
+
+        const case_ = await this.cases.create(guildId, {
+            targetId: target.id, targetTag: target.tag ?? target.user?.tag ?? "unknown",
+            moderatorId: moderator.id, moderatorTag: moderator.tag ?? moderator.user?.tag ?? "unknown",
+            action: "ban", reason,
+            duration: duration?.text ?? null,
+            durationMs: duration?.ms ?? null,
+        });
+
+        if (member) {
+            await member.ban({ deleteMessageSeconds: 0, reason: `Case #${case_.caseNumber}: ${reason ?? "No reason provided"}` }).catch(e => {
+                logger.error("moderation", "ban failed", e.message);
+                return null;
+            });
         }
-        return c;
-    }
-    async unban(guild, userId, userTagStr, moderator, reason) {
-        const c = await this.cases.create({ guildId: guild.id, targetId: userId, targetTag: userTagStr, moderatorId: moderator.id, moderatorTag: userTag(moderator), action: "UNBAN", reason });
-        try{
-            await guild.bans.remove(userId, reason);
-        }catch(e){
-            logger.error("moderation", "unban failed", e);
-            await this._markFailed(guild.id, c.caseNumber, e);
-            throw e;
+
+        const embed = this.buildModEmbed("Banned", target, moderator, reason, case_.caseNumber, duration?.text);
+        await this.logging.logMod(guildId, embed);
+
+        // DM the target
+        if (member) {
+            await member.send({ content: `You have been banned from **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}${duration?.text ? `\nDuration: ${duration.text}` : ""}` }).catch(() => {});
         }
-        await this.logging.logCase(c).catch(() => { });
-        return c;
+
+        return { case: case_ };
     }
-    async kick(guild, target, moderator, reason) {
-        const c = await this.record(guild, target, moderator, "KICK", reason);
-        try{
-            await target.kick(reason);
-        }catch(e){
-            logger.error("moderation", "kick failed", e);
-            await this._markFailed(guild.id, c.caseNumber, e);
-            throw e;
+
+    async kick(guildId, moderator, target, reason) {
+        const member = await this.client.guilds.cache.get(guildId)?.members.fetch(target.id).catch(() => null);
+
+        const case_ = await this.cases.create(guildId, {
+            targetId: target.id, targetTag: target.tag ?? target.user?.tag ?? "unknown",
+            moderatorId: moderator.id, moderatorTag: moderator.tag ?? moderator.user?.tag ?? "unknown",
+            action: "kick", reason,
+        });
+
+        // DM before kick
+        if (member) {
+            await member.send({ content: `You have been kicked from **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}` }).catch(() => {});
+            await member.kick(`Case #${case_.caseNumber}: ${reason ?? "No reason provided"}`).catch(e => {
+                logger.error("moderation", "kick failed", e.message);
+                return null;
+            });
         }
-        return c;
+
+        const embed = this.buildModEmbed("Kicked", target, moderator, reason, case_.caseNumber);
+        await this.logging.logMod(guildId, embed);
+
+        return { case: case_ };
     }
-    async timeout(target, moderator, ms, reason) {
-        const c = await this.record(target.guild, target, moderator, "TIMEOUT", reason, { label: timeLabel(ms), ms });
-        try{
-            await target.disableCommunicationUntil(new Date(Date.now() + Number(ms)));
-        }catch(e){
-            logger.error("moderation", "timeout failed", e);
-            await this._markFailed(target.guild.id, c.caseNumber, e);
-            throw e;
+
+    async timeout(guildId, moderator, target, reason, duration) {
+        const member = await this.client.guilds.cache.get(guildId)?.members.fetch(target.id).catch(() => null);
+
+        const case_ = await this.cases.create(guildId, {
+            targetId: target.id, targetTag: target.tag ?? target.user?.tag ?? "unknown",
+            moderatorId: moderator.id, moderatorTag: moderator.tag ?? moderator.user?.tag ?? "unknown",
+            action: "timeout", reason,
+            duration: duration?.text ?? null,
+            durationMs: duration?.ms ?? null,
+        });
+
+        if (member) {
+            const until = duration?.ms ? new Date(Date.now() + duration.ms) : null;
+            await member.timeout(duration?.ms ?? 60_000, `Case #${case_.caseNumber}: ${reason ?? "No reason provided"}`).catch(e => {
+                logger.error("moderation", "timeout failed", e.message);
+                return null;
+            });
         }
-        return c;
-    }
-    async warn(guild, target, moderator, reason) {
-        const c = await this.record(guild, target, moderator, "WARN", reason);
-        // Check escalation
-        await this.checkEscalation(guild, target).catch((e)=> logger.error("moderation", "escalation check failed", e?.message));
-        return c;
-    }
-    async note(guild, target, moderator, reason) {
-        return this.record(guild, target, moderator, "NOTE", reason);
-    }
-    // Escalation thresholds
-    async getThresholds(guildId){
-        try{
-            const cfg = await this.prisma.guildConfig.findUnique({ where:{ guildId }}).catch(()=>null);
-            if(!cfg) return DEFAULT_THRESHOLDS;
-            const automod = JSON.parse(cfg.automod||"{}");
-            return { ...DEFAULT_THRESHOLDS, ...(automod.thresholds||{}) };
-        }catch{ return DEFAULT_THRESHOLDS; }
-    }
-    async setThresholds(guildId, patch){
-        const cfg = await this.prisma.guildConfig.findUnique({ where:{ guildId }}).catch(()=>null);
-        if(!cfg) return;
-        const automod = JSON.parse(cfg.automod||"{}");
-        automod.thresholds = { ...(automod.thresholds||DEFAULT_THRESHOLDS), ...patch };
-        await this.prisma.guildConfig.update({ where:{ guildId }, data:{ automod: JSON.stringify(automod) }}).catch(()=>{});
-        return automod.thresholds;
-    }
-    async checkEscalation(guild, target){
-        const thresholds=await this.getThresholds(guild.id);
-        const count=await this.cases.infractionCount(guild.id, target.id).catch(()=>0);
-        let action=null, duration=null;
-        if(count >= thresholds.ban) action="ban";
-        else if(count >= thresholds.kick) action="kick";
-        else if(count >= thresholds.timeout) { action="timeout"; duration=10*60*1000; }
-        else if(count >= thresholds.warn) { action="timeout"; duration=5*60*1000; }
-        if(!action) return null;
-        // Avoid auto-escalating if already recently escalated (check last case)
-        const recent=await this.cases.byTarget(guild.id, target.id, 1).catch(()=>[]);
-        if(recent[0]?.action===action.toUpperCase() && Date.now()-new Date(recent[0].createdAt).getTime()<60000) return null;
-        // Perform escalation as system (moderator = guild.me)
-        const me=guild.members.me;
-        if(!me) return null;
-        if(action==="ban") await this.ban(guild, target, me, `Auto-escalation: ${count} infractions`).catch(()=>{});
-        else if(action==="kick") await this.kick(guild, target, me, `Auto-escalation: ${count} infractions`).catch(()=>{});
-        else if(action==="timeout"){
-            const member=target instanceof GuildMember ? target : await guild.members.fetch(target.id).catch(()=>null);
-            if(member) await this.timeout(member, me, duration, `Auto-escalation: ${count} infractions`).catch(()=>{});
+
+        const embed = this.buildModEmbed("Timed out", target, moderator, reason, case_.caseNumber, duration?.text);
+        await this.logging.logMod(guildId, embed);
+
+        if (member) {
+            await member.send({ content: `You have been timed out in **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}\nDuration: ${duration?.text ?? "Unknown"}` }).catch(() => {});
         }
-        return { action, count };
+
+        return { case: case_ };
     }
-    async getUserHistory(guildId, targetId){
-        const history=await this.cases.history(guildId, targetId).catch(()=>[]);
-        const notes=await this.cases.getNotes(guildId, targetId).catch(()=>[]);
-        const warns=history.filter(c=>c.action==="WARN").length;
-        return { history, notes, warns, total: history.length };
+
+    buildModEmbed(action, target, moderator, reason, caseNumber, duration) {
+        const color = action === "Banned" ? Theme.danger : action === "Timed out" ? Theme.warn : Theme.accent;
+        return new EmbedBuilder()
+            .setColor(color)
+            .setTitle(`${action}`)
+            .addFields(
+                { name: "Target", value: `<@${target.id}> (${target.tag ?? target.user?.tag ?? "unknown"})`, inline: true },
+                { name: "Moderator", value: `<@${moderator.id}>`, inline: true },
+                { name: "Case", value: `#${caseNumber}`, inline: true },
+            )
+            .setDescription(reason ?? "No reason provided")
+            .setFooter({ text: Brand.footer })
+            .setTimestamp();
     }
-    async getModStats(guildId, moderatorId=null){
-        if(moderatorId){
-            const count=await this.prisma.case.count({ where:{ guildId, moderatorId }}).catch(()=>0);
-            const recent=await this.cases.byModerator(guildId, moderatorId, 10).catch(()=>[]);
-            return { count, recent };
-        }
-        return this.cases.stats(guildId);
-    }
-    async checkExpirations(){
-        try{
-            if(!this.client) return;
-            const guildIds = await this.prisma.guildConfig.findMany({ select:{ guildId:true }}).then(r=>r.map(x=>x.guildId)).catch(()=>[]);
-            for(const gid of guildIds){
-                const expired=await this.cases.expiredPunishments(gid).catch(()=>[]);
-                for(const c of expired){
-                    if(c.action!=="TIMEOUT") continue;
-                    const guild=this.client.guilds.cache.get(gid);
-                    if(!guild) continue;
-                    const member=await guild.members.fetch(c.targetId).catch(()=>null);
-                    if(member && member.isCommunicationDisabled()){
-                        await member.disableCommunicationUntil(null, "Punishment expired").catch(()=>{});
-                        await this.cases.resolve(gid, c.caseNumber, { id: this.client.user.id, tag: this.client.user.tag }).catch(()=>{});
-                        await this.client?.services?.audit?.log(gid,{ actorId: this.client.user.id, targetId: c.targetId, action:"timeout_expire", category:"moderation", details:{ caseNumber:c.caseNumber }}).catch(()=>{});
-                    }
-                }
-            }
-        }catch(e){ logger.error("moderation","expiration check failed",e); }
-    }
-}
-function timeLabel(ms) {
-    const seconds = Number(ms) / 1000;
-    if (seconds < 60)
-        return `${seconds}s`;
-    if (seconds < 3600)
-        return `${Math.round(seconds / 60)}m`;
-    if (seconds < 86400)
-        return `${Math.round(seconds / 3600)}h`;
-    return `${Math.round(seconds / 86400)}d`;
 }

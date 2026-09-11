@@ -1,22 +1,15 @@
-const ORDER = { debug: 10, info: 20, warn: 30, error: 40 };
-function emit(level, scope, message, meta) {
-    const raw = process.env.LOG_LEVEL || "info";
-    const threshold = ORDER[raw] === undefined ? "info" : raw;
-    if (ORDER[level] < ORDER[threshold])
-        return;
+const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 };
+const current = LEVELS[process.env.LOG_LEVEL ?? "info"] ?? 1;
+
+function fmt(level, scope, msg, data) {
     const ts = new Date().toISOString();
-    const line = `[${ts}] ${level.toUpperCase().padEnd(5)} ${scope.padEnd(12)} ${message}`;
-    if (level === "error")
-        console.error(line, meta ?? "");
-    else if (level === "warn")
-        console.warn(line, meta ?? "");
-    else
-        console.log(line);
+    const extra = data !== undefined ? ` ${typeof data === "string" ? data : JSON.stringify(data)}` : "";
+    return `[${ts}] ${level.toUpperCase().padEnd(5)} ${scope.padEnd(12)} ${msg}${extra}`;
 }
+
 export const logger = {
-    debug: (scope, msg, meta) => emit("debug", scope, msg, meta),
-    info: (scope, msg, meta) => emit("info", scope, msg, meta),
-    warn: (scope, msg, meta) => emit("warn", scope, msg, meta),
-    error: (scope, msg, meta) => emit("error", scope, msg, meta),
+    debug: (scope, msg, data) => { if (current <= 0) console.log(fmt("debug", scope, msg, data)); },
+    info:  (scope, msg, data) => { if (current <= 1) console.log(fmt("info",  scope, msg, data)); },
+    warn:  (scope, msg, data) => { if (current <= 2) console.warn(fmt("warn",  scope, msg, data)); },
+    error: (scope, msg, data) => { if (current <= 3) console.error(fmt("error", scope, msg, data)); },
 };
-//# sourceMappingURL=logger.js.map

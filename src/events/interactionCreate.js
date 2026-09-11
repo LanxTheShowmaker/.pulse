@@ -1,88 +1,50 @@
-import { MessageFlags } from "discord.js";
+import { Events, InteractionType, MessageFlags } from "discord.js";
 import { logger } from "../core/logger.js";
-import { errorPanel } from "../design/containers/panels.js";
-import { containerReply, containerFollowUp } from "../design/containers/base.js";
-
-function resolveComponent(client, customId) {
-    if (client.components.has(customId))
-        return client.components.get(customId);
-    for (const [key, handler] of client.components) {
-        if (customId === key || customId.startsWith(key + ":"))
-            return handler;
-    }
-    const namespace = customId.split(":")[0];
-    if (namespace && client.components.has(namespace)) {
-        return client.components.get(namespace);
-    }
-    return undefined;
-}
 
 export default {
-    name: "interactionCreate",
+    name: Events.InteractionCreate,
     async execute(interaction, client) {
         try {
-            if (!interaction.inGuild()) {
-                if (interaction.isAutocomplete()) {
-                    await interaction.respond([]).catch(() => {});
-                    return;
-                }
-                await interaction.reply({ content: "This action is only available in servers.", flags: MessageFlags.Ephemeral }).catch(() => {});
-                return;
-            }
+            // Slash commands
             if (interaction.isChatInputCommand()) {
-                const command = client.commands.get(interaction.commandName);
-                if (!command) {
-                    await interaction.reply({ content: "Unknown command.", flags: MessageFlags.Ephemeral }).catch(() => {});
+                const cmd = client.commands.get(interaction.commandName);
+                if (!cmd) return;
+                await cmd.execute(interaction, client);
+                return;
+            }
+
+            // Autocomplete
+            if (interaction.isAutocomplete()) {
+                const cmd = client.commands.get(interaction.commandName);
+                if (cmd?.autocomplete) await cmd.autocomplete(interaction, client);
+                return;
+            }
+
+            // Component interactions (buttons, selects, modals)
+            if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
+                const id = interaction.customId;
+
+                // Exact match
+                if (client.components.has(id)) {
+                    await client.components.get(id)(interaction, client);
                     return;
                 }
-                await command.execute(interaction);
-                return;
-            }
-            if (interaction.isAutocomplete()) {
-                try {
-                    const command = client.commands.get(interaction.commandName);
-                    if (command?.autocomplete)
-                        await command.autocomplete(interaction);
-                    else
-                        await interaction.respond([]).catch(() => {});
-                } catch (e) {
-                    logger.error("interaction", "autocomplete failed", e?.message);
-                    await interaction.respond([]).catch(() => {});
+
+                // Prefix match (e.g. "ticket:close:123" matches "ticket:close:")
+                for (const [key, handler] of client.components) {
+                    if (key.endsWith(":") && id.startsWith(key)) {
+                        await handler(interaction, client);
+                        return;
+                    }
                 }
-                return;
+
+                logger.warn("interaction", `no handler for component: ${id}`);
             }
-            if (interaction.isMessageComponent()) {
-                const handler = resolveComponent(client, interaction.customId);
-                if (handler) {
-                    logger.info("interaction", `component ${interaction.customId} by ${interaction.user.tag}`);
-                    await handler(interaction);
-                } else {
-                    logger.warn("interaction", `no handler for ${interaction.customId}`);
-                    await interaction.deferUpdate().catch(() => {});
-                }
-                return;
-            }
-            if (interaction.isModalSubmit()) {
-                const handler = resolveComponent(client, interaction.customId);
-                if (handler) {
-                    logger.info("interaction", `modal ${interaction.customId} by ${interaction.user.tag}`);
-                    await handler(interaction);
-                } else {
-                    logger.warn("interaction", `no modal handler for ${interaction.customId}`);
-                    await interaction.reply({ content: "This form has expired. Run the command again.", flags: MessageFlags.Ephemeral }).catch(() => {});
-                }
-            }
-        }
-        catch (e) {
-            logger.error("interaction", "unhandled error", e);
-            const reply = errorPanel("Something went wrong", "That action could not be completed. Please try again or contact staff.");
-            if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ components: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
-            }
-            else {
-                await interaction.reply({ components: [reply], flags: MessageFlags.Ephemeral }).catch(() => { });
-            }
+        } catch (e) {
+            logger.error("interaction", `error handling ${interaction.customId ?? interaction.commandName}`, e);
+            const reply = { content: "An error occurred.", flags: MessageFlags.Ephemeral };
+            if (interaction.replied || interaction.deferred) await interaction.followUp(reply).catch(() => {});
+            else await interaction.reply(reply).catch(() => {});
         }
     },
 };
-//# sourceMappingURL=interactionCreate.js.map
