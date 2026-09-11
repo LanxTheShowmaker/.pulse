@@ -15,7 +15,6 @@ export default {
         await interaction.channel.setRateLimitPerUser(seconds);
         await interaction.reply({
             embeds: [success("Slowmode", seconds === 0 ? "Slowmode disabled." : `Slowmode set to **${seconds}s**.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

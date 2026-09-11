@@ -15,7 +15,6 @@ export default {
         await afk.set(interaction.guild.id, interaction.user.id, reason);
         await interaction.reply({
             embeds: [success("AFK Set", `You are now AFK: ${reason}`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

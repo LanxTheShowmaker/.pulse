@@ -19,7 +19,7 @@ export default {
             if (role) lines.push(`**${role.name}** — ${role.members.size} member(s) (moderator)`);
         }
 
-        if (!lines.length) return interaction.reply({ embeds: [panel("Staff", "No staff roles configured.")], flags: MessageFlags.Ephemeral });
-        await interaction.reply({ embeds: [panel("Staff", lines.join("\n"))], flags: MessageFlags.Ephemeral });
+        if (!lines.length) return interaction.reply({ embeds: [panel("Staff", "No staff roles configured.")] });
+        await interaction.reply({ embeds: [panel("Staff", lines.join("\n"))] });
     },
 };

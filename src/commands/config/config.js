@@ -125,7 +125,7 @@ export default {
                 { name: "Prefix", value: `\`${config.prefix}\``, inline: true },
             );
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed] });
     },
 
     async handleModules(interaction, settings, config) {
@@ -137,7 +137,6 @@ export default {
 
         await interaction.reply({
             embeds: [success("Module Updated", `${label} is now ${enabled ? "enabled" : "disabled"}.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -157,7 +156,6 @@ export default {
         const label = { log: "Message logs", mod: "Moderation logs", welcome: "Welcome channel", goodbye: "Goodbye channel" }[type];
         await interaction.reply({
             embeds: [success("Channel Set", `${label} set to <#${channel.id}>`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -180,7 +178,6 @@ export default {
 
         await interaction.reply({
             embeds: [success("Role Updated", `<@&${role.id}> ${action} ${type} roles.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -191,7 +188,6 @@ export default {
         await settings.patch(interaction.guild.id, { prefix });
         await interaction.reply({
             embeds: [success("Prefix Updated", `Prefix set to \`${prefix}\``)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -205,7 +201,6 @@ export default {
             await interaction.guild.members.me.setNickname(null).catch(() => {});
             return interaction.reply({
                 embeds: [success("Bot Name Reset", "Bot name reset to default.")],
-                flags: MessageFlags.Ephemeral,
             });
         }
 
@@ -213,12 +208,11 @@ export default {
 
         await branding.set(interaction.guild.id, { nickname: name });
         await interaction.guild.members.me.setNickname(name).catch(e => {
-            return interaction.reply({ embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${e.message}`)], flags: MessageFlags.Ephemeral });
+            return interaction.reply({ embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${e.message}`)] });
         });
 
         await interaction.reply({
             embeds: [success("Bot Name Set", `Bot name set to **${name}**.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -230,7 +224,7 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply();
 
         try {
             await interaction.client.user.setAvatar(attachment.url);
@@ -249,7 +243,7 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        await interaction.deferReply();
 
         try {
             await interaction.client.user.setBanner(attachment.url);

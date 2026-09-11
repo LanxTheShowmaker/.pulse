@@ -19,6 +19,6 @@ export default {
         const total = rolls.reduce((a, b) => a + b, 0);
         const display = count > 1 ? ` [${rolls.join(", ")}]` : "";
 
-        await interaction.reply({ content: `**${total}**${display}`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `**${total}**${display}` });
     },
 };

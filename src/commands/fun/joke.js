@@ -18,6 +18,6 @@ export default {
     data: new SlashCommandBuilder().setName("joke").setDescription("Hear a random joke"),
     async execute(interaction) {
         const joke = JOKES[Math.floor(Math.random() * JOKES.length)];
-        await interaction.reply({ content: joke, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: joke });
     },
 };

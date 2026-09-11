@@ -18,6 +18,6 @@ export default {
     data: new SlashCommandBuilder().setName("meme").setDescription("Get a random dev meme"),
     async execute(interaction) {
         const meme = MEMES[Math.floor(Math.random() * MEMES.length)];
-        await interaction.reply({ content: meme, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: meme });
     },
 };

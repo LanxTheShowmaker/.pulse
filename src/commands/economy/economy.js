@@ -73,16 +73,15 @@ export default {
                 if (!result.ok) return interaction.reply({ embeds: [error("Failed", result.error)], flags: MessageFlags.Ephemeral });
                 await interaction.reply({
                     embeds: [success("Gifted", `Gave **${amount.toLocaleString()}** coins to <@${target.id}>.`)],
-                    flags: MessageFlags.Ephemeral,
                 });
                 break;
             }
 
             case "leaderboard": {
                 const list = await economy.getLeaderboard(interaction.guild.id, 10);
-                if (!list.length) return interaction.reply({ embeds: [panel("Leaderboard", "No data yet.")], flags: MessageFlags.Ephemeral });
+                if (!list.length) return interaction.reply({ embeds: [panel("Leaderboard", "No data yet.")] });
                 const lines = list.map((e, i) => `\`${i + 1}.\` <@${e.userId}> — **${e.balance.toLocaleString()}** coins`);
-                await interaction.reply({ embeds: [panel("Leaderboard", lines.join("\n"))], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [panel("Leaderboard", lines.join("\n"))] });
                 break;
             }
 

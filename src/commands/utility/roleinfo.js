@@ -25,6 +25,6 @@ export default {
             )
             .setColor(role.color || undefined);
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed] });
     },
 };

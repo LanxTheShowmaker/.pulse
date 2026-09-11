@@ -33,7 +33,6 @@ export default {
                 button("📄 Paper", "rps:paper", ButtonStyle.Primary),
                 button("✂️ Scissors", "rps:scissors", ButtonStyle.Primary),
             )],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

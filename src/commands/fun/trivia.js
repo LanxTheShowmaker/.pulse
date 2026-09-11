@@ -29,7 +29,6 @@ export default {
         await interaction.reply({
             content: `**${q.q}**`,
             components: [row(...buttons)],
-            flags: MessageFlags.Ephemeral,
         });
 
         const collector = interaction.channel.createMessageComponentCollector({

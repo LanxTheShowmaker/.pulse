@@ -53,7 +53,7 @@ export default {
 
                 if (!channel.isTextBased()) return ephemeral(interaction, "Channel must be a text channel.");
 
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                await interaction.deferReply();
 
                 const result = await giveaways.create(interaction.guild, channel, interaction.user, prize, winners, endsAt);
                 await interaction.editReply({ embeds: [success("Giveaway Created", `Posted in <#${channel.id}>. Ends <t:${Math.floor(endsAt.getTime() / 1000)}:R>.`)] });
@@ -62,7 +62,7 @@ export default {
 
             case "end": {
                 const messageId = interaction.options.getString("message-id");
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                await interaction.deferReply();
 
                 // Find giveaway by messageId
                 const giveaway = await interaction.client.services.prisma.giveaway.findUnique({
@@ -82,7 +82,7 @@ export default {
             case "reroll": {
                 const messageId = interaction.options.getString("message-id");
                 const count = interaction.options.getInteger("count") ?? 1;
-                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+                await interaction.deferReply();
 
                 const giveaway = await interaction.client.services.prisma.giveaway.findUnique({
                     where: { messageId },
@@ -108,7 +108,7 @@ export default {
                 if (!list.length) return ephemeral(interaction, "No active giveaways.");
 
                 const lines = list.map(g => `\`${g.id.slice(0, 8)}\` **${g.prize}** — ${g.entryCount} entries — <t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>`);
-                await interaction.reply({ embeds: [panel("Active Giveaways", lines.join("\n"))], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [panel("Active Giveaways", lines.join("\n"))] });
                 break;
             }
         }

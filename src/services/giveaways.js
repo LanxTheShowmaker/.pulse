@@ -1,10 +1,13 @@
 import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { EmbedBuilder, ButtonBuilder, ActionRowBuilder } from "@discordjs/builders";
 import { MessageFlags, ButtonStyle } from "discord.js";
 import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 
-const STATUS = { ACTIVE: "ACTIVE", ENDED: "ENDED" };
+const DATA_DIR = path.resolve("data");
+const FILE = path.join(DATA_DIR, "giveaways.json");
 
 function shuffle(arr) {
     const a = [...arr];
@@ -16,18 +19,51 @@ function shuffle(arr) {
 }
 
 export class GiveawayService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(_prisma, client) {
         this.client = client;
+        this.giveaways = {};
         this._ticking = false;
         this._tickInterval = null;
+        this._dirty = false;
+        this._saveInterval = null;
+        this.load();
         this.registerHandlers();
         this._tickInterval = setInterval(() => this.tick().catch(e => logger.error("giveaway", "tick failed", e)), 15_000);
+        this._saveInterval = setInterval(() => this.save().catch(() => {}), 30_000);
         if (this._tickInterval.unref) this._tickInterval.unref();
+        if (this._saveInterval.unref) this._saveInterval.unref();
     }
 
     shutdown() {
         if (this._tickInterval) clearInterval(this._tickInterval);
+        if (this._saveInterval) clearInterval(this._saveInterval);
+        this.save().catch(() => {});
+    }
+
+    async load() {
+        try {
+            await fs.mkdir(DATA_DIR, { recursive: true });
+            const raw = await fs.readFile(FILE, "utf-8");
+            this.giveaways = JSON.parse(raw);
+            logger.info("giveaway", `loaded ${Object.keys(this.giveaways).length} giveaway(s)`);
+        } catch {
+            this.giveaways = {};
+        }
+    }
+
+    async save() {
+        if (!this._dirty) return;
+        try {
+            await fs.mkdir(DATA_DIR, { recursive: true });
+            await fs.writeFile(FILE, JSON.stringify(this.giveaways, null, 2));
+            this._dirty = false;
+        } catch (e) {
+            logger.error("giveaway", "save failed", e.message);
+        }
+    }
+
+    markDirty() {
+        this._dirty = true;
     }
 
     registerHandlers() {
@@ -37,186 +73,165 @@ export class GiveawayService {
             const giveawayId = i.customId.split(":")[2];
             if (!giveawayId) return i.reply({ embeds: [this.errorEmbed("Invalid giveaway")], flags: MessageFlags.Ephemeral }).catch(() => {});
 
-            const giveaway = await this.prisma.giveaway.findUnique({ where: { id: giveawayId } }).catch(() => null);
-            if (!giveaway) return i.reply({ embeds: [this.errorEmbed("Giveaway not found")], flags: MessageFlags.Ephemeral }).catch(() => {});
-            if (giveaway.status !== STATUS.ACTIVE) return i.reply({ embeds: [this.errorEmbed("This giveaway has ended")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            const g = this.giveaways[giveawayId];
+            if (!g) return i.reply({ embeds: [this.errorEmbed("Giveaway not found")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            if (g.status !== "ACTIVE") return i.reply({ embeds: [this.errorEmbed("This giveaway has ended")], flags: MessageFlags.Ephemeral }).catch(() => {});
 
-            const existing = await this.prisma.giveawayEntry.findUnique({
-                where: { giveawayId_userId: { giveawayId, userId: i.user.id } },
-            }).catch(() => null);
+            if (!g.entries) g.entries = [];
+            const idx = g.entries.indexOf(i.user.id);
 
-            if (existing) {
-                // Toggle leave
-                await this.prisma.giveawayEntry.delete({
-                    where: { giveawayId_userId: { giveawayId, userId: i.user.id } },
-                }).catch(() => {});
-                await this.prisma.giveaway.update({ where: { id: giveawayId }, data: { entryCount: { decrement: 1 } } }).catch(() => {});
-                await i.reply({ embeds: [this.infoEmbed("Left", `Removed from **${giveaway.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
+            if (idx >= 0) {
+                g.entries.splice(idx, 1);
+                g.entryCount = g.entries.length;
+                this.markDirty();
+                await i.reply({ embeds: [this.infoEmbed("Left", `Removed from **${g.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
             } else {
-                await this.prisma.giveawayEntry.create({
-                    data: { guildId: giveaway.guildId, giveawayId, userId: i.user.id },
-                }).catch(() => {});
-                await this.prisma.giveaway.update({ where: { id: giveawayId }, data: { entryCount: { increment: 1 } } }).catch(() => {});
-                await i.reply({ embeds: [this.successEmbed("Entered", `You're entered to win **${giveaway.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
+                g.entries.push(i.user.id);
+                g.entryCount = g.entries.length;
+                this.markDirty();
+                await i.reply({ embeds: [this.successEmbed("Entered", `You're entered to win **${g.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
             }
 
-            await this.refreshMessage(giveaway).catch(() => {});
+            await this.refreshMessage(g).catch(() => {});
         });
     }
 
     async create(guild, channel, host, prize, winners, endsAt) {
-        const giveawayId = crypto.randomUUID();
-        const embed = this.buildEmbed({ id: giveawayId, prize, winners, endsAt, entryCount: 0, hostId: host.id, hostTag: host.tag, status: STATUS.ACTIVE });
-        const components = this.buildComponents({ id: giveawayId, status: STATUS.ACTIVE });
+        const id = crypto.randomUUID();
+        const g = {
+            id,
+            guildId: guild.id,
+            channelId: channel.id,
+            messageId: null,
+            hostId: host.id,
+            hostTag: host.tag,
+            prize,
+            winners,
+            endsAt: endsAt.toISOString(),
+            status: "ACTIVE",
+            entryCount: 0,
+            entries: [],
+            winnerIds: [],
+        };
+
+        const embed = this.buildEmbed(g);
+        const components = this.buildComponents(g);
         const msg = await channel.send({ embeds: [embed], components });
+        g.messageId = msg.id;
 
-        const giveaway = await this.prisma.giveaway.create({
-            data: {
-                guildId: guild.id, channelId: channel.id, messageId: msg.id,
-                hostId: host.id, hostTag: host.tag,
-                prize, winners, endsAt, status: STATUS.ACTIVE,
-            },
-        });
+        this.giveaways[id] = g;
+        this.markDirty();
+        await this.save();
 
-        return { giveaway, message: msg };
+        return { giveaway: g, message: msg };
     }
 
     async end(giveawayId) {
-        const claimed = await this.prisma.giveaway.updateMany({
-            where: { id: giveawayId, status: STATUS.ACTIVE },
-            data: { status: STATUS.ENDED, ended: true },
-        }).catch(() => null);
+        const g = this.giveaways[giveawayId];
+        if (!g) return { ok: false, error: "Giveaway not found" };
+        if (g.status === "ENDED") return { ok: false, error: "Already ended" };
 
-        if (!claimed || claimed.count !== 1) {
-            const g = await this.prisma.giveaway.findUnique({ where: { id: giveawayId } }).catch(() => null);
-            if (!g) return { ok: false, error: "Giveaway not found" };
-            if (g.status === STATUS.ENDED) return { ok: false, error: "Already ended" };
-            return { ok: false, error: "Could not end" };
-        }
+        g.status = "ENDED";
+        g.ended = true;
+        this.markDirty();
 
-        const giveaway = await this.prisma.giveaway.findUnique({ where: { id: giveawayId } });
-        if (!giveaway) return { ok: false, error: "Not found after claim" };
+        const eligibleIds = g.entries || [];
+        const winnerCount = Math.min(g.winners, eligibleIds.length);
+        g.winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
 
-        const entries = await this.prisma.giveawayEntry.findMany({ where: { giveawayId } }).catch(() => []);
-        const eligibleIds = entries.map(e => e.userId);
-        const winnerCount = Math.min(giveaway.winners, eligibleIds.length);
-        const winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
-
-        await this.prisma.giveaway.update({
-            where: { id: giveawayId },
-            data: { winnerIds: JSON.stringify(winnerIds) },
-        }).catch(e => logger.error("giveaway", "winner store failed", e.message));
-
-        await this.announce(giveaway, winnerIds);
-        return { ok: true, winnerIds };
+        await this.save();
+        await this.announce(g);
+        return { ok: true, winnerIds: g.winnerIds };
     }
 
     async reroll(giveawayId, count = 1) {
-        const giveaway = await this.prisma.giveaway.findUnique({ where: { id: giveawayId } });
-        if (!giveaway) return { ok: false, error: "Giveaway not found" };
-        if (giveaway.status !== STATUS.ENDED) return { ok: false, error: "Giveaway has not ended yet" };
+        const g = this.giveaways[giveawayId];
+        if (!g) return { ok: false, error: "Giveaway not found" };
+        if (g.status !== "ENDED") return { ok: false, error: "Giveaway has not ended yet" };
 
-        const entries = await this.prisma.giveawayEntry.findMany({ where: { giveawayId } }).catch(() => []);
-        const previousWinners = JSON.parse(giveaway.winnerIds || "[]");
-        const eligible = entries.filter(e => !previousWinners.includes(e.userId));
+        const previousWinners = g.winnerIds || [];
+        const eligible = (g.entries || []).filter(id => !previousWinners.includes(id));
 
-        const pool = eligible.length > 0 ? eligible : entries;
+        const pool = eligible.length > 0 ? eligible : (g.entries || []);
         if (pool.length === 0) return { ok: false, error: "No entries to reroll" };
 
-        const winnerIds = shuffle(pool).slice(0, Math.min(count, pool.length)).map(e => e.userId);
+        const winnerIds = shuffle(pool).slice(0, Math.min(count, pool.length));
+        g.winnerIds = [...previousWinners, ...winnerIds];
 
-        await this.prisma.giveaway.update({
-            where: { id: giveawayId },
-            data: { winnerIds: JSON.stringify([...previousWinners, ...winnerIds]) },
-        }).catch(e => logger.error("giveaway", "reroll store failed", e.message));
-
-        await this.announce(giveaway, winnerIds);
+        this.markDirty();
+        await this.save();
+        await this.announce(g, winnerIds);
         return { ok: true, winnerIds };
     }
 
-    async announce(giveaway, winnerIds) {
-        const guild = this.client.guilds.cache.get(giveaway.guildId);
+    async announce(g, newWinners = null) {
+        const guild = this.client.guilds.cache.get(g.guildId);
         if (!guild) return;
-        const ch = guild.channels.cache.get(giveaway.channelId) ?? await guild.channels.fetch(giveaway.channelId).catch(() => null);
+        const ch = guild.channels.cache.get(g.channelId) ?? await guild.channels.fetch(g.channelId).catch(() => null);
         if (!ch?.isTextBased()) return;
-        const msg = await ch.messages.fetch(giveaway.messageId).catch(() => null);
+        const msg = await ch.messages.fetch(g.messageId).catch(() => null);
 
+        const embed = this.buildEmbed(g);
+        const components = this.buildComponents(g);
+
+        if (msg) await msg.edit({ embeds: [embed], components }).catch(() => {});
+
+        const winnerIds = newWinners ?? g.winnerIds ?? [];
         const mentions = winnerIds.length ? winnerIds.map(id => `<@${id}>`).join(", ") : "No valid entries";
-        const embed = this.buildEmbed({ ...giveaway, status: STATUS.ENDED });
-        const components = this.buildComponents({ ...giveaway, status: STATUS.ENDED });
-
-        if (msg) {
-            await msg.edit({ embeds: [embed], components }).catch(() => {});
-        }
-
-        await ch.send({ content: `**Giveaway ended!** Prize: **${giveaway.prize}**\nWinner(s): ${mentions}` }).catch(() => {});
+        await ch.send({ content: `**Giveaway ended!** Prize: **${g.prize}**\nWinner(s): ${mentions}` }).catch(() => {});
     }
 
-    async refreshMessage(giveaway) {
-        const guild = this.client.guilds.cache.get(giveaway.guildId);
+    async refreshMessage(g) {
+        const guild = this.client.guilds.cache.get(g.guildId);
         if (!guild) return;
-        const ch = guild.channels.cache.get(giveaway.channelId) ?? await guild.channels.fetch(giveaway.channelId).catch(() => null);
+        const ch = guild.channels.cache.get(g.channelId) ?? await guild.channels.fetch(g.channelId).catch(() => null);
         if (!ch?.isTextBased()) return;
-        const msg = await ch.messages.fetch(giveaway.messageId).catch(() => null);
+        const msg = await ch.messages.fetch(g.messageId).catch(() => null);
         if (!msg) return;
-
-        const fresh = await this.prisma.giveaway.findUnique({ where: { id: giveaway.id } });
-        if (!fresh) return;
-
-        await msg.edit({ embeds: [this.buildEmbed(fresh)], components: this.buildComponents(fresh) }).catch(() => {});
+        await msg.edit({ embeds: [this.buildEmbed(g)], components: this.buildComponents(g) }).catch(() => {});
     }
 
     async tick() {
         if (this._ticking) return;
         this._ticking = true;
         try {
-            const due = await this.prisma.giveaway.findMany({
-                where: { status: STATUS.ACTIVE, endsAt: { lte: new Date() } },
-                orderBy: { endsAt: "asc" },
-                take: 25,
-            }).catch(e => { logger.error("giveaway", "tick query failed", e.message); return []; });
+            const now = Date.now();
+            for (const g of Object.values(this.giveaways)) {
+                if (g.status !== "ACTIVE") continue;
+                if (new Date(g.endsAt).getTime() > now) continue;
 
-            for (const g of due) {
-                const claimed = await this.prisma.giveaway.updateMany({
-                    where: { id: g.id, status: STATUS.ACTIVE },
-                    data: { status: STATUS.ENDED, ended: true },
-                }).catch(() => null);
+                g.status = "ENDED";
+                g.ended = true;
 
-                if (!claimed || claimed.count !== 1) continue;
-
-                const entries = await this.prisma.giveawayEntry.findMany({ where: { giveawayId: g.id } }).catch(() => []);
-                const eligibleIds = entries.map(e => e.userId);
+                const eligibleIds = g.entries || [];
                 const winnerCount = Math.min(g.winners, eligibleIds.length);
-                const winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
+                g.winnerIds = shuffle(eligibleIds).slice(0, winnerCount);
 
-                await this.prisma.giveaway.update({
-                    where: { id: g.id },
-                    data: { winnerIds: JSON.stringify(winnerIds) },
-                }).catch(e => logger.error("giveaway", "tick winner store failed", e.message));
-
-                await this.announce(g, winnerIds);
+                this.markDirty();
+                await this.announce(g).catch(e => logger.error("giveaway", `announce failed for ${g.id}`, e.message));
             }
+            await this.save();
         } finally {
             this._ticking = false;
         }
     }
 
     buildEmbed(g) {
-        const isActive = g.status === STATUS.ACTIVE;
+        const isActive = g.status === "ACTIVE";
         return new EmbedBuilder()
             .setColor(isActive ? Theme.gold : Theme.muted)
             .setTitle(isActive ? "Giveaway" : "Giveaway Ended")
             .setDescription(`**${g.prize}**\n\n${g.winners} winner(s) • ${g.entryCount ?? 0} entries`)
             .addFields(
-                { name: "Host", value: g.hostTag ? `<@${g.hostId}>` : "Unknown", inline: true },
-                { name: "Ends", value: isActive ? `<t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>` : `<t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>`, inline: true },
+                { name: "Host", value: g.hostId ? `<@${g.hostId}>` : "Unknown", inline: true },
+                { name: "Ends", value: `<t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>`, inline: true },
             )
             .setFooter({ text: Brand.footer })
             .setTimestamp();
     }
 
     buildComponents(g) {
-        const isActive = g.status === STATUS.ACTIVE;
+        const isActive = g.status === "ACTIVE";
         return [new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`giveaway:enter:${g.id}`)

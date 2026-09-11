@@ -25,6 +25,6 @@ export default {
         if (ch.isTextBased() && ch.nsfw !== undefined) embed.addFields({ name: "NSFW", value: ch.nsfw ? "Yes" : "No", inline: true });
         if (ch.isTextBased() && ch.rateLimitPerUser) embed.addFields({ name: "Slowmode", value: `${ch.rateLimitPerUser}s`, inline: true });
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed] });
     },
 };

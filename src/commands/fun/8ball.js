@@ -18,6 +18,6 @@ export default {
         .addStringOption(o => o.setName("question").setDescription("Your question").setRequired(true)),
     async execute(interaction) {
         const response = RESPONSES[Math.floor(Math.random() * RESPONSES.length)];
-        await interaction.reply({ content: `🎱 **${response}**`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({ content: `🎱 **${response}**` });
     },
 };

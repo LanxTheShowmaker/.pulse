@@ -28,6 +28,6 @@ export default {
         if (g.iconURL()) embed.setThumbnail(g.iconURL({ size: 256 }));
         if (g.bannerURL()) embed.setImage(g.bannerURL({ size: 512 }));
 
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [embed] });
     },
 };

@@ -123,7 +123,6 @@ export default {
 
         await interaction.reply({
             embeds: [success("AutoMod Updated", `${label} is now ${enabled ? "enabled" : "disabled"}.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -134,7 +133,6 @@ export default {
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
             embeds: [success("AutoMod Updated", `Default action set to **${action}**.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -148,7 +146,6 @@ export default {
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
             embeds: [success("AutoMod Updated", `${detector} threshold set to **${value}**.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -167,7 +164,6 @@ export default {
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
             embeds: [success("Word List Updated", idx >= 0 ? `Removed \`${word}\`.` : `Added \`${word}\`.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -188,7 +184,6 @@ export default {
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
             embeds: [success("Exemption Updated", idx >= 0 ? `Removed ${type} <@${id}>.` : `Added ${type} <@${id}>.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 
@@ -219,7 +214,6 @@ export default {
 
         await interaction.reply({
             embeds: [panel("AutoMod Test", lines.join("\n"))],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

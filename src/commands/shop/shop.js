@@ -36,9 +36,9 @@ export default {
         switch (sub) {
             case "view": {
                 const items = await shop.getItems(interaction.guild.id);
-                if (!items.length) return interaction.reply({ embeds: [panel("Shop", "No items available.")], flags: MessageFlags.Ephemeral });
+                if (!items.length) return interaction.reply({ embeds: [panel("Shop", "No items available.")] });
                 const lines = items.map(i => `**${i.name}** — ${i.price} coins${i.stock !== null ? ` (${i.stock} left)` : ""}${i.description ? `\n${i.description}` : ""}`);
-                await interaction.reply({ embeds: [panel("Shop", lines.join("\n\n"))], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [panel("Shop", lines.join("\n\n"))] });
                 break;
             }
 
@@ -46,7 +46,7 @@ export default {
                 const name = interaction.options.getString("item");
                 const result = await shop.buyItem(interaction.guild.id, interaction.user.id, name);
                 if (!result.ok) return interaction.reply({ embeds: [error("Failed", result.error)], flags: MessageFlags.Ephemeral });
-                await interaction.reply({ embeds: [success("Purchased", `Bought **${result.item.name}** for ${result.item.price} coins.`)], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [success("Purchased", `Bought **${result.item.name}** for ${result.item.price} coins.`)] });
                 break;
             }
 
@@ -67,7 +67,7 @@ export default {
                 const stock = interaction.options.getInteger("stock");
 
                 await shop.addItem(interaction.guild.id, name, description, price, role?.id, null, stock === -1 ? null : stock);
-                await interaction.reply({ embeds: [success("Item Added", `**${name}** — ${price} coins`)], flags: MessageFlags.Ephemeral });
+                await interaction.reply({ embeds: [success("Item Added", `**${name}** — ${price} coins`)] });
                 break;
             }
 
@@ -75,8 +75,8 @@ export default {
                 if (!await requireModerator(interaction)) return ephemeral(interaction, "Permission denied.");
                 const name = interaction.options.getString("item");
                 const removed = await shop.removeItem(interaction.guild.id, name);
-                if (!removed) return interaction.reply({ embeds: [error("Not Found", "Item not found.")], flags: MessageFlags.Ephemeral });
-                await interaction.reply({ embeds: [success("Removed", `**${removed.name}** removed.`)], flags: MessageFlags.Ephemeral });
+                if (!removed) return interaction.reply({ embeds: [error("Not Found", "Item not found.")] });
+                await interaction.reply({ embeds: [success("Removed", `**${removed.name}** removed.`)] });
                 break;
             }
         }

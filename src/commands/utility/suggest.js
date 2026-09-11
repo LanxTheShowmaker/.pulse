@@ -17,7 +17,6 @@ export default {
 
         await interaction.reply({
             embeds: [success("Suggestion Submitted", `Your suggestion has been posted. React with ✅ or ❌.`)],
-            flags: MessageFlags.Ephemeral,
         });
     },
 };

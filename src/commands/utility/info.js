@@ -30,7 +30,7 @@ export default {
                     embed.addFields({ name: "Roles", value: member.roles.cache.filter(r => r.id !== interaction.guild.id).map(r => `<@&${r.id}>`).join(", ").slice(0, 1024) || "None" });
                 }
             }
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed] });
         }
 
         if (sub === "server") {
@@ -45,7 +45,7 @@ export default {
                     { name: "Created", value: `<t:${Math.floor(g.createdAt.getTime() / 1000)}:R>`, inline: true },
                 );
             if (g.iconURL()) embed.setThumbnail(g.iconURL({ size: 256 }));
-            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+            await interaction.reply({ embeds: [embed] });
         }
 
         if (sub === "avatar") {
@@ -53,7 +53,6 @@ export default {
             const url = user.displayAvatarURL({ size: 512 });
             await interaction.reply({
                 embeds: [panel(`${user.tag}'s Avatar`, `[Download](${url})`).setThumbnail(url)],
-                flags: MessageFlags.Ephemeral,
             });
         }
     },

@@ -11,9 +11,9 @@ export default {
         const { leveling } = interaction.client.services;
         const list = await leveling.getLeaderboard(interaction.guild.id, 10);
 
-        if (!list.length) return interaction.reply({ embeds: [panel("Leaderboard", "No data yet.")], flags: MessageFlags.Ephemeral });
+        if (!list.length) return interaction.reply({ embeds: [panel("Leaderboard", "No data yet.")] });
 
         const lines = list.map((e, i) => `\`${i + 1}.\` <@${e.userId}> — Level **${e.level}** (${e.xp} XP)`);
-        await interaction.reply({ embeds: [panel("Leaderboard", lines.join("\n"))], flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [panel("Leaderboard", lines.join("\n"))] });
     },
 };
