@@ -60,6 +60,7 @@ export default {
             if(act==="add") res=await svc.adminAdd(interaction.guildId, user.id, amt, interaction.user.id);
             else if(act==="remove") res=await svc.adminRemove(interaction.guildId, user.id, amt, interaction.user.id);
             else if(act==="set") res=await svc.set(interaction.guildId, user.id, amt, interaction.user.id);
+            if(res===undefined) return interaction.reply({ embeds:[embeds.error("Failed","Unexpected admin action")], flags: MessageFlags.Ephemeral});
             return interaction.reply({ embeds:[embeds.success("Admin",`${act} ${amt} for <@${user.id}> → **${res}**`)], flags: MessageFlags.Ephemeral});
         }
     }

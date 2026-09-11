@@ -31,11 +31,12 @@ export default {
             logger.info("ready", "per-server branding reapplied");
         } catch (e) { logger.error("ready", "branding reapply outer failed", e); }
         // Also schedule periodic reapply every 30m in case of external nickname changes
-        setInterval(async () => {
+        const brandingInterval = setInterval(async () => {
             for (const guild of client.guilds.cache.values()) {
                 await client.services.branding?.applyNickname(guild).catch((e) => logger.warn("ready", "periodic applyNickname failed", e.message));
             }
         }, 30 * 60 * 1000);
+        if (brandingInterval.unref) brandingInterval.unref();
     },
 };
 //# sourceMappingURL=ready.js.map

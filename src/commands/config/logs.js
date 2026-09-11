@@ -25,7 +25,7 @@ export default {
             return interaction.reply({ embeds:[embeds.info("Logs",`Log: ${c.logChannelId? "<#"+c.logChannelId+">":"—"} \nMod: ${c.modLogChannelId? "<#"+c.modLogChannelId+">":"—"}`)], flags: MessageFlags.Ephemeral});
         }
         if(sub==="test"){
-            const ch=await interaction.client.services.logging.channel(interaction.guild, sub==="test"?"mod":"log");
+            const ch=await interaction.client.services.logging.channel(interaction.guild, "mod");
             if(!ch) return interaction.reply({ embeds:[embeds.error("No channel","Set first")], flags: MessageFlags.Ephemeral});
             await ch.send({ embeds:[embeds.info("Test","Logging works")] });
             return interaction.reply({ embeds:[embeds.success("Sent","Test sent")], flags: MessageFlags.Ephemeral});

@@ -211,8 +211,6 @@ export default {
             await client.services.panels.upsert(i.guild.id, panelType, { title });
             const embed = await panelEditorEmbed(i.guild, panelType, client);
             await i.reply({ embeds: [embeds.success("Updated","Title saved")], flags: MessageFlags.Ephemeral }).catch(()=>{});
-            // Update original message if possible
-            try { const msg = await i.channel.messages.fetch(i.message?.id ?? "").catch(()=>null); } catch {}
         });
 
         // Edit Description

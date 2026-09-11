@@ -150,6 +150,14 @@ async function renderCategory(i, category, cfg) {
         await i.update({ embeds: [embeds.info("Settings · Automod", "Current automod configuration.", [{ name: "Config", value: `\`\`\`json\n${JSON.stringify(automod, null, 2)}\n\`\`\`` }])], components: [backRow()] });
         return;
     }
+    if (category === "general") {
+        await i.update({ embeds: [embeds.info("Settings · General", "Overview of server settings.", [
+            { name: "Prefix", value: `\`${cfg.prefix}\``, inline: true },
+            { name: "Staff roles", value: `${cfg.staffRoleIds.length}`, inline: true },
+            { name: "Mod roles", value: `${cfg.moderatorRoleIds.length}`, inline: true },
+        ])], components: [backRow()] });
+        return;
+    }
     await i.update({ embeds: [mainEmbed(cfg)], components: [mainRow()] });
 }
 //# sourceMappingURL=settings.js.map

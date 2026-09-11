@@ -19,7 +19,7 @@ export default {
             const rows=await svc.timeline(interaction.guildId,{ category:cat||undefined, limit });
             const embed=new EmbedBuilder().setColor(0x9b8ecf).setTitle(`Audit Timeline ${cat? "• "+cat:""}`).setTimestamp();
             if(!rows.length) embed.setDescription("No audit entries found for this filter.");
-            else embed.setDescription(rows.map(r=> `<t:${Math.floor(new Date(r.createdAt).getTime()/1000)}:R> **${r.category}** \`${r.action}\` <@${r.actorId||"?" }> → <@${r.targetId||"?" }> ${r.details? JSON.parse(r.details||"{}").reason || "" : ""}`.slice(0,200)).join("\n").slice(0,4000));
+            else embed.setDescription(rows.map(r=> { let reason=""; try{ reason=JSON.parse(r.details||"{}").reason||""; }catch{} return `<t:${Math.floor(new Date(r.createdAt).getTime()/1000)}:R> **${r.category}** \`${r.action}\` <@${r.actorId||"?" }> → <@${r.targetId||"?" }> ${reason}`; }).map(s=>s.slice(0,200)).join("\n").slice(0,4000));
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="user"){

@@ -86,10 +86,15 @@ export default {
         const am = cfg?.automod ?? {};
         const embed = buildStatusEmbed(am, interaction.guild);
         const row = mainMenu();
-        const back = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId("pulse:automod:main").setPlaceholder("Automod sections").addOptions([{label:"Back to status", value:"status"}]));
         // Register handlers
         const client = interaction.client;
+        const requireStaff = async (i) => {
+            const c = await client.services.settings.get(i.guildId).catch(()=>null);
+            if(!isStaff(i.member, c)) { await i.reply({ embeds:[embeds.error("Missing permission","Staff only")], flags: MessageFlags.Ephemeral }).catch(()=>{}); return false; }
+            return true;
+        };
         client.components.set("pulse:automod:main", async (i)=>{
+            if(!await requireStaff(i)) return;
             const v = i.values[0];
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             if(v==="status"){
@@ -136,6 +141,7 @@ export default {
             }
         });
         client.components.set("pulse:automod:detectorToggle", async (i)=>{
+            if(!await requireStaff(i)) return;
             const key = i.values[0];
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             const curEnabled = getDetectorEnabled(cur, key);
@@ -145,6 +151,7 @@ export default {
             await i.update({ embeds:[buildStatusEmbed(updated, i.guild)], components:[detectorMenu(updated), mainMenu()] }).catch(()=>{});
         });
         client.components.set("pulse:automod:wordsMenu", async (i)=>{
+            if(!await requireStaff(i)) return;
             const v = i.values[0];
             if(v==="add"){
                 const modal = new ModalBuilder().setCustomId("pulse:automod:addWord").setTitle("Add blocked phrase");
@@ -169,6 +176,7 @@ export default {
         });
         // Thresholds
         client.components.set("pulse:automod:thresholdsMenu", async (i)=>{
+            if(!await requireStaff(i)) return;
             const key = i.values[0];
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             const modal = new ModalBuilder().setCustomId(`pulse:automod:thresholdModal:${key}`).setTitle(NUMERIC_LABELS[key] ?? key);
@@ -177,6 +185,7 @@ export default {
         });
         client.components.set("pulse:automod:thresholdModal", async (i)=>{
             if(!i.isModalSubmit()) return;
+            if(!await requireStaff(i)) return;
             const key = i.customId.split(":")[3];
             const raw = i.fields.getTextInputValue("value");
             const val = Number.parseInt(raw,10);
@@ -185,11 +194,10 @@ export default {
             await client.services.settings.patch(i.guildId, { automod: { ...cur, [key]: Math.min(val, 1000000) } });
             const updated = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             await i.reply({ embeds:[embeds.success("Updated",`${NUMERIC_LABELS[key]} = ${val}`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
-            // Refresh status
-            try{ const msg = await i.channel.messages.fetch(i.message?.id ?? "").catch(()=>null); }catch{}
         });
         // Whitelists — simple: invite servers/domains
         client.components.set("pulse:automod:whitelistMenu", async (i)=>{
+            if(!await requireStaff(i)) return;
             const v = i.values[0];
             if(v==="add"){
                 const modal = new ModalBuilder().setCustomId("pulse:automod:whitelistModal").setTitle("Add whitelist");
@@ -209,10 +217,12 @@ export default {
             }
         });
         client.components.set("pulse:automod:exemptRole", async (i)=>{
+            if(!await requireStaff(i)) return;
             const menu = new RoleSelectMenuBuilder().setCustomId("pulse:automod:exemptRoleSelect").setPlaceholder("Select role to exempt").setMaxValues(1);
             await i.reply({ components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:exemptRoleSelect", async (i)=>{
+            if(!await requireStaff(i)) return;
             const roleId = i.values[0];
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             const ex = cur.exemptions ?? {};
@@ -221,10 +231,12 @@ export default {
             await i.reply({ embeds:[embeds.success("Exempted",`Role <@&${roleId}> exempted`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:exemptChannel", async (i)=>{
+            if(!await requireStaff(i)) return;
             const menu = new ChannelSelectMenuBuilder().setCustomId("pulse:automod:exemptChannelSelect").setPlaceholder("Select channel to exempt").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
             await i.reply({ components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:exemptChannelSelect", async (i)=>{
+            if(!await requireStaff(i)) return;
             const chId = i.values[0];
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             const ex = cur.exemptions ?? {};
@@ -233,6 +245,7 @@ export default {
             await i.reply({ embeds:[embeds.success("Exempted",`Channel <#${chId}> exempted`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:whitelistAdd", async (i)=>{
+            if(!await requireStaff(i)) return;
             const modal = new ModalBuilder().setCustomId("pulse:automod:whitelistModal").setTitle("Add whitelist");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("type").setLabel("Type: inviteServer|domain|channel").setStyle(TextInputStyle.Short).setRequired(true).setValue("domain")),
@@ -242,6 +255,7 @@ export default {
         });
         client.components.set("pulse:automod:whitelistModal", async (i)=>{
             if(!i.isModalSubmit()) return;
+            if(!await requireStaff(i)) return;
             const type = i.fields.getTextInputValue("type").toLowerCase();
             const val = i.fields.getTextInputValue("value").trim();
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
@@ -254,6 +268,7 @@ export default {
         });
         client.components.set("pulse:automod:addWord", async (i)=>{
             if(!i.isModalSubmit()) return;
+            if(!await requireStaff(i)) return;
             const phrase = i.fields.getTextInputValue("phrase");
             const match = (i.fields.getTextInputValue("match") || "phrase").toLowerCase();
             const severity = (i.fields.getTextInputValue("severity") || "HIGH").toUpperCase();
@@ -265,6 +280,7 @@ export default {
             await i.reply({ embeds:[embeds.success("Added",`Blocked \`${phrase}\``)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:removeWordSelect", async (i)=>{
+            if(!await requireStaff(i)) return;
             const idx = Number(i.values[0]);
             const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
             const rules = cur.detectors?.words?.rules ?? [];
@@ -275,6 +291,7 @@ export default {
         });
         client.components.set("pulse:automod:testModal", async (i)=>{
             if(!i.isModalSubmit()) return;
+            if(!await requireStaff(i)) return;
             const content = i.fields.getTextInputValue("content");
             const res = await client.services.automod.testMessage(i.guild, content, i.member);
             const info = res?.violation ? `**YES** — ${res.violation.type} • ${res.violation.severity} • ${Math.round(res.violation.confidence*100)}% • ${res.action}` : "**NO** — would not trigger";

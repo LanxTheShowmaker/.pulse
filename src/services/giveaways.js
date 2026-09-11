@@ -3,8 +3,8 @@ import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 
 export class GiveawayService {
-    prisma; client;
-    constructor(prisma, client) { this.prisma = prisma; this.client = client; this.register(); this.tick(); setInterval(() => this.tick().catch(e => logger.error("giveaway", "tick", e)), 15000); }
+    prisma; client; _ticking = false;
+    constructor(prisma, client) { this.prisma = prisma; this.client = client; this.register(); this.tick(); this._tickInterval = setInterval(() => this.tick().catch(e => logger.error("giveaway", "tick", e)), 15000); if (this._tickInterval.unref) this._tickInterval.unref(); }
     register() {
         this.client.components.set("giveaway:enter", async (i) => {
             await i.reply({ content: "Entered — good luck!", flags: MessageFlags.Ephemeral }).catch(() => {});
@@ -25,6 +25,9 @@ export class GiveawayService {
         logger.warn?.("giveaway", `giveaway ${id} ended as stale: ${reason}`, extra);
     }
     async tick() {
+        if (this._ticking) return;
+        this._ticking = true;
+        try {
         const due = await this.prisma.giveaway.findMany({ where: { ended: false, endsAt: { lte: new Date() } }, orderBy: { endsAt: "asc" }, take: 50 }).catch(() => []);
         for (const g of due) {
             try {
@@ -43,5 +46,9 @@ export class GiveawayService {
                 await ch.send({ embeds: [new EmbedBuilder().setColor(Theme.success).setTitle("Giveaway Ended").setDescription(`**${g.prize}** — Winners: ${winners.length ? winners.map(id => `<@${id}>`).join(", ") : "No entries"}`)], }).catch((e) => { logger.error("giveaway", "announce failed", { id: g.id, error: e }); });
             } catch (e) { logger.error("giveaway", "end failed", e); }
         }
+        } finally { this._ticking = false; }
+    }
+    shutdown() {
+        if (this._tickInterval) clearInterval(this._tickInterval);
     }
 }

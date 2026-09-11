@@ -91,11 +91,15 @@ export default {
                 }
             });
             interaction.client.components.set("botprofile:editAvatar", async(i)=>{
+                const cfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(i.guildId!==guild.id || (!isStaff(i.member, cfg) && !i.member.permissions.has(PermissionFlagsBits.ManageGuild))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
                 const modal=new ModalBuilder().setCustomId("botprofile:avatarModal").setTitle("Set Avatar URL");
                 modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("url").setLabel("Image URL (or upload via /botprofile avatar)").setStyle(TextInputStyle.Short).setRequired(false).setPlaceholder("https://...png")));
                 await i.showModal(modal).catch(()=>{});
             });
             interaction.client.components.set("botprofile:avatarModal", async(i)=>{
+                const cfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(i.guildId!==guild.id || (!isStaff(i.member, cfg) && !i.member.permissions.has(PermissionFlagsBits.ManageGuild))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
                 const url=i.fields.getTextInputValue("url").trim();
                 if(url && !/^https?:\/\/.+\.(png|jpg|jpeg|webp)(\?.*)?$/i.test(url) && !url.includes("cdn.discordapp")) return i.reply({ embeds:[embeds.error("Invalid URL","Use https png/jpg/webp or cdn.discordapp")], flags: MessageFlags.Ephemeral});
                 try{
@@ -139,6 +143,8 @@ export default {
                 }
             });
             interaction.client.components.set("botprofile:reset", async(i)=>{
+                const cfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(i.guildId!==guild.id || (!isStaff(i.member, cfg) && !i.member.permissions.has(PermissionFlagsBits.ManageGuild))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
                 const confirmRow=new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId("botprofile:reset:confirm").setLabel("Confirm Reset").setStyle(ButtonStyle.Danger),
                     new ButtonBuilder().setCustomId("botprofile:reset:cancel").setLabel("Cancel").setStyle(ButtonStyle.Secondary)
@@ -146,12 +152,17 @@ export default {
                 await i.reply({ embeds:[embeds.warn("Reset?","Clear nickname/avatar/banner for this server only")], components:[confirmRow], flags: MessageFlags.Ephemeral}).catch(()=>{});
             });
             interaction.client.components.set("botprofile:reset:confirm", async(i)=>{
+                const cfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(i.guildId!==guild.id || (!isStaff(i.member, cfg) && !i.member.permissions.has(PermissionFlagsBits.ManageGuild))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
                 await branding.set(guild.id, { displayName:null, avatarUrl:null, bannerUrl:null, nickname:null });
                 try{ await guild.members.me.setNickname(null).catch(()=>{}); }catch{}
                 try{ await guild.members.me.edit({ avatar: null }).catch(()=>{}); }catch{}
                 await i.update({ embeds:[embeds.success("Reset","Per-server identity cleared")], components:[]}).catch(()=>{});
             });
-            interaction.client.components.set("botprofile:reset:cancel", async(i)=>{ await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[]}).catch(()=>{}); });
+            interaction.client.components.set("botprofile:reset:cancel", async(i)=>{
+                const cfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(i.guildId!==guild.id || (!isStaff(i.member, cfg) && !i.member.permissions.has(PermissionFlagsBits.ManageGuild))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
+                await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[]}).catch(()=>{}); });
             return interaction.reply({ embeds:[embed], components:[row], flags: MessageFlags.Ephemeral});
         }
         if(sub==="name"){

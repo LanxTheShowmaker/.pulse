@@ -32,9 +32,15 @@ export class TicketSystemService {
         this.logging = logging;
         this.registerHandlers();
         // Auto-deletion: archived tickets are deleted after delay, survives restart via DB polling
-        setInterval(() => this.checkDeletions().catch((e) => logger.error("tickets", "autodelete failed", e)), 60_000);
+        this._deleteInterval = setInterval(() => this.checkDeletions().catch((e) => logger.error("tickets", "autodelete failed", e)), 60_000);
+        if (this._deleteInterval.unref) this._deleteInterval.unref();
         // Initial check 30s after startup (after client ready and guilds cached)
-        setTimeout(() => this.checkDeletions().catch(()=>{}), 30_000);
+        this._startupTimeout = setTimeout(() => this.checkDeletions().catch(()=>{}), 30_000);
+        if (this._startupTimeout.unref) this._startupTimeout.unref();
+    }
+    shutdown() {
+        if (this._deleteInterval) clearInterval(this._deleteInterval);
+        if (this._startupTimeout) clearTimeout(this._startupTimeout);
     }
     getDeletionDelayMs(guildId){
         // Configurable via GuildConfig.orders.deletionDelayMs or Panel config; default 10 minutes

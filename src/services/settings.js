@@ -153,9 +153,13 @@ export class SettingsService {
         return result;
     }
     async setModule(guildId, key, value) {
-        const current = await this.get(guildId);
-        const modules = { ...current.modules, [key]: value };
-        return this.patch(guildId, { modules });
+        const result = await this.prisma.$transaction(async (tx) => {
+            const row = await tx.guildConfig.findUnique({ where: { guildId } });
+            const modules = { ...(row?.modules ?? {}), [key]: value };
+            return tx.guildConfig.upsert({ where: { guildId }, create: { guildId, modules }, update: { modules } });
+        });
+        this.cache.delete(guildId);
+        return result;
     }
     async isModuleEnabled(guildId, key) {
         const current = await this.get(guildId);

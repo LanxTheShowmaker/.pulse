@@ -107,8 +107,8 @@ export class UtilityService {
             await interaction.reply({ embeds: [embeds.error("Poll ended", "This poll no longer exists.")], flags: MessageFlags.Ephemeral });
             return;
         }
-        const options = typeof poll.options === "string" ? JSON.parse(poll.options) : (poll.options ?? []);
-        if (!Number.isInteger(index) || index < 0 || index >= options.length) {
+        const initialOptions = typeof poll.options === "string" ? JSON.parse(poll.options) : (poll.options ?? []);
+        if (!Number.isInteger(index) || index < 0 || index >= initialOptions.length) {
             await interaction.reply({ embeds: [embeds.error("Invalid option", "That option does not exist.")], flags: MessageFlags.Ephemeral });
             return;
         }
@@ -118,9 +118,16 @@ export class UtilityService {
             return;
         }
         voters.add(userId);
-        options[index] = { ...options[index], votes: options[index].votes + 1 };
-        const updated = await this.prisma.poll.update({ where: { messageId }, data: { options: JSON.stringify(options) } }).catch(() => null);
-        if(!updated){ this.pollVoters.delete(messageId); }
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const fresh = await tx.poll.findUnique({ where: { messageId } });
+            if (!fresh) return null;
+            const freshOpts = typeof fresh.options === "string" ? JSON.parse(fresh.options) : (fresh.options ?? []);
+            if (index >= freshOpts.length) return null;
+            freshOpts[index] = { ...freshOpts[index], votes: (freshOpts[index].votes ?? 0) + 1 };
+            return tx.poll.update({ where: { messageId }, data: { options: JSON.stringify(freshOpts) } });
+        }).catch(() => null);
+        if(!updated){ this.pollVoters.delete(messageId); await interaction.reply({ embeds: [embeds.error("Vote failed", "Could not record vote. Try again.")], flags: MessageFlags.Ephemeral }); return; }
+        const options = typeof updated.options === "string" ? JSON.parse(updated.options) : (updated.options ?? []);
         const message = interaction.message;
         if (message?.editable) {
             await message.edit({ embeds: [this.buildPollEmbed(poll.question, options)] }).catch(() => { });

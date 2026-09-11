@@ -247,10 +247,18 @@ export const componentHandlers = {
         if (!i.member.permissions.has(PermissionFlagsBits.ManageGuild) && !isStaff(i.member, cfg)) {
             return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
         }
+        const myHighest = i.guild.members.me?.roles.highest?.position ?? 0;
         for (const roleId of i.values) {
             const role = i.guild.roles.cache.get(roleId) ?? await i.guild.roles.fetch(roleId).catch(() => null);
             if (!role || role.managed || role.id === i.guild.roles.everyone.id) {
                 return i.reply({ components: [errorPanel("Invalid role", "Selected roles must exist, not be managed integrations, and not be @everyone.")], flags: MessageFlags.Ephemeral });
+            }
+            if (role.position >= myHighest) {
+                return i.reply({ components: [errorPanel("Role too high", `Cannot add **${role.name}** — it is equal to or higher than the bot's highest role.`)], flags: MessageFlags.Ephemeral });
+            }
+            const perms = role.permissions;
+            if (perms.has(PermissionFlagsBits.Administrator) || perms.has(PermissionFlagsBits.BanMembers) || perms.has(PermissionFlagsBits.ManageGuild) || perms.has(PermissionFlagsBits.ManageRoles)) {
+                return i.reply({ components: [errorPanel("Dangerous role", `**${role.name}** has elevated permissions (${perms.has(PermissionFlagsBits.Administrator) ? "Administrator" : "ManageGuild/ManageRoles/BanMembers"}). Add it manually via Discord to avoid privilege escalation.`)], flags: MessageFlags.Ephemeral });
             }
         }
         const current = cfg?.staffRoleIds ? cfg.staffRoleIds.split(",") : [];

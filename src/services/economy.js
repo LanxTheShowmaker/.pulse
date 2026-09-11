@@ -26,34 +26,18 @@ export class EconomyService {
     async add(guildId, userId, amount, meta={ type:"adjust", actorId:null }){
         const type = meta.type||"adjust";
         const metaStr = meta.meta? JSON.stringify(meta.meta): null;
-        let updated=null;
-        try{
-            updated = await this.prisma.economy.update({ where:{ guildId_userId:{ guildId, userId }}, data:{ balance:{ increment: amount }}});
-        }catch(e){
-            if(e?.code!=="P2025") throw e;
-        }
-        if(updated){
-            await this.prisma.economyTransaction.create({ data:{ guildId, userId, type, amount, balanceAfter: updated.balance, meta: metaStr }});
-            const next = updated.balance;
-            await this.client?.services?.audit?.log(guildId,{ actorId: meta.actorId||userId, targetId:userId, action:`economy_${type}`, category:"economy", details:{ amount, balance:next }}).catch(()=>{});
-            if(next>=1000) await this.client?.services?.achievements?.checkAndUnlock(guildId, userId, { balance:next }).catch(()=>{});
-            return next;
-        }
-        const createdBalance = Math.max(0, amount);
-        try{
-            const created = await this.prisma.economy.create({ data:{ guildId, userId, balance: createdBalance }});
-            await this.prisma.economyTransaction.create({ data:{ guildId, userId, type, amount: created.balance, balanceAfter: created.balance, meta: metaStr }});
-            await this.client?.services?.audit?.log(guildId,{ actorId: meta.actorId||userId, targetId:userId, action:`economy_${type}`, category:"economy", details:{ amount: created.balance, balance:created.balance }}).catch(()=>{});
-            if(created.balance>=1000) await this.client?.services?.achievements?.checkAndUnlock(guildId, userId, { balance:created.balance }).catch(()=>{});
-            return created.balance;
-        }catch(e){
-            if(e?.code==="P2002"){
-                const retry = await this.prisma.economy.update({ where:{ guildId_userId:{ guildId, userId }}, data:{ balance:{ increment: amount }}});
-                await this.prisma.economyTransaction.create({ data:{ guildId, userId, type, amount, balanceAfter: retry.balance, meta: metaStr }});
-                return retry.balance;
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const row = await tx.economy.findUnique({ where:{ guildId_userId:{ guildId, userId }}});
+            if(row){
+                return tx.economy.update({ where:{ guildId_userId:{ guildId, userId }}, data:{ balance:{ increment: amount }}});
             }
-            throw e;
-        }
+            return tx.economy.create({ data:{ guildId, userId, balance: Math.max(0, amount) }});
+        });
+        await this.prisma.economyTransaction.create({ data:{ guildId, userId, type, amount, balanceAfter: updated.balance, meta: metaStr }});
+        const next = updated.balance;
+        await this.client?.services?.audit?.log(guildId,{ actorId: meta.actorId||userId, targetId:userId, action:`economy_${type}`, category:"economy", details:{ amount, balance:next }}).catch(()=>{});
+        if(next>=1000) await this.client?.services?.achievements?.checkAndUnlock(guildId, userId, { balance:next }).catch(()=>{});
+        return next;
     }
     async get(guildId, userId){ const r=await this.prisma.economy.findUnique({ where:{ guildId_userId:{ guildId, userId }}}).catch(()=>null); return r?.balance ?? 0; }
     async set(guildId, userId, amount, actorId=null){

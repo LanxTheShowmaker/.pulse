@@ -85,7 +85,6 @@ export default {
         }
         
         const cfg = await message.client.services.settings.get(guild.id).catch(() => null);
-        const { isStaff } = await import("../../core/services.js");
         if (!isStaff(message.member, cfg)) {
             return message.reply({ content: "Staff only", allowedMentions: { repliedUser: false } });
         }

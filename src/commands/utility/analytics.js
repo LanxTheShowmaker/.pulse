@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder, AttachmentBuilder } from "discord.js";
+import { SlashCommandBuilder, MessageFlags, EmbedBuilder } from "discord.js";
 import { Theme } from "../../design/theme.js";
 import { embeds } from "../../design/embeds.js";
 export default {
@@ -13,6 +13,9 @@ export default {
     async execute(interaction){
         const sub=interaction.options.getSubcommand();
         const guildId=interaction.guildId;
+        const cfg=await interaction.client.services.settings.get(guildId).catch(()=>null);
+        const { isStaff } = await import("../../core/services.js");
+        if(!isStaff(interaction.member, cfg)) return interaction.reply({ embeds:[embeds.error("No perm","Staff only")], flags: MessageFlags.Ephemeral});
         await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
         const svc=interaction.client.services.analytics;
         if(sub==="overview"){
