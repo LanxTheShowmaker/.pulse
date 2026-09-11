@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, PermissionFlagsBits } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { panel, stat } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -9,19 +9,17 @@ export default {
         .addRoleOption(o => o.setName("role").setDescription("Role to inspect").setRequired(true)),
     async execute(interaction) {
         const role = interaction.options.getRole("role");
-        const members = role.members.size;
         const perms = role.permissions.toArray();
-        const permList = perms.length > 5 ? perms.slice(0, 5).join(", ") + ` +${perms.length - 5} more` : perms.join(", ") || "None";
 
         const embed = panel(role.name, "")
             .addFields(
-                { name: "ID", value: role.id, inline: true },
-                { name: "Color", value: role.hexColor, inline: true },
-                { name: "Members", value: `${members}`, inline: true },
-                { name: "Position", value: `${role.position}`, inline: true },
-                { name: "Mentionable", value: role.mentionable ? "Yes" : "No", inline: true },
-                { name: "Hoisted", value: role.hoist ? "Yes" : "No", inline: true },
-                { name: "Permissions", value: permList },
+                stat("Color", `\`${role.hexColor}\``),
+                stat("Members", `${role.members.size}`),
+                stat("Position", `${role.position}`),
+                stat("Hoisted", role.hoist ? "Yes" : "No"),
+                stat("Mentionable", role.mentionable ? "Yes" : "No"),
+                stat("Created", `<t:${Math.floor(role.createdTimestamp / 1000)}:R>`),
+                stat("Permissions", `${perms.length} permission(s)`),
             )
             .setColor(role.color || undefined);
 

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, PermissionFlagsBits } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { panel, stat } from "../../design/embeds.js";
 
 const KEY_PERMS = [
     ["Administrator", "Administrator"],
@@ -24,12 +24,13 @@ export default {
         const member = await interaction.guild.members.fetch(target.id).catch(() => null);
         if (!member) return interaction.reply({ content: "User not found in this server.", flags: MessageFlags.Ephemeral });
 
-        const lines = KEY_PERMS.map(([perm, label]) => {
-            const has = member.permissions.has(PermissionFlagsBits[perm]);
-            return `${has ? "●" : "○"} **${label}**`;
-        });
+        const embed = panel(`${target.tag} \u2022 Permissions`, "");
 
-        const embed = panel(`${target.tag} — Permissions`, lines.join("\n"));
+        for (const [perm, label] of KEY_PERMS) {
+            const has = member.permissions.has(PermissionFlagsBits[perm]);
+            embed.addFields(stat(label, has ? "\u2705" : "\u25CB", true));
+        }
+
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

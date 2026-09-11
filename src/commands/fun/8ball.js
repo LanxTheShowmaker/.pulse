@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
+import { panel } from "../../design/embeds.js";
 
 const RESPONSES = [
     "It is certain.", "It is decidedly so.", "Without a doubt.",
@@ -17,7 +18,9 @@ export default {
         .setDescription("Ask the magic 8-ball")
         .addStringOption(o => o.setName("question").setDescription("Your question").setRequired(true)),
     async execute(interaction) {
+        const question = interaction.options.getString("question");
         const response = RESPONSES[Math.floor(Math.random() * RESPONSES.length)];
-        await interaction.reply({ content: `🎱 **${response}**` });
+        const embed = panel("🎱 Magic 8-Ball", `**Q:** ${question}\n\n**A:** ${response}`);
+        await interaction.reply({ embeds: [embed] });
     },
 };

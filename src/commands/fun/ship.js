@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { panel, progressBar } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
 
 export default {
@@ -17,9 +17,8 @@ export default {
         const hash = [...user1.id + user2.id].reduce((acc, c) => acc + c.charCodeAt(0), 0);
         const score = hash % 101;
 
-        let bar = "";
-        const filled = Math.round(score / 10);
-        bar = "█".repeat(filled) + "░".repeat(10 - filled);
+        const bar = progressBar(score, 100, 10);
+        const heartEmoji = score >= 50 ? "💕" : "💔";
 
         let verdict;
         if (score >= 90) verdict = "Perfect match!";
@@ -28,7 +27,7 @@ export default {
         else if (score >= 30) verdict = "Maybe just friends?";
         else verdict = "Not a match.";
 
-        const embed = panel("Ship", `\`${bar}\` **${score}%**`)
+        const embed = panel("Ship", `${heartEmoji} \`${bar}\` **${score}%**`)
             .addFields(
                 { name: "Pair", value: `${user1.tag} + ${user2.tag}`, inline: true },
                 { name: "Verdict", value: verdict, inline: true },

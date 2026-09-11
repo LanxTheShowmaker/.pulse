@@ -1,7 +1,9 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
-import { success, error, panel } from "../../design/embeds.js";
+import { EmbedBuilder } from "@discordjs/builders";
+import { success, error, panel, stat } from "../../design/embeds.js";
 import { ephemeral } from "../moderation/shared.js";
+import { Theme } from "../../design/theme.js";
 
 function parseDuration(input) {
     if (!input) return null;
@@ -56,7 +58,18 @@ export default {
                 await interaction.deferReply();
 
                 const result = await giveaways.create(interaction.guild, channel, interaction.user, prize, winners, endsAt);
-                await interaction.editReply({ embeds: [success("Giveaway Created", `Posted in <#${channel.id}>. Ends <t:${Math.floor(endsAt.getTime() / 1000)}:R>.`)] });
+                const embed = new EmbedBuilder()
+                    .setColor(Theme.warn)
+                    .setTitle("🎉 Giveaway Created")
+                    .setDescription(`Posted in <#${channel.id}>`)
+                    .addFields(
+                        { name: "Prize", value: prize, inline: true },
+                        { name: "Host", value: `<@${interaction.user.id}>`, inline: true },
+                        { name: "Winners", value: `${winners}`, inline: true },
+                        { name: "Ends", value: `<t:${Math.floor(endsAt.getTime() / 1000)}:R>`, inline: true },
+                    )
+                    .setTimestamp();
+                await interaction.editReply({ embeds: [embed] });
                 break;
             }
 
@@ -75,7 +88,12 @@ export default {
                 if (!result.ok) return interaction.editReply({ embeds: [error("Failed", result.error)] });
 
                 const mentions = result.winnerIds?.length ? result.winnerIds.map(id => `<@${id}>`).join(", ") : "No entries";
-                await interaction.editReply({ embeds: [success("Giveaway Ended", `Winner(s): ${mentions}`)] });
+                const embed = new EmbedBuilder()
+                    .setColor(Theme.success)
+                    .setTitle("🎊 Giveaway Ended")
+                    .setDescription(`**Prize:** ${giveaway.prize}\n\n**Winner(s):** ${mentions}`)
+                    .setTimestamp();
+                await interaction.editReply({ embeds: [embed] });
                 break;
             }
 
@@ -94,7 +112,12 @@ export default {
                 if (!result.ok) return interaction.editReply({ embeds: [error("Failed", result.error)] });
 
                 const mentions = result.winnerIds?.length ? result.winnerIds.map(id => `<@${id}>`).join(", ") : "No entries";
-                await interaction.editReply({ embeds: [success("Rerolled", `New winner(s): ${mentions}`)] });
+                const embed = new EmbedBuilder()
+                    .setColor(Theme.info)
+                    .setTitle("🔄 Giveaway Rerolled")
+                    .setDescription(`**Prize:** ${giveaway.prize}\n\n**New Winner(s):** ${mentions}`)
+                    .setTimestamp();
+                await interaction.editReply({ embeds: [embed] });
                 break;
             }
 
@@ -107,8 +130,13 @@ export default {
 
                 if (!list.length) return ephemeral(interaction, "No active giveaways.");
 
-                const lines = list.map(g => `\`${g.id.slice(0, 8)}\` **${g.prize}** — ${g.entryCount} entries — <t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>`);
-                await interaction.reply({ embeds: [panel("Active Giveaways", lines.join("\n"))] });
+                const lines = list.map(g => {
+                    const endsAt = new Date(g.endsAt);
+                    const timeLeft = `<t:${Math.floor(endsAt.getTime() / 1000)}:R>`;
+                    return `🎁 \`${g.id.slice(0, 8)}\` **${g.prize}**\n> Entries: ${g.entryCount} • Ends: ${timeLeft}`;
+                });
+                const embed = panel("Active Giveaways", lines.join("\n\n"));
+                await interaction.reply({ embeds: [embed] });
                 break;
             }
         }

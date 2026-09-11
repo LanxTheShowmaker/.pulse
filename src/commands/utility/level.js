@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { panel } from "../../design/embeds.js";
-import { Theme } from "../../design/theme.js";
+import { panel, stat, progressBar } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -14,13 +13,13 @@ export default {
         const target = interaction.options.getUser("target") ?? interaction.user;
         const rank = await leveling.getRank(interaction.guild.id, target.id);
 
-        const progress = Math.round((rank.xp / rank.needed) * 10);
-        const bar = "█".repeat(progress) + "░".repeat(10 - progress);
+        const percent = Math.round((rank.xp / rank.needed) * 100);
+        const bar = progressBar(rank.xp, rank.needed, 15);
 
-        const embed = panel(`${target.tag}`, `\`${bar}\` ${rank.xp}/${rank.needed} XP`)
+        const embed = panel(target.tag, `Level **${rank.level}** — ${rank.xp}/${rank.needed} XP\n\`${bar}\` **${percent}%**`)
             .addFields(
-                { name: "Level", value: `${rank.level}`, inline: true },
-                { name: "Rank", value: `#${rank.rank}`, inline: true },
+                stat("Rank", `#${rank.rank}`),
+                stat("Level", `${rank.level}`),
             )
             .setThumbnail(target.displayAvatarURL({ size: 128 }));
 

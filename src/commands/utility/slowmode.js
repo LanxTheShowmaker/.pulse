@@ -12,9 +12,12 @@ export default {
         const seconds = interaction.options.getInteger("seconds");
         if (seconds < 0 || seconds > 21600) return interaction.reply({ content: "Max 21600 seconds (6 hours).", flags: MessageFlags.Ephemeral });
 
+        const oldSlowmode = interaction.channel.rateLimitPerUser ?? 0;
         await interaction.channel.setRateLimitPerUser(seconds);
+
+        const format = s => s === 0 ? "Off" : `${s}s`;
         await interaction.reply({
-            embeds: [success("Slowmode", seconds === 0 ? "Slowmode disabled." : `Slowmode set to **${seconds}s**.`)],
+            embeds: [success("Slowmode", `\`${format(oldSlowmode)}\` \u2192 \`${format(seconds)}\``)],
         });
     },
 };

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
-import { panel, success } from "../../design/embeds.js";
+import { panel, success, error, stat } from "../../design/embeds.js";
 
 const DETECTOR_LIST = [
     { name: "spam",      label: "Spam Detection",     desc: "Multiple messages in short time" },
@@ -96,16 +96,30 @@ export default {
     },
 
     async handleView(interaction, ac) {
-        const lines = DETECTOR_LIST.map(d => {
-            const enabled = ac[d.name]?.enabled;
-            return `${enabled ? "●" : "○"} **${d.label}** — ${d.desc}${enabled && ac[d.name]?.action ? ` → ${ac[d.name].action}` : ""}`;
+        const detectorFields = DETECTOR_LIST.map(d => {
+            const det = ac[d.name] || {};
+            const enabled = det.enabled;
+            const icon = enabled ? "✅" : "⬜";
+            const action = enabled && det.action ? ` → **${det.action}**` : "";
+            return stat(`${icon} ${d.label}`, `${d.desc}${action}`);
         });
 
-        const embed = panel("AutoMod Configuration", lines.join("\n"))
-            .addFields({ name: "Default Action", value: ac.action ?? "warn", inline: true });
+        const embed = panel("AutoMod Configuration", null)
+            .addFields(
+                stat("Default Action", `**${ac.action ?? "warn"}**`),
+                ...detectorFields,
+            );
 
         if (ac.words?.list?.length) {
-            embed.addFields({ name: "Banned Words", value: ac.words.list.join(", ").slice(0, 1024), inline: false });
+            embed.addFields(stat("Banned Words", ac.words.list.map(w => `\`${w}\``).join(", ").slice(0, 1024), false));
+        }
+
+        if (ac.exempt?.roles?.length) {
+            embed.addFields(stat("Exempt Roles", ac.exempt.roles.map(id => `<@&${id}>`).join(", "), true));
+        }
+
+        if (ac.exempt?.channels?.length) {
+            embed.addFields(stat("Exempt Channels", ac.exempt.channels.map(id => `<#${id}>`).join(", "), true));
         }
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
@@ -120,19 +134,21 @@ export default {
 
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         const label = DETECTOR_LIST.find(d => d.name === detector)?.label ?? detector;
+        const icon = enabled ? "✅" : "⬜";
 
         await interaction.reply({
-            embeds: [success("AutoMod Updated", `${label} is now ${enabled ? "enabled" : "disabled"}.`)],
+            embeds: [success("AutoMod Updated", `${icon} **${label}** is now ${enabled ? "enabled" : "disabled"}.`)],
         });
     },
 
     async handleAction(interaction, settings, ac) {
         const action = interaction.options.getString("action");
+        const oldAction = ac.action ?? "warn";
         ac.action = action;
 
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
-            embeds: [success("AutoMod Updated", `Default action set to **${action}**.`)],
+            embeds: [success("AutoMod Updated", `Default action: **${oldAction}** → **${action}**`)],
         });
     },
 
@@ -141,11 +157,12 @@ export default {
         const value = interaction.options.getInteger("value");
 
         if (!ac[detector]) ac[detector] = {};
+        const oldThreshold = ac[detector].threshold ?? "default";
         ac[detector].threshold = value;
 
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
         await interaction.reply({
-            embeds: [success("AutoMod Updated", `${detector} threshold set to **${value}**.`)],
+            embeds: [success("AutoMod Updated", `${detector} threshold: **${oldThreshold}** → **${value}**`)],
         });
     },
 
@@ -162,8 +179,11 @@ export default {
         }
 
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
+        const removed = idx >= 0;
+        const icon = removed ? "➖" : "➕";
+
         await interaction.reply({
-            embeds: [success("Word List Updated", idx >= 0 ? `Removed \`${word}\`.` : `Added \`${word}\`.`)],
+            embeds: [success("Word List Updated", `${icon} \`${word}\` ${removed ? "removed from" : "added to"} banned words.`)],
         });
     },
 
@@ -182,8 +202,12 @@ export default {
         else ac.exempt.channels = list;
 
         await settings.patch(interaction.guild.id, { automod: JSON.stringify(ac) });
+        const removed = idx >= 0;
+        const mention = type === "role" ? `<@&${id}>` : `<#${id}>`;
+        const icon = removed ? "➖" : "➕";
+
         await interaction.reply({
-            embeds: [success("Exemption Updated", idx >= 0 ? `Removed ${type} <@${id}>.` : `Added ${type} <@${id}>.`)],
+            embeds: [success("Exemption Updated", `${icon} ${mention} ${removed ? "removed from" : "added to"} exemptions.`)],
         });
     },
 
@@ -205,11 +229,12 @@ export default {
         const results = [];
         for (const [name, fn] of Object.entries(DETECTOR_FNS)) {
             if (!ac[name]?.enabled) continue;
-            if (fn(fake, ac)) results.push({ name, label: DETECTOR_LIST.find(d => d.name === name)?.label ?? name });
+            const triggered = fn(fake, ac);
+            results.push({ name, label: DETECTOR_LIST.find(d => d.name === name)?.label ?? name, triggered });
         }
 
         const lines = results.length
-            ? results.map(r => `● **${r.label}** triggered`)
+            ? results.map(r => `${r.triggered ? "🔴" : "🟢"} **${r.label}** — ${r.triggered ? "triggered" : "passed"}`)
             : ["No detectors triggered — message is clean."];
 
         await interaction.reply({

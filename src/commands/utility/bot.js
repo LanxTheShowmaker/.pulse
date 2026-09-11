@@ -15,17 +15,23 @@ export default {
         const sub = interaction.options.getSubcommand();
 
         if (sub === "about") {
+            const c = interaction.client;
+            const uptime = this.formatUptime(c.uptime);
             const embed = panel(".pulse", "A professional Discord moderation and management bot.")
                 .addFields(
-                    { name: "Servers", value: `${interaction.client.guilds.cache.size}`, inline: true },
-                    { name: "Uptime", value: this.formatUptime(interaction.client.uptime), inline: true },
-                    { name: "Latency", value: `${Math.round(interaction.client.ws.ping)}ms`, inline: true },
+                    { name: "Version", value: "2.0", inline: true },
+                    { name: "Servers", value: `${c.guilds.cache.size}`, inline: true },
+                    { name: "Users", value: `${c.guilds.cache.reduce((a, g) => a + g.memberCount, 0).toLocaleString()}`, inline: true },
+                    { name: "Uptime", value: uptime, inline: true },
+                    { name: "Latency", value: `${Math.round(c.ws.ping)}ms`, inline: true },
+                    { name: "Library", value: "discord.js", inline: true },
                 );
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         if (sub === "uptime") {
-            await interaction.reply({ content: `Uptime: **${this.formatUptime(interaction.client.uptime)}**`, flags: MessageFlags.Ephemeral });
+            const embed = panel("Uptime", `\`\`\`${this.formatUptime(interaction.client.uptime)}\`\`\``);
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
         }
 
         if (sub === "invite") {
@@ -42,8 +48,12 @@ export default {
         const d = Math.floor(s / 86400);
         const h = Math.floor((s % 86400) / 3600);
         const m = Math.floor((s % 3600) / 60);
-        if (d > 0) return `${d}d ${h}h ${m}m`;
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m}m`;
+        const sec = s % 60;
+        const parts = [];
+        if (d > 0) parts.push(`${d}d`);
+        if (h > 0) parts.push(`${h}h`);
+        if (m > 0) parts.push(`${m}m`);
+        parts.push(`${sec}s`);
+        return parts.join(" ");
     },
 };

@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, ButtonStyle } from "discord.js";
 import { row, button } from "../../design/components.js";
+import { panel } from "../../design/embeds.js";
 
 const QUESTIONS = [
     { q: "What planet is known as the Red Planet?", a: "Mars", opts: ["Venus", "Mars", "Jupiter", "Saturn"] },
@@ -26,8 +27,10 @@ export default {
             button(opt, `trivia:${interaction.id}:${i}:${correctIdx}`, ButtonStyle.Secondary)
         );
 
+        const optionsList = shuffled.map((opt, i) => `${i + 1}. ${opt}`).join("\n");
+        const embed = panel("Trivia", `**${q.q}**\n\n${optionsList}`);
         await interaction.reply({
-            content: `**${q.q}**`,
+            embeds: [embed],
             components: [row(...buttons)],
         });
 
@@ -41,15 +44,16 @@ export default {
             const idx = parseInt(i.customId.split(":")[2]);
             const correct = parseInt(i.customId.split(":")[3]);
             const isCorrect = idx === correct;
-            await i.update({
-                content: `${isCorrect ? "Correct!" : `Wrong! The answer was **${q.a}**.`}`,
-                components: [],
-            });
+            const emoji = isCorrect ? "✅" : "❌";
+            const resultText = isCorrect ? "Correct!" : `Wrong! The answer was **${q.a}**.`;
+            const embed = panel("Trivia", `${emoji} ${resultText}`);
+            await i.update({ embeds: [embed], components: [] });
         });
 
         collector.on("end", (collected) => {
             if (collected.size === 0) {
-                interaction.editReply({ content: `Time's up! The answer was **${q.a}**.`, components: [] }).catch(() => {});
+                const embed = panel("Trivia", `⏰ Time's up! The answer was **${q.a}**.`);
+                interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
             }
         });
     },

@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
+import { panel } from "../../design/embeds.js";
 
 const JOKES = [
     "Why don't scientists trust atoms? Because they make up everything.",
@@ -18,6 +19,7 @@ export default {
     data: new SlashCommandBuilder().setName("joke").setDescription("Hear a random joke"),
     async execute(interaction) {
         const joke = JOKES[Math.floor(Math.random() * JOKES.length)];
-        await interaction.reply({ content: joke });
+        const embed = panel("Joke", joke);
+        await interaction.reply({ embeds: [embed] });
     },
 };

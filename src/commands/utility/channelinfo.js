@@ -1,6 +1,11 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { MessageFlags, ChannelType } from "discord.js";
+import { panel, stat } from "../../design/embeds.js";
+
+const CHANNEL_TYPES = {
+    0: "Text", 2: "Voice", 4: "Category", 5: "Announcement",
+    13: "Stage", 15: "Forum",
+};
 
 export default {
     data: new SlashCommandBuilder()
@@ -9,21 +14,25 @@ export default {
         .addChannelOption(o => o.setName("channel").setDescription("Channel").setRequired(false)),
     async execute(interaction) {
         const ch = interaction.options.getChannel("channel") ?? interaction.channel;
-        const type = {
-            0: "Text", 2: "Voice", 4: "Category", 5: "Announcement",
-            13: "Stage", 15: "Forum",
-        }[ch.type] ?? "Unknown";
+        const type = CHANNEL_TYPES[ch.type] ?? "Unknown";
+        const category = ch.parent ? ch.parent.name : "None";
 
-        const embed = panel(ch.name, "")
+        const embed = panel(`#${ch.name}`, "")
             .addFields(
-                { name: "ID", value: ch.id, inline: true },
-                { name: "Type", value: type, inline: true },
-                { name: "Created", value: `<t:${Math.floor(ch.createdAt.getTime() / 1000)}:R>`, inline: true },
+                stat("Type", type),
+                stat("Category", category),
+                stat("NSFW", ch.isTextBased() && ch.nsfw !== undefined ? (ch.nsfw ? "Yes" : "No") : "N/A"),
+                stat("Slowmode", ch.isTextBased() && ch.rateLimitPerUser ? `${ch.rateLimitPerUser}s` : "Off"),
+                stat("Created", `<t:${Math.floor(ch.createdAt.getTime() / 1000)}:R>`),
             );
 
         if (ch.topic) embed.addFields({ name: "Topic", value: ch.topic.slice(0, 1024) });
-        if (ch.isTextBased() && ch.nsfw !== undefined) embed.addFields({ name: "NSFW", value: ch.nsfw ? "Yes" : "No", inline: true });
-        if (ch.isTextBased() && ch.rateLimitPerUser) embed.addFields({ name: "Slowmode", value: `${ch.rateLimitPerUser}s`, inline: true });
+
+        const perms = ch.permissionOverwrites.cache.filter(p => p.type === 0);
+        if (perms.size > 0) {
+            const rolePerms = perms.filter(p => p.id !== ch.guild?.roles?.everyone?.id);
+            embed.addFields({ name: `Permissions (${rolePerms.size} roles)`, value: rolePerms.size > 5 ? `${rolePerms.size} role overrides` : "Default" });
+        }
 
         await interaction.reply({ embeds: [embed] });
     },

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
-import { panel, success, error } from "../../design/embeds.js";
+import { panel, success, error, stat } from "../../design/embeds.js";
 
 const MODULE_LIST = [
     { name: "moderation", label: "Moderation", desc: "Mod commands + case logging" },
@@ -109,21 +109,23 @@ export default {
 
     async handleView(interaction, config) {
         const mods = JSON.parse(config.modules);
-        const modLines = MODULE_LIST.map(m => {
-            const enabled = mods[m.name] !== false;
-            return `${enabled ? "●" : "○"} **${m.label}** — ${m.desc}`;
-        });
+        const enabledCount = MODULE_LIST.filter(m => mods[m.name] !== false).length;
 
-        const embed = panel("Server Configuration", modLines.join("\n"))
+        const embed = panel("Server Configuration", null)
             .addFields(
-                { name: "Log Channel", value: config.logChannelId ? `<#${config.logChannelId}>` : "Not set", inline: true },
-                { name: "Mod Log", value: config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set", inline: true },
-                { name: "Welcome", value: config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "Not set", inline: true },
-                { name: "Goodbye", value: config.goodbyeChannelId ? `<#${config.goodbyeChannelId}>` : "Not set", inline: true },
-                { name: "Staff Roles", value: config.staffRoleIds.length ? config.staffRoleIds.map(id => `<@&${id}>`).join(", ") : "None", inline: true },
-                { name: "Mod Roles", value: config.moderatorRoleIds.length ? config.moderatorRoleIds.map(id => `<@&${id}>`).join(", ") : "None", inline: true },
-                { name: "Prefix", value: `\`${config.prefix}\``, inline: true },
+                stat("Modules", `${enabledCount}/${MODULE_LIST.length} enabled`),
+                stat("Log Channel", config.logChannelId ? `<#${config.logChannelId}>` : "Not set"),
+                stat("Mod Log", config.modLogChannelId ? `<#${config.modLogChannelId}>` : "Not set"),
+                stat("Welcome", config.welcomeChannelId ? `<#${config.welcomeChannelId}>` : "Not set"),
+                stat("Goodbye", config.goodbyeChannelId ? `<#${config.goodbyeChannelId}>` : "Not set"),
+                stat("Staff Roles", config.staffRoleIds.length ? config.staffRoleIds.map(id => `<@&${id}>`).join(", ") : "None"),
+                stat("Mod Roles", config.moderatorRoleIds.length ? config.moderatorRoleIds.map(id => `<@&${id}>`).join(", ") : "None"),
+                stat("Prefix", `\`${config.prefix}\``),
             );
+
+        if (config.botName) {
+            embed.addFields(stat("Bot Name", `**${config.botName}**`));
+        }
 
         await interaction.reply({ embeds: [embed] });
     },
@@ -135,8 +137,15 @@ export default {
         await settings.setModule(interaction.guild.id, module, enabled);
         const label = MODULE_LIST.find(m => m.name === module)?.label ?? module;
 
+        const updatedConfig = await settings.get(interaction.guild.id);
+        const mods = JSON.parse(updatedConfig.modules);
+        const summary = MODULE_LIST.map(m => {
+            const on = mods[m.name] !== false;
+            return `${on ? "●" : "○"} **${m.label}**`;
+        }).join(" · ");
+
         await interaction.reply({
-            embeds: [success("Module Updated", `${label} is now ${enabled ? "enabled" : "disabled"}.`)],
+            embeds: [success("Module Updated", `${label} is now ${enabled ? "enabled" : "disabled"}.\n\n${summary}`)],
         });
     },
 
@@ -154,8 +163,11 @@ export default {
         await settings.patch(interaction.guild.id, { [field]: channel.id });
 
         const label = { log: "Message logs", mod: "Moderation logs", welcome: "Welcome channel", goodbye: "Goodbye channel" }[type];
+        const oldId = config[field];
+        const oldChannel = oldId ? `<#${oldId}>` : "Not set";
+
         await interaction.reply({
-            embeds: [success("Channel Set", `${label} set to <#${channel.id}>`)],
+            embeds: [success("Channel Set", `${label}: ${oldChannel} → <#${channel.id}>`)],
         });
     },
 
@@ -174,10 +186,11 @@ export default {
         }
 
         await settings.patch(interaction.guild.id, { [field]: JSON.stringify(ids) });
-        const action = idx >= 0 ? "removed from" : "added to";
+        const added = idx < 0;
+        const emoji = added ? "➕" : "➖";
 
         await interaction.reply({
-            embeds: [success("Role Updated", `<@&${role.id}> ${action} ${type} roles.`)],
+            embeds: [success("Role Updated", `${emoji} <@&${role.id}> ${added ? "added to" : "removed from"} ${type} roles.`)],
         });
     },
 
@@ -206,13 +219,16 @@ export default {
 
         if (name.length > 32) return ephemeral(interaction, "Name must be 32 characters or less.");
 
+        const currentName = interaction.guild.members.me.nickname;
+        const oldDisplay = currentName || "Default";
+
         await branding.set(interaction.guild.id, { nickname: name });
         await interaction.guild.members.me.setNickname(name).catch(e => {
             return interaction.reply({ embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${e.message}`)] });
         });
 
         await interaction.reply({
-            embeds: [success("Bot Name Set", `Bot name set to **${name}**.`)],
+            embeds: [success("Bot Name Set", `Bot name: **${oldDisplay}** → **${name}**`)],
         });
     },
 

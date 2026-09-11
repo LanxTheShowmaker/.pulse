@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
+import { panel } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -17,8 +18,11 @@ export default {
 
         const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
         const total = rolls.reduce((a, b) => a + b, 0);
-        const display = count > 1 ? ` [${rolls.join(", ")}]` : "";
-
-        await interaction.reply({ content: `**${total}**${display}` });
+        const diceDisplay = rolls.map(d => `\`${d}\``).join(" + ");
+        const description = count > 1 
+            ? `🎲 **${total}**\n${diceDisplay}`
+            : `🎲 **${total}**`;
+        const embed = panel("Dice Roll", description);
+        await interaction.reply({ embeds: [embed] });
     },
 };

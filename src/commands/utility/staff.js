@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { panel, stat } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder().setName("staff").setDescription("List server staff"),
@@ -9,17 +9,20 @@ export default {
         const staffIds = config.staffRoleIds || [];
         const modIds = config.moderatorRoleIds || [];
 
-        const lines = [];
+        const embed = panel("Staff", "");
+
         for (const id of staffIds) {
             const role = interaction.guild.roles.cache.get(id);
-            if (role) lines.push(`**${role.name}** — ${role.members.size} member(s)`);
+            if (role) embed.addFields(stat(`${role.name}`, `${role.members.size} member(s)`));
         }
         for (const id of modIds) {
             const role = interaction.guild.roles.cache.get(id);
-            if (role) lines.push(`**${role.name}** — ${role.members.size} member(s) (moderator)`);
+            if (role) embed.addFields(stat(`${role.name}`, `${role.members.size} member(s) \u2022 Moderator`));
         }
 
-        if (!lines.length) return interaction.reply({ embeds: [panel("Staff", "No staff roles configured.")] });
-        await interaction.reply({ embeds: [panel("Staff", lines.join("\n"))] });
+        if (!embed.data.fields?.length) {
+            return interaction.reply({ embeds: [panel("Staff", "No staff roles configured.")] });
+        }
+        await interaction.reply({ embeds: [embed] });
     },
 };

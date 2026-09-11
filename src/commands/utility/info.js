@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { panel } from "../../design/embeds.js";
+import { panel, profile, stat } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -18,31 +18,37 @@ export default {
         if (sub === "user") {
             const user = interaction.options.getUser("target") ?? interaction.user;
             const member = await interaction.guild.members.fetch(user.id).catch(() => null);
-            const embed = panel(user.tag, "")
-                .addFields(
-                    { name: "ID", value: user.id, inline: true },
-                    { name: "Created", value: `<t:${Math.floor(user.createdAt.getTime() / 1000)}:R>`, inline: true },
-                )
-                .setThumbnail(user.displayAvatarURL({ size: 256 }));
+            const embed = profile(user, "");
+
+            embed.addFields(
+                stat("ID", user.id),
+                stat("Created", `<t:${Math.floor(user.createdAt.getTime() / 1000)}:R>`),
+            );
+
             if (member) {
-                embed.addFields({ name: "Joined", value: `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>`, inline: true });
-                if (member.roles.cache.size > 1) {
-                    embed.addFields({ name: "Roles", value: member.roles.cache.filter(r => r.id !== interaction.guild.id).map(r => `<@&${r.id}>`).join(", ").slice(0, 1024) || "None" });
+                embed.addFields(stat("Joined", `<t:${Math.floor(member.joinedAt.getTime() / 1000)}:R>`));
+                const roles = member.roles.cache.filter(r => r.id !== interaction.guild.id);
+                if (roles.size > 0) {
+                    embed.addFields({ name: `Roles (${roles.size})`, value: roles.map(r => `<@&${r.id}>`).join(", ").slice(0, 1024) });
                 }
             }
+
             await interaction.reply({ embeds: [embed] });
         }
 
         if (sub === "server") {
             const g = interaction.guild;
+            const online = g.members.cache.filter(m => m.presence?.status !== "offline").size;
             const embed = panel(g.name, "")
                 .addFields(
-                    { name: "ID", value: g.id, inline: true },
-                    { name: "Owner", value: `<@${g.ownerId}>`, inline: true },
-                    { name: "Members", value: `${g.memberCount}`, inline: true },
-                    { name: "Channels", value: `${g.channels.cache.size}`, inline: true },
-                    { name: "Roles", value: `${g.roles.cache.size}`, inline: true },
-                    { name: "Created", value: `<t:${Math.floor(g.createdAt.getTime() / 1000)}:R>`, inline: true },
+                    stat("Owner", `<@${g.ownerId}>`),
+                    stat("Created", `<t:${Math.floor(g.createdAt.getTime() / 1000)}:R>`),
+                    stat("Verification", g.verificationLevel.toString()),
+                    stat("Members", `${g.memberCount} (${online} online)`),
+                    stat("Channels", `${g.channels.cache.size}`),
+                    stat("Roles", `${g.roles.cache.size}`),
+                    stat("Emojis", `${g.emojis.cache.size}`),
+                    stat("Boosts", `${g.premiumSubscriptionCount ?? 0}`),
                 );
             if (g.iconURL()) embed.setThumbnail(g.iconURL({ size: 256 }));
             await interaction.reply({ embeds: [embed] });
@@ -51,9 +57,8 @@ export default {
         if (sub === "avatar") {
             const user = interaction.options.getUser("target") ?? interaction.user;
             const url = user.displayAvatarURL({ size: 512 });
-            await interaction.reply({
-                embeds: [panel(`${user.tag}'s Avatar`, `[Download](${url})`).setThumbnail(url)],
-            });
+            const embed = panel(`${user.tag}'s Avatar`, `[Download](${url})`).setImage(url);
+            await interaction.reply({ embeds: [embed] });
         }
     },
 };

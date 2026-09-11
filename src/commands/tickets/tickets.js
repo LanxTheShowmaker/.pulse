@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags, ChannelType } from "discord.js";
-import { success, error, panel } from "../../design/embeds.js";
+import { EmbedBuilder } from "@discordjs/builders";
+import { success, error, panel, stat, confirmation } from "../../design/embeds.js";
 import { ephemeral } from "../moderation/shared.js";
 import { button, selectMenu, row, modal } from "../../design/components.js";
 import { ButtonStyle } from "discord.js";
@@ -53,7 +54,8 @@ export default {
         });
 
         await tickets.open(interaction.guild, channel, interaction.user, null, null);
-        await interaction.editReply({ embeds: [success("Ticket Created", `<#${channel.id}>`)] });
+        const embed = success("Ticket Created", `Your ticket has been created: <#${channel.id}>\n\n**Reason:** ${reason}`);
+        await interaction.editReply({ embeds: [embed] });
     },
 
     async handleClose(interaction, tickets) {
@@ -63,7 +65,8 @@ export default {
         if (!ticket) return ephemeral(interaction, "No open ticket in this channel.");
 
         await tickets.close(interaction.channel.id, interaction.user.id);
-        await interaction.reply({ embeds: [success("Ticket Closed", "Channel will be deleted shortly.")] });
+        const embed = confirmation("Close Ticket", "Are you sure you want to close this ticket?\nThis action cannot be undone.");
+        await interaction.reply({ embeds: [embed] });
     },
 
     async handleClaim(interaction, tickets) {
@@ -80,14 +83,25 @@ export default {
         const list = await tickets.listOpen(interaction.guild.id);
         if (!list.length) return ephemeral(interaction, "No open tickets.");
 
-        const lines = list.map(t => `<#${t.channelId}> — opened by <@${t.openerId}> — <t:${Math.floor(t.createdAt.getTime() / 1000)}:R>`);
-        await interaction.reply({ embeds: [panel("Open Tickets", lines.join("\n"))] });
+        const lines = list.map(t => {
+            const age = `<t:${Math.floor(t.createdAt.getTime() / 1000)}:R>`;
+            const status = t.status === "CLAIMED" ? "🟢 Claimed" : "🟡 Open";
+            return `🎫 <#${t.channelId}>\n> Opener: <@${t.openerId}> • Age: ${age} • ${status}`;
+        });
+        const embed = panel("Open Tickets", lines.join("\n\n"));
+        await interaction.reply({ embeds: [embed] });
     },
 
     async handleStats(interaction, tickets) {
         const stats = await tickets.getStats(interaction.guild.id);
+        const embed = panel("Ticket Statistics", "Overview of ticket activity")
+            .addFields(
+                stat("Open Tickets", stats.open),
+                stat("Closed Tickets", stats.closed),
+                stat("Total Tickets", stats.total),
+            );
         await interaction.reply({
-            embeds: [panel("Ticket Stats", `Open: **${stats.open}**\nClosed: **${stats.closed}**\nTotal: **${stats.total}**`)],
+            embeds: [embed],
             flags: MessageFlags.Ephemeral,
         });
     },
@@ -101,11 +115,15 @@ export default {
             ? types.map(t => `${t.enabled ? "●" : "○"} **${t.displayName}** — ${t.description || "No description"} — Category: ${t.categoryId ? `<#${t.categoryId}>` : "Default"}`)
             : ["No ticket types configured. Add one to get started."];
 
-        const embed = panel("Ticket Configurator", typeLines.join("\n"))
+        const embed = new EmbedBuilder()
+            .setColor(Theme.panel)
+            .setTitle("⚙️ Ticket Configurator")
+            .setDescription(typeLines.join("\n"))
             .addFields(
-                { name: "Open Tickets", value: `${openCount}`, inline: true },
-                { name: "Types", value: `${types.length}`, inline: true },
-            );
+                stat("Open Tickets", openCount),
+                stat("Ticket Types", types.length),
+            )
+            .setTimestamp();
 
         const components = [
             row(

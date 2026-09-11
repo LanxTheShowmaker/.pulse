@@ -27,7 +27,10 @@ export default {
             { label: "Relative", code: `<t:${ts}:R>`, example: `<t:${ts}:R>` },
         ];
 
-        const lines = formats.map(f => `**${f.label}**: \`${f.code}\` → ${f.example}`);
-        await interaction.reply({ embeds: [panel("Timestamps", lines.join("\n"))], flags: MessageFlags.Ephemeral });
+        const codeBlock = formats.map(f => `${f.label.padEnd(16)} ${f.code}`).join("\n");
+        const examples = formats.map(f => `${f.label.padEnd(16)} ${f.example}`).join("\n");
+
+        const embed = panel("Timestamps", `\`\`\`\n${codeBlock}\n\`\`\`\n**Preview:**\n${examples}`);
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

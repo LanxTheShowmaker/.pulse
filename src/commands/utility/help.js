@@ -1,28 +1,33 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
 import { panel } from "../../design/embeds.js";
-import { row, button, selectMenu } from "../../design/components.js";
-import { ButtonStyle } from "discord.js";
 
 const CATEGORIES = {
-    moderation: { label: "Moderation", desc: "warn, ban, kick, timeout, case management", commands: ["moderation"] },
-    config: { label: "Configuration", desc: "server settings, modules, automod", commands: ["config", "automod"] },
-    economy: { label: "Economy", desc: "coins, daily, weekly, gift", commands: ["economy"] },
-    leveling: { label: "Leveling", desc: "XP, levels, leaderboard", commands: ["level", "leaderboard"] },
-    giveaways: { label: "Giveaways", desc: "create, end, reroll giveaways", commands: ["giveaway"] },
-    tickets: { label: "Tickets", desc: "support ticket system", commands: ["tickets"] },
-    utility: { label: "Utility", desc: "info, avatar, poll, ping", commands: ["bot", "info", "poll", "ping"] },
+    moderation: { icon: "\uD83D\uDD28", label: "Moderation", commands: ["warn", "ban", "kick", "timeout", "case"] },
+    config: { icon: "\u2699\uFE0F", label: "Configuration", commands: ["config", "automod"] },
+    economy: { icon: "\uD83D\uDCB0", label: "Economy", commands: ["coins", "daily", "weekly", "gift"] },
+    utility: { icon: "\uD83D\uDCCB", label: "Utility", commands: ["bot", "info", "poll", "ping", "avatar", "serverinfo"] },
+    tickets: { icon: "\uD83C\uDFAB", label: "Tickets", commands: ["ticket", "close"] },
+    giveaways: { icon: "\uD83C\uDF89", label: "Giveaways", commands: ["giveaway"] },
+    shop: { icon: "\uD83D\uDED2", label: "Shop", commands: ["shop", "buy"] },
+    fun: { icon: "\uD83C\uDFAE", label: "Fun", commands: ["meme", "8ball"] },
+    owner: { icon: "\uD83D\uDD27", label: "Owner", commands: ["eval", "shutdown"] },
 };
 
 export default {
     data: new SlashCommandBuilder().setName("help").setDescription("Browse commands by category"),
 
     async execute(interaction) {
-        const lines = Object.entries(CATEGORIES).map(([key, cat]) => {
-            return `**${cat.label}** — ${cat.desc}\n\`${cat.commands.join(", ")}\``;
-        });
+        const embed = panel("Commands", "Use `/help <category>` for more details.");
 
-        const embed = panel("Commands", lines.join("\n\n"));
+        for (const [key, cat] of Object.entries(CATEGORIES)) {
+            embed.addFields({
+                name: `${cat.icon} ${cat.label}`,
+                value: cat.commands.map(c => `\`${c}\``).join(", ") || "No commands",
+                inline: false,
+            });
+        }
+
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 };

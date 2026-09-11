@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { success } from "../../design/embeds.js";
+import { panel } from "../../design/embeds.js";
 
 export default {
     data: new SlashCommandBuilder()
@@ -15,8 +15,12 @@ export default {
         const channel = interaction.channel;
         const result = await suggestions.create(interaction.guild, channel, interaction.user, content);
 
-        await interaction.reply({
-            embeds: [success("Suggestion Submitted", `Your suggestion has been posted. React with ✅ or ❌.`)],
-        });
+        const embed = panel("Suggestion Submitted", content)
+            .addFields(
+                { name: "Status", value: "\u23F3 Pending", inline: true },
+                { name: "Author", value: `${interaction.user}`, inline: true },
+            );
+
+        await interaction.reply({ embeds: [embed] });
     },
 };

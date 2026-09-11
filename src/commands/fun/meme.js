@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
+import { panel } from "../../design/embeds.js";
 
 const MEMES = [
     "When the code works on the first try — *suspicious look*",
@@ -18,6 +19,7 @@ export default {
     data: new SlashCommandBuilder().setName("meme").setDescription("Get a random dev meme"),
     async execute(interaction) {
         const meme = MEMES[Math.floor(Math.random() * MEMES.length)];
-        await interaction.reply({ content: meme });
+        const embed = panel("Dev Meme", meme);
+        await interaction.reply({ embeds: [embed] });
     },
 };

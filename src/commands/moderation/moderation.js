@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, canModerate, ephemeral, confirmAction, parseDuration } from "./shared.js";
-import { success, error, info, panel } from "../../design/embeds.js";
+import { success, error, info, panel, stat, cooldownDisplay } from "../../design/embeds.js";
 import { row, button } from "../../design/components.js";
 import { Theme, Brand } from "../../design/theme.js";
 
@@ -122,7 +122,14 @@ export default {
         const result = await moderation.warn(interaction.guild.id, interaction.user, target, reason);
         if (!result?.case) return interaction.editReply({ content: "Failed to create case." });
 
-        await interaction.editReply({ content: "", embeds: [success("Warned", `<@${target.id}> has been warned.\nCase #${result.case.caseNumber}`)] });
+        const embed = success("User Warned")
+            .setDescription(`<@${target.id}> has been warned.`)
+            .setThumbnail(target.displayAvatarURL())
+            .addFields(
+                stat("Reason", reason ?? "No reason"),
+                stat("Case", `#${result.case.caseNumber}`),
+            );
+        await interaction.editReply({ content: "", embeds: [embed] });
     },
 
     async handleBan(interaction, moderation) {
@@ -138,7 +145,15 @@ export default {
         const result = await moderation.ban(interaction.guild.id, interaction.user, target, reason, duration);
         if (!result?.case) return interaction.editReply({ content: "Failed to ban user." });
 
-        await interaction.editReply({ content: "", embeds: [success("Banned", `<@${target.id}> has been banned.\nCase #${result.case.caseNumber}${duration ? `\nDuration: ${duration.text}` : ""}`)] });
+        const embed = success("User Banned")
+            .setDescription(`<@${target.id}> has been banned.`)
+            .setThumbnail(target.displayAvatarURL())
+            .addFields(
+                stat("Reason", reason ?? "No reason"),
+                stat("Case", `#${result.case.caseNumber}`),
+            );
+        if (duration) embed.addFields(stat("Duration", duration.text));
+        await interaction.editReply({ content: "", embeds: [embed] });
     },
 
     async handleKick(interaction, moderation) {
@@ -153,7 +168,14 @@ export default {
         const result = await moderation.kick(interaction.guild.id, interaction.user, target, reason);
         if (!result?.case) return interaction.editReply({ content: "Failed to kick user." });
 
-        await interaction.editReply({ content: "", embeds: [success("Kicked", `<@${target.id}> has been kicked.\nCase #${result.case.caseNumber}`)] });
+        const embed = success("User Kicked")
+            .setDescription(`<@${target.id}> has been kicked.`)
+            .setThumbnail(target.displayAvatarURL())
+            .addFields(
+                stat("Reason", reason ?? "No reason"),
+                stat("Case", `#${result.case.caseNumber}`),
+            );
+        await interaction.editReply({ content: "", embeds: [embed] });
     },
 
     async handleTimeout(interaction, moderation) {
@@ -173,7 +195,15 @@ export default {
         const result = await moderation.timeout(interaction.guild.id, interaction.user, target, reason, duration);
         if (!result?.case) return interaction.editReply({ content: "Failed to timeout user." });
 
-        await interaction.editReply({ content: "", embeds: [success("Timed Out", `<@${target.id}> has been timed out for ${duration.text}.\nCase #${result.case.caseNumber}`)] });
+        const embed = success("User Timed Out")
+            .setDescription(`<@${target.id}> has been timed out.`)
+            .setThumbnail(target.displayAvatarURL())
+            .addFields(
+                stat("Reason", reason ?? "No reason"),
+                stat("Duration", duration.text),
+                stat("Case", `#${result.case.caseNumber}`),
+            );
+        await interaction.editReply({ content: "", embeds: [embed] });
     },
 
     async handleUnban(interaction, moderation) {
@@ -217,17 +247,21 @@ export default {
         const case_ = await cases.get(interaction.guild.id, number);
         if (!case_) return ephemeral(interaction, `Case #${number} not found.`);
 
+        const statusIcon = case_.resolved ? "✅" : "⏳";
+
         const embed = panel(`Case #${case_.caseNumber}`, "")
             .addFields(
-                { name: "Action", value: case_.action, inline: true },
-                { name: "Target", value: `<@${case_.targetId}> (${case_.targetTag})`, inline: true },
-                { name: "Moderator", value: `<@${case_.moderatorId}> (${case_.moderatorTag})`, inline: true },
-                { name: "Reason", value: case_.reason ?? "No reason", inline: false },
+                stat("Case", `#${case_.caseNumber}`),
+                stat("Target", `<@${case_.targetId}>`),
+                stat("Moderator", `<@${case_.moderatorId}>`),
+                stat("Action", case_.action),
+                stat("Reason", case_.reason ?? "No reason"),
+                stat("Status", case_.resolved ? `✅ Resolved by <@${case_.resolvedById}>` : "⏳ Open"),
             )
+            .setThumbnail(interaction.guild.iconURL())
             .setTimestamp(case_.createdAt);
 
-        if (case_.duration) embed.addFields({ name: "Duration", value: case_.duration, inline: true });
-        if (case_.resolved) embed.addFields({ name: "Resolved", value: `By <@${case_.resolvedById}>`, inline: true });
+        if (case_.duration) embed.addFields(stat("Duration", case_.duration));
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
@@ -240,7 +274,12 @@ export default {
 
         if (!list.length) return ephemeral(interaction, "No cases found.");
 
-        const lines = list.map(c => `\`#${c.caseNumber}\` **${c.action}** — <@${c.targetId}> — ${c.reason ?? "No reason"} — <t:${Math.floor(c.createdAt.getTime() / 1000)}:R>`);
+        const iconMap = { warn: "⚠️", ban: "🔨", kick: "👢", timeout: "⏰", note: "📝" };
+        const lines = list.map(c => {
+            const icon = iconMap[c.action.toLowerCase()] ?? "•";
+            const timestamp = Math.floor(c.createdAt.getTime() / 1000);
+            return `\`${icon} #${c.caseNumber}\` <@${c.targetId}> — ${c.action} — <t:${timestamp}:R>`;
+        });
         const embed = panel("Recent Cases", lines.join("\n"));
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
@@ -250,17 +289,32 @@ export default {
         const target = interaction.options.getUser("target");
         const list = await cases.byTarget(interaction.guild.id, target.id, 15);
 
-        const embed = panel(`History: ${target.tag}`, list.length
-            ? list.map(c => `\`#${c.caseNumber}\` **${c.action}** — ${c.reason ?? "No reason"} — <t:${Math.floor(c.createdAt.getTime() / 1000)}:R>`).join("\n")
-            : "No cases found.");
+        const iconMap = { warn: "⚠️", ban: "🔨", kick: "👢", timeout: "⏰", note: "📝" };
+        const lines = list.length
+            ? list.map(c => {
+                const icon = iconMap[c.action.toLowerCase()] ?? "•";
+                const timestamp = Math.floor(c.createdAt.getTime() / 1000);
+                return `\`${icon} ${c.action}\` — ${c.reason ?? "No reason"} — <t:${timestamp}:R>`;
+            })
+            : ["No cases found."];
+
+        const embed = panel(`History: ${target.tag}`, lines.join("\n"))
+            .setThumbnail(target.displayAvatarURL());
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },
 
     async handleStats(interaction, cases) {
         const stats = await cases.stats(interaction.guild.id);
-        const lines = Object.entries(stats.byAction).map(([action, count]) => `**${action}**: ${count}`);
-        const embed = panel("Moderation Stats", `Total cases: **${stats.total}**\n${lines.join("\n") || "No cases yet."}`);
+
+        const embed = panel("Moderation Stats", "")
+            .addFields(
+                stat("Total Cases", stats.total),
+                stat("Warns", stats.byAction?.warn ?? 0),
+                stat("Bans", stats.byAction?.ban ?? 0),
+                stat("Kicks", stats.byAction?.kick ?? 0),
+                stat("Timeouts", stats.byAction?.timeout ?? 0),
+            );
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

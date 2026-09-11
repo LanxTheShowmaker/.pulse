@@ -37,7 +37,7 @@ export default {
         });
 
         await interaction.reply({
-            embeds: [success("Reminder Set", `I'll remind you ${duration.text} from now.`)],
+            embeds: [success("Reminder Set", `I'll remind you **${duration.text}** from now.\n**Message:** ${message}`)],
             flags: MessageFlags.Ephemeral,
         });
     },
