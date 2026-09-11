@@ -13,6 +13,9 @@ import { SuggestionService } from "../services/suggestions.js";
 import { StarboardService } from "../services/starboard.js";
 import { AfkService } from "../services/afk.js";
 import { AuditService } from "../services/audit.js";
+import { ReactionRoleService } from "../services/reactionRoles.js";
+import { BrandingService } from "../services/branding.js";
+import { DiagnosticsService } from "../services/diagnostics.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
@@ -32,9 +35,12 @@ export function createServices(client) {
     const starboard = new StarboardService(prisma, client);
     const afk = new AfkService(prisma, client);
     const audit = new AuditService(prisma, client);
+    const reactionRoles = new ReactionRoleService(prisma, client);
+    const branding = new BrandingService(prisma, client);
+    const diagnostics = new DiagnosticsService(prisma, client);
 
     client.prisma = prisma;
-    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics };
 }
 
 export async function shutdownServices(services) {
