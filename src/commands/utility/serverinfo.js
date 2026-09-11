@@ -1,4 +1,6 @@
-import { SlashCommandBuilder, MessageFlags, time, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "@discordjs/builders";
+import { time } from "@discordjs/formatters";
+import { MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
 
@@ -27,7 +29,7 @@ export default {
     async execute(interaction){
         const guild=interaction.guild;
         if(!guild) return interaction.reply({ embeds:[embeds.error("Guild only","Use in a server")], flags: MessageFlags.Ephemeral});
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
+        await interaction.deferReply().catch(()=>{});
         const e=await buildServerEmbed(guild);
         return interaction.editReply({ embeds:[e] }).catch(()=>{});
     }

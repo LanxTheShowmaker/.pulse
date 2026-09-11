@@ -1,4 +1,5 @@
-import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import { EmbedBuilder, ButtonBuilder, ActionRowBuilder } from "@discordjs/builders";
+import { PermissionFlagsBits, MessageFlags, ButtonStyle } from "discord.js";
 import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 

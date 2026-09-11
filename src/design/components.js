@@ -1,4 +1,5 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, ModalBuilder, TextInputBuilder } from "@discordjs/builders";
+import { ButtonStyle, TextInputStyle } from "discord.js";
 import { Theme } from "./theme.js";
 
 // Button factory with consistent semantics
@@ -21,7 +22,7 @@ export const Buttons={
 
 // Select menu factory
 export function selectMenu(id, placeholder, options, opts={}){
-    const menu=new StringSelectMenuBuilder().setCustomId(id).setPlaceholder(placeholder.slice(0,150));
+    const menu=new SelectMenuBuilder().setCustomId(id).setPlaceholder(placeholder.slice(0,150));
     if(opts.min!==undefined) menu.setMinValues(opts.min);
     if(opts.max!==undefined) menu.setMaxValues(opts.max);
     menu.addOptions(options.slice(0,25).map(o=>({

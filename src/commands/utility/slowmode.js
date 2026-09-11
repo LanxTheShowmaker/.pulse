@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { defer } from "../../commands/moderation/shared.js";
 import { containerReply, containerEdit } from "../../design/containers/base.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";
@@ -12,7 +12,7 @@ export default {
         .addIntegerOption((o) => o.setName("seconds").setDescription("Slowmode in seconds (0 to disable)").setRequired(true).setMinValue(0).setMaxValue(21600)),
     category: "Utility",
     async execute(interaction) {
-        await defer(interaction, true);
+        await defer(interaction, false);
         const client = interaction.client;
         const guild = interaction.guild;
         const channel = interaction.channel;

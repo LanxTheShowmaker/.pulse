@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { embeds } from "../../design/embeds.js";
 export default {
     data: new SlashCommandBuilder().setName("hug").setDescription("Hug someone").addUserOption(o=>o.setName("user").setDescription("User").setRequired(true)),

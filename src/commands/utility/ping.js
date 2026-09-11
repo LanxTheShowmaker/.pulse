@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { embeds } from "../../design/embeds.js";
 
 export default {
@@ -6,7 +6,7 @@ export default {
     category: "Utility",
     async execute(interaction) {
         const sent = Date.now();
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+        await interaction.deferReply().catch(() => {});
         const api = Math.round(interaction.client.ws.ping);
         const latency = Date.now() - sent;
         await interaction.editReply({

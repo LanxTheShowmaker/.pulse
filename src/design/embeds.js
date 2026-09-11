@@ -1,4 +1,6 @@
-import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, time, ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MediaGalleryBuilder } from "discord.js";
+import { time } from "@discordjs/formatters";
+import { ContainerComponent, SectionComponent, TextDisplayComponent, SeparatorComponent, ThumbnailComponent, MediaGalleryComponent, MessageFlags, ButtonStyle } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder } from "@discordjs/builders";
 import { Theme, Brand } from "./theme.js";
 import * as containers from "./containers/base.js";
 import * as panels from "./containers/panels.js";
@@ -73,7 +75,7 @@ export function confirmationRow(opts) {
 }
 
 export function categorySelect(customId, placeholder, options) {
-    const menu = new StringSelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).addOptions(options);
+    const menu = new SelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).addOptions(options);
     return new ActionRowBuilder().addComponents(menu);
 }
 
@@ -88,11 +90,10 @@ export const ui = {
     tickets,
     settings,
     help,
-    ContainerBuilder,
-    SectionBuilder,
-    TextDisplayBuilder,
-    SeparatorBuilder,
-    ThumbnailBuilder,
-    MediaGalleryBuilder,
+    ContainerComponent,
+    SectionComponent,
+    TextDisplayComponent,
+    SeparatorComponent,
+    ThumbnailComponent,
+    MediaGalleryComponent,
 };
-//# sourceMappingURL=embeds.js.map

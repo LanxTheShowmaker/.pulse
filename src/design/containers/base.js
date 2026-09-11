@@ -1,33 +1,45 @@
-import { ContainerBuilder, SectionBuilder, TextDisplayBuilder, SeparatorBuilder, ThumbnailBuilder, MediaGalleryBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ComponentType } from "discord.js";
+import { ContainerComponent, SectionComponent, TextDisplayComponent, SeparatorComponent, ThumbnailComponent, MediaGalleryComponent, MessageFlags, ButtonStyle } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, SelectMenuBuilder } from "@discordjs/builders";
 import { Theme, Brand } from "../theme.js";
 
-export { ButtonStyle } from "discord.js";
+export { ButtonStyle, MessageFlags } from "discord.js";
 export { Brand, Theme } from "../theme.js";
 
 export function createContainer(components) {
-    return new ContainerBuilder().addComponents(components);
+    const arr = Array.isArray(components) ? components : [components];
+    return new ContainerComponent({ components: arr });
 }
 
 export function createSection(textComponents, accessory = null) {
-    const section = new SectionBuilder().addComponents(textComponents);
-    if (accessory) section.setAccessory(accessory);
-    return section;
+    const arr = Array.isArray(textComponents) ? textComponents : [textComponents];
+    const textParts = arr.map(tc => {
+        if (tc instanceof TextDisplayComponent) return tc;
+        return new TextDisplayComponent({ content: String(tc) });
+    });
+    const opts = { components: textParts };
+    if (accessory instanceof ThumbnailComponent) {
+        opts.accessory = accessory;
+    } else if (accessory instanceof ButtonBuilder) {
+        opts.accessory = accessory;
+    }
+    return new SectionComponent(opts);
 }
 
 export function createTextDisplay(content) {
-    return new TextDisplayBuilder().setContent(content);
+    return new TextDisplayComponent({ content });
 }
 
 export function createSeparator(divider = true, spacing = "Small") {
-    return new SeparatorBuilder().setDivider(divider).setSpacing(spacing);
+    const spacingMap = { Small: 1, Large: 2 };
+    return new SeparatorComponent({ divider, spacing: spacingMap[spacing] ?? spacing });
 }
 
 export function createThumbnail(url) {
-    return new ThumbnailBuilder().setURL(url);
+    return new ThumbnailComponent({ media: { url } });
 }
 
 export function createMediaGallery(urls) {
-    return new MediaGalleryBuilder().addItems(urls.map(url => ({ media: { url } })));
+    return new MediaGalleryComponent({ items: urls.map(url => ({ media: { url } })) });
 }
 
 export function createActionRow(...components) {
@@ -41,7 +53,7 @@ export function createButton(customId, label, style = ButtonStyle.Primary, disab
 }
 
 export function createSelectMenu(customId, placeholder, options, minValues = 1, maxValues = 1, disabled = false) {
-    const menu = new StringSelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).setMinValues(minValues).setMaxValues(maxValues).setDisabled(disabled);
+    const menu = new SelectMenuBuilder().setCustomId(customId).setPlaceholder(placeholder).setMinValues(minValues).setMaxValues(maxValues).setDisabled(disabled);
     options.forEach(opt => menu.addOptions(opt));
     return menu;
 }
@@ -54,16 +66,21 @@ export function createSelectOption(label, value, description = null, emoji = nul
     return opt;
 }
 
+function toContainer(components) {
+    if (components instanceof ContainerComponent) return components;
+    return createContainer(components);
+}
+
 export function containerReply(interaction, components, ephemeral = false) {
-    return interaction.reply({ components: [createContainer(components)], flags: ephemeral ? 64 : 0 });
+    return interaction.reply({ components: [toContainer(components)], flags: ephemeral ? MessageFlags.Ephemeral : 0 });
 }
 
 export function containerEdit(interaction, components) {
-    return interaction.editReply({ components: [createContainer(components)] });
+    return interaction.editReply({ components: [toContainer(components)] });
 }
 
 export function containerFollowUp(interaction, components, ephemeral = false) {
-    return interaction.followUp({ components: [createContainer(components)], flags: ephemeral ? 64 : 0 });
+    return interaction.followUp({ components: [toContainer(components)], flags: ephemeral ? MessageFlags.Ephemeral : 0 });
 }
 
 export function headerText(text) {

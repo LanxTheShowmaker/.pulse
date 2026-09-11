@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { EmbedBuilder } from "@discordjs/builders";
 import { Theme } from "../design/theme.js";
 export class AfkService {
     prisma; client;

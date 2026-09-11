@@ -1,10 +1,10 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { embeds } from "../../design/embeds.js";
 export default {
     data: new SlashCommandBuilder().setName("meme").setDescription("Random meme"),
     category:"Fun",
     async execute(interaction){
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
+        await interaction.deferReply().catch(()=>{});
         try{
             const res = await fetch("https://meme-api.com/gimme");
             const data = await res.json();

@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder } from "@discordjs/builders";
+import { ButtonStyle } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 export default {
     data: new SlashCommandBuilder().setName("rps").setDescription("Play rock paper scissors."),
@@ -10,7 +11,7 @@ export default {
             new ButtonBuilder().setCustomId(`rps:${interaction.id}:scissors`).setLabel("Scissors").setStyle(ButtonStyle.Secondary).setEmoji("✂️"),
         );
         const embed = embeds.panel("Rock Paper Scissors", `Choose your move.`, []);
-        await interaction.reply({ embeds:[embed], components:[row], flags: MessageFlags.Ephemeral }).catch(()=>{});
+        await interaction.reply({ embeds:[embed], components:[row] }).catch(()=>{});
         const client = interaction.client;
         const key = `rps:${interaction.id}`;
         client.components.set(`${key}:rock`, async (i)=> handle(i,"rock"));

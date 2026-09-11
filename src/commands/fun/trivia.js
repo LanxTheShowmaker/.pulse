@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder } from "@discordjs/builders";
+import { ButtonStyle } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 const qs=[
     {q:"What is 2+2?", a:["3","4","5","22"], c:1},
@@ -14,7 +15,7 @@ export default {
         const embed = embeds.panel("Trivia", `> **${cur.q}**`, []);
         const row = new ActionRowBuilder();
         cur.a.forEach((ans,i)=> row.addComponents(new ButtonBuilder().setCustomId(`trivia:${interaction.id}:${i}`).setLabel(ans.slice(0,80)).setStyle(ButtonStyle.Secondary)));
-        await interaction.reply({ embeds:[embed], components:[row], flags: MessageFlags.Ephemeral }).catch(()=>{});
+        await interaction.reply({ embeds:[embed], components:[row] }).catch(()=>{});
         const client=interaction.client;
         cur.a.forEach((_,i)=>{
             client.components.set(`trivia:${interaction.id}:${i}`, async (ii)=>{

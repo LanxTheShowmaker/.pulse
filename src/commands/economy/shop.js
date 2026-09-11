@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder } from "@discordjs/builders";
+import { MessageFlags, PermissionFlagsBits, ButtonStyle } from "discord.js";
 import { Theme } from "../../design/theme.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
@@ -59,13 +60,13 @@ export default {
         const guild = interaction.guild;
 
         if(sub==="view"){
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await interaction.deferReply().catch(()=>{});
             const [items, bal] = await Promise.all([ svc.getShopItems(guildId), svc.get(guildId, interaction.user.id) ]);
             const embed = shopEmbed(guild, items, bal);
             // Add quick-buy select if items exist and <=25
             let comps = [];
             if(items.length && items.length <= 25){
-                const menu = new StringSelectMenuBuilder().setCustomId(`pulse:shop:buy:${guildId}`).setPlaceholder("Quick buy — choose an item")
+                const menu = new SelectMenuBuilder().setCustomId(`pulse:shop:buy:${guildId}`).setPlaceholder("Quick buy — choose an item")
                     .addOptions(items.map(it=>({ label: `${it.name} — ${it.price}c`, value: it.name, description: (it.description??"").slice(0,100) || undefined, emoji: it.emoji && !it.emoji.startsWith("<") ? it.emoji : undefined })));
                 // Discord requires emoji as string if unicode; custom emoji parsing omitted for simplicity
                 comps = [new ActionRowBuilder().addComponents(menu)];
@@ -151,7 +152,7 @@ export default {
 
         if(sub==="buy"){
             const name = interaction.options.getString("name", true);
-            await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
+            await interaction.deferReply().catch(()=>{});
             const res = await svc.buyItem(guildId, interaction.user.id, name, interaction.member).catch(e=>({ success:false, reason:e.message }));
             if(!res.success){
                 await interaction.editReply({ embeds:[embeds.error("Purchase failed", res.reason ?? "Unknown error")] });

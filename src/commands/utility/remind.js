@@ -1,8 +1,8 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { defer, parseDuration } from "../../commands/moderation/shared.js";
 import { containerReply, containerEdit } from "../../design/containers/base.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";
-import { time } from "discord.js";
+import { time } from "@discordjs/formatters";
 import { logger } from "../../core/logger.js";
 
 export default {

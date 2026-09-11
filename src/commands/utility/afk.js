@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
+import { MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 export default {
     data: new SlashCommandBuilder().setName("afk").setDescription("Set AFK").addStringOption(o=>o.setName("reason").setDescription("Reason")),

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { defer } from "../../commands/moderation/shared.js";
 import { containerReply, containerEdit } from "../../design/containers/base.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";

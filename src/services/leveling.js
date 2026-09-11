@@ -1,4 +1,4 @@
-import { EmbedBuilder } from "discord.js";
+import { EmbedBuilder } from "@discordjs/builders";
 import { Theme } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 const COOLDOWN = 60_000;

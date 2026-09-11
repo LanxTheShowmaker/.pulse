@@ -86,7 +86,7 @@ export class AchievementService {
                 // Grant rewards only to the single claim winner
                 const rewards = JSON.parse(def.rewards||"{}");
                 if(rewards.xp) await this.prisma.xp.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ xp:{ increment: rewards.xp }}, create:{ guildId, userId, xp: rewards.xp, level:0 }}).catch((e)=>{ logger.error("achievements","xp reward failed",e); });
-                if(rewards.coins) await this.prisma.economy.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ balance:{ increment: rewards.coins }}, create:{ guildId, userId, balance: rewards.coins }}).catch((e)=>{ logger.error("achievements","coin reward failed",e); });
+                if(rewards.coins) await this.client.services?.economy?.add(guildId, userId, rewards.coins, { type:"achievement_reward", meta:{ achievementId:def.id }}).catch((e)=>{ logger.error("achievements","coin reward failed",e); });
                 if(rewards.roleId){
                     try{ const g=this.client.guilds.cache.get(guildId); const m=await g?.members.fetch(userId).catch(()=>null); if(m && g.roles.cache.has(rewards.roleId)) await m.roles.add(rewards.roleId).catch(()=>{}); }catch{}
                 }

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { containerReply, containerFollowUp } from "../../design/containers/base.js";
 import { helpMainPanel, helpCategoryPanel, helpCommandPanel } from "../../design/containers/help.js";
 import { errorPanel } from "../../design/containers/panels.js";
@@ -39,7 +39,7 @@ export default {
     async execute(interaction) {
         const client = interaction.client;
         const container = helpMainPanel();
-        await containerReply(interaction, container, true);
+        await containerReply(interaction, container, false);
         
         for (const cat of CATEGORIES) {
             client.components.set(`help:category:${cat.key}`, async (i) => {

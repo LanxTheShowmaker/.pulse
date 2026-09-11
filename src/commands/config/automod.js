@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, StringSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, PermissionFlagsBits, MessageFlags, ChannelType } from "discord.js";
+import { SlashCommandBuilder, SelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder } from "@discordjs/builders";
+import { PermissionFlagsBits, MessageFlags, ChannelType, ChannelSelectMenuComponent, RoleSelectMenuComponent, ButtonStyle, TextInputStyle } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
 import { logger } from "../../core/logger.js";
@@ -48,7 +49,7 @@ function buildStatusEmbed(automod, guild) {
     ]);
 }
 function mainMenu(){
-    return new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId("pulse:automod:main").setPlaceholder("Choose a section").addOptions([
+    return new ActionRowBuilder().addComponents(new SelectMenuBuilder().setCustomId("pulse:automod:main").setPlaceholder("Choose a section").addOptions([
         { label:"Detectors", value:"detectors", description:"Enable/disable spam, mentions, etc." },
         { label:"Thresholds", value:"thresholds", description:"Spam, caps, emoji numbers" },
         { label:"Words & Phrases", value:"words", description:"Blocked words and phrases" },
@@ -61,7 +62,7 @@ function mainMenu(){
 function detectorMenu(am){
     const d = am.detectors ?? {};
     const isEnabled = (k)=> getDetectorEnabled(am,k);
-    return new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId("pulse:automod:detectorToggle").setPlaceholder("Toggle detector").addOptions([
+    return new ActionRowBuilder().addComponents(new SelectMenuBuilder().setCustomId("pulse:automod:detectorToggle").setPlaceholder("Toggle detector").addOptions([
         { label:`Spam ${isEnabled("spam")?"🟢":"🔴"}`, value:"spam", description:"Flood, repeated content" },
         { label:`Duplicate ${isEnabled("duplicate")?"🟢":"🔴"}`, value:"duplicate", description:"Same message repeats" },
         { label:`Mentions ${isEnabled("mentions")?"🟢":"🔴"}`, value:"mentions", description:"@everyone, many mentions" },
@@ -103,13 +104,13 @@ export default {
                 await i.update({ embeds:[buildStatusEmbed(cur, i.guild)], components:[detectorMenu(cur), mainMenu()] }).catch(()=>{});
             } else if(v==="thresholds"){
                 const opts = Object.keys(NUMERIC_LABELS).slice(0,25).map(k=>({ label: NUMERIC_LABELS[k], value:k, description:`Current: ${cur[k] ?? DEFAULTS[k]}`.slice(0,100) }));
-                const menu = new StringSelectMenuBuilder().setCustomId("pulse:automod:thresholdsMenu").setPlaceholder("Pick threshold to edit").addOptions(opts);
+                const menu = new SelectMenuBuilder().setCustomId("pulse:automod:thresholdsMenu").setPlaceholder("Pick threshold to edit").addOptions(opts);
                 await i.update({ embeds:[embeds.info("Thresholds","Select a threshold to edit")], components:[new ActionRowBuilder().addComponents(menu), mainMenu()] }).catch(()=>{});
             } else if(v==="words"){
                 const words = cur.detectors?.words?.rules ?? cur.blockedWords ?? [];
                 const embed2 = embeds.info("Blocked words", words.length ? words.slice(0,20).map((w,idx)=> `${idx+1}. \`${w.phrase ?? w.word}\` (${w.match??"phrase"}) ${w.severity??""}`).join("\n") : "No blocked words configured. Use Add word to create one.", [{ name:"Count", value:`${words.length} rules`}]);
                 const row2 = new ActionRowBuilder().addComponents(
-                    new StringSelectMenuBuilder().setCustomId("pulse:automod:wordsMenu").setPlaceholder("Words").addOptions([
+                    new SelectMenuBuilder().setCustomId("pulse:automod:wordsMenu").setPlaceholder("Words").addOptions([
                         { label:"Add word/phrase", value:"add" },
                         { label:"Remove word", value:"remove" },
                         { label:"List all", value:"list" },
@@ -118,7 +119,7 @@ export default {
                 await i.update({ embeds:[embed2], components:[row2, mainMenu()] }).catch(()=>{});
             } else if(v==="whitelists"){
                 const embed2 = embeds.info("Whitelists", `Invite servers: ${(cur.whitelistServers??[]).join(", ") || "—"}\nDomains: ${(cur.whitelistDomains??[]).join(", ") || "—"}\nChannels: ${(cur.whitelistInviteChannels??[]).join(", ") || "—"}`, []);
-                const row2 = new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId("pulse:automod:whitelistMenu").setPlaceholder("Whitelist").addOptions([
+                const row2 = new ActionRowBuilder().addComponents(new SelectMenuBuilder().setCustomId("pulse:automod:whitelistMenu").setPlaceholder("Whitelist").addOptions([
                     { label:"Add whitelist", value:"add" },
                     { label:"Clear invites", value:"clearInvites" },
                     { label:"Clear domains", value:"clearDomains" },
@@ -166,7 +167,7 @@ export default {
                 const words = cur.detectors?.words?.rules ?? [];
                 if(!words.length) return i.reply({ embeds:[embeds.warn("No rules","No blocked word rules configured. Use Add word to create one.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
                 const opts = words.slice(0,25).map((w,idx)=>({ label: String(w.phrase).slice(0,100), value: String(idx) }));
-                const menu = new StringSelectMenuBuilder().setCustomId("pulse:automod:removeWordSelect").setPlaceholder("Select to remove").addOptions(opts);
+                const menu = new SelectMenuBuilder().setCustomId("pulse:automod:removeWordSelect").setPlaceholder("Select to remove").addOptions(opts);
                 await i.reply({ components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
             } else {
                 const cur = (await client.services.settings.get(i.guildId).catch(()=>null))?.automod ?? {};
@@ -218,7 +219,7 @@ export default {
         });
         client.components.set("pulse:automod:exemptRole", async (i)=>{
             if(!await requireStaff(i)) return;
-            const menu = new RoleSelectMenuBuilder().setCustomId("pulse:automod:exemptRoleSelect").setPlaceholder("Select role to exempt").setMaxValues(1);
+            const menu = new RoleSelectMenuComponent({ custom_id: "pulse:automod:exemptRoleSelect", placeholder: "Select role to exempt", max_values: 1 });
             await i.reply({ components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:exemptRoleSelect", async (i)=>{
@@ -232,7 +233,7 @@ export default {
         });
         client.components.set("pulse:automod:exemptChannel", async (i)=>{
             if(!await requireStaff(i)) return;
-            const menu = new ChannelSelectMenuBuilder().setCustomId("pulse:automod:exemptChannelSelect").setPlaceholder("Select channel to exempt").addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+            const menu = new ChannelSelectMenuComponent({ custom_id: "pulse:automod:exemptChannelSelect", placeholder: "Select channel to exempt", channel_types: [ChannelType.GuildText, ChannelType.GuildAnnouncement] });
             await i.reply({ components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:automod:exemptChannelSelect", async (i)=>{

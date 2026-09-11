@@ -72,11 +72,27 @@ export class BrandingService {
         try {
             const currentAvatar = me.avatar;
             if (desiredAvatar) {
-                if (typeof guild.members.editMe === "function") {
-                    await guild.members.editMe({ avatar: desiredAvatar, reason: "Branding: per-server avatar" }).catch(e => { throw e; });
+                let dataUri = null;
+                try {
+                    const res = await fetch(desiredAvatar).catch(() => null);
+                    if (res && res.ok) {
+                        const ct = res.headers.get("content-type") || "image/png";
+                        if (ct.startsWith("image/")) {
+                            const buf = Buffer.from(await res.arrayBuffer());
+                            if (buf.length > 0 && buf.length <= 8 * 1024 * 1024) {
+                                dataUri = `data:${ct};base64,${buf.toString("base64")}`;
+                            }
+                        }
+                    }
+                } catch {}
+                if (!dataUri) {
+                    results.avatar = { applied: false, reason: "Failed to download avatar image" };
+                    logger.warn("branding", "avatar download failed", { url: desiredAvatar });
+                } else if (typeof guild.members.editMe === "function") {
+                    await guild.members.editMe({ avatar: dataUri, reason: "Branding: per-server avatar" });
                     results.avatar = { applied: true, value: desiredAvatar };
                 } else {
-                    await me.edit({ avatar: desiredAvatar }).catch(e => { throw e; });
+                    await me.edit({ avatar: dataUri });
                     results.avatar = { applied: true, value: desiredAvatar };
                 }
             } else if (!desiredAvatar && currentAvatar) {
@@ -88,8 +104,8 @@ export class BrandingService {
                 results.avatar = { applied: false, reason: "No custom avatar or already set" };
             }
         } catch (e) {
-            results.avatar = { applied: false, reason: e.message.slice(0, 300) };
-            logger.warn("branding", "per-guild avatar failed (may be unsupported in this discord.js/API version)", e.message);
+            results.avatar = { applied: false, reason: e.message?.slice(0, 300) || String(e) };
+            logger.warn("branding", "per-guild avatar apply failed", e.message || e);
         }
         return results;
     }

@@ -1,4 +1,5 @@
-import { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, AttachmentBuilder, EmbedBuilder, MessageFlags, UserSelectMenuBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, ModalBuilder, TextInputBuilder, EmbedBuilder } from "@discordjs/builders";
+import { ChannelType, PermissionFlagsBits, MessageFlags, UserSelectMenuComponent, ButtonStyle, TextInputStyle } from "discord.js";
 import { embeds, confirmationRow } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
 import { Theme, Brand } from "../design/theme.js";
@@ -176,7 +177,7 @@ export class TicketSystemService {
         // Access control: blacklist / role restrictions
         const cfg = await this.client?.services?.settings.get(guild.id).catch(()=>null);
         if (cfg?.ignoredUserIds?.includes(member.id)) {
-            return interaction.reply({ embeds: [embeds.error("Access denied", "You are not allowed to open tickets.")], flags: 64 }).catch(()=>{});
+            return interaction.reply({ embeds: [embeds.error("Access denied", "You are not allowed to open tickets.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
 
         let type = await this.prisma.ticketType.findUnique({ where: { guildId_key: { guildId: guild.id, key } } }).catch(()=>null);
@@ -193,10 +194,10 @@ export class TicketSystemService {
                 }
             }
         }
-        if (!type || !type.enabled) return interaction.reply({ embeds: [embeds.error("Not found", "This ticket type is not available.")], flags: 64 }).catch(()=>{});
+        if (!type || !type.enabled) return interaction.reply({ embeds: [embeds.error("Not found", "This ticket type is not available.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
 
         const can = await this.canOpen(guild, member.id, type);
-        if (!can.ok) return interaction.reply({ embeds: [embeds.warn("Cannot open ticket", can.reason)], flags: 64 }).catch(()=>{});
+        if (!can.ok) return interaction.reply({ embeds: [embeds.warn("Cannot open ticket", can.reason)], flags: MessageFlags.Ephemeral }).catch(()=>{});
 
         // Check questions
         let questions = [];
@@ -210,7 +211,7 @@ export class TicketSystemService {
             }
             return interaction.showModal(modal).catch(()=>{});
         }
-        await interaction.deferReply({ flags: 64 }).catch(()=>{});
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ticket = await this.createTicket(guild, member, type, []);
         await interaction.editReply({ embeds: [embeds.success("Ticket created", `Your ticket is ready: <#${ticket.channelId}>`)] }).catch(()=>{});
     }
@@ -228,7 +229,7 @@ export class TicketSystemService {
             regulations: "See the Regulations panel for server rules.",
         };
         const text = map[val] ?? "More information coming soon.";
-        await i.reply({ embeds: [embeds.info(val, text)], flags: 64 }).catch(() => {});
+        await i.reply({ embeds: [embeds.info(val, text)], flags: MessageFlags.Ephemeral }).catch(() => {});
     }
 
     async handleQuestionModal(interaction) {
@@ -237,7 +238,7 @@ export class TicketSystemService {
         const guild = interaction.guild;
         const member = interaction.member;
         const type = await this.prisma.ticketType.findUnique({ where: { guildId_key: { guildId: guild.id, key } } }).catch(()=>null);
-        if (!type) return interaction.reply({ embeds: [embeds.error("Not found","Type missing")], flags:64 }).catch(()=>{});
+        if (!type) return interaction.reply({ embeds: [embeds.error("Not found","Type missing")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         let questions = []; try{ questions = JSON.parse(type.questions ?? "[]"); }catch{}
         const answers = [];
         for (let idx=0; idx<Math.min(questions.length,5); idx++) {
@@ -245,7 +246,7 @@ export class TicketSystemService {
             const ans = interaction.fields.getTextInputValue(`q${idx}`) ?? "";
             answers.push({ question: q.label ?? q.question ?? `Q${idx+1}`, answer: ans });
         }
-        await interaction.deferReply({ flags: 64 }).catch(()=>{});
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ticket = await this.createTicket(guild, member, type, answers);
         await interaction.editReply({ embeds: [embeds.success("Ticket created", `Your ticket: <#${ticket.channelId}>`)] }).catch(()=>{});
     }
@@ -331,13 +332,13 @@ export class TicketSystemService {
             new ButtonBuilder().setCustomId(`ticket:remove:${channelId}`).setLabel("Remove").setStyle(ButtonStyle.Secondary),
             new ButtonBuilder().setCustomId(`ticket:transcript:${channelId}`).setLabel("Transcript").setStyle(ButtonStyle.Secondary),
         );
-        const priorityMenu = new StringSelectMenuBuilder().setCustomId(`ticket:priority:${channelId}`).setPlaceholder("Priority").addOptions([
+        const priorityMenu = new SelectMenuBuilder().setCustomId(`ticket:priority:${channelId}`).setPlaceholder("Priority").addOptions([
             { label:"Low", value: PRIORITY.LOW },
             { label:"Normal", value: PRIORITY.NORMAL },
             { label:"High", value: PRIORITY.HIGH },
             { label:"Urgent", value: PRIORITY.URGENT },
         ]);
-        const statusMenu = new StringSelectMenuBuilder().setCustomId(`ticket:status:${channelId}`).setPlaceholder("Status").addOptions([
+        const statusMenu = new SelectMenuBuilder().setCustomId(`ticket:status:${channelId}`).setPlaceholder("Status").addOptions([
             { label:"Open", value: STATUS.OPEN },
             { label:"Claimed", value: STATUS.CLAIMED },
             { label:"Waiting", value: STATUS.WAITING },
@@ -370,17 +371,17 @@ export class TicketSystemService {
     }
     async requireTicketStaff(i) {
         if (await this.isTicketStaff(i.member, i.guild.id)) return true;
-        await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can use ticket controls.")], flags: 64 }).catch(() => {});
+        await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can use ticket controls.")], flags: MessageFlags.Ephemeral }).catch(() => {});
         return false;
     }
     async fetchScopedTicket(i, channelId) {
         const ticket = await this.prisma.ticket.findUnique({ where: { channelId } }).catch(() => null);
         if (!ticket) {
-            await i.reply({ embeds: [embeds.error("Not found", "Ticket not in DB")], flags: 64 }).catch(() => {});
+            await i.reply({ embeds: [embeds.error("Not found", "Ticket not in DB")], flags: MessageFlags.Ephemeral }).catch(() => {});
             return null;
         }
         if (ticket.guildId !== i.guild.id || ticket.channelId !== i.channelId) {
-            await i.reply({ embeds: [embeds.error("Denied", "This ticket does not belong to this channel.")], flags: 64 }).catch(() => {});
+            await i.reply({ embeds: [embeds.error("Denied", "This ticket does not belong to this channel.")], flags: MessageFlags.Ephemeral }).catch(() => {});
             return null;
         }
         return ticket;
@@ -398,18 +399,18 @@ export class TicketSystemService {
         const channelId = i.customId.split(":")[2];
         const ticket = await this.fetchScopedTicket(i, channelId);
         if (!ticket) return;
-        if (ticket.status === STATUS.CLOSED) return i.reply({ embeds:[embeds.warn("Closed","Ticket is closed")], flags:64 }).catch(()=>{});
+        if (ticket.status === STATUS.CLOSED) return i.reply({ embeds:[embeds.warn("Closed","Ticket is closed")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         const type = ticket.typeId ? await this.prisma.ticketType.findUnique({ where:{ id: ticket.typeId } }).catch(()=>null) : null;
-        if (type && !type.allowClaim) return i.reply({ embeds:[embeds.warn("Claim disabled","Claiming disabled for this type")], flags:64 }).catch(()=>{});
-        if (ticket.claimedById && ticket.claimedById !== i.user.id) return i.reply({ embeds:[embeds.warn("Claimed",`Already claimed by <@${ticket.claimedById}>`)], flags:64 }).catch(()=>{});
+        if (type && !type.allowClaim) return i.reply({ embeds:[embeds.warn("Claim disabled","Claiming disabled for this type")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+        if (ticket.claimedById && ticket.claimedById !== i.user.id) return i.reply({ embeds:[embeds.warn("Claimed",`Already claimed by <@${ticket.claimedById}>`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         let updated;
         try {
             updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: i.user.id, status: STATUS.CLAIMED } });
         } catch (e) {
             logger.error("tickets", "claim update failed", e);
-            return i.reply({ embeds:[embeds.error("Failed","Could not claim ticket")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Failed","Could not claim ticket")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        await i.reply({ embeds:[embeds.success("Claimed",`You claimed this ticket`)], flags:64 }).catch(()=>{});
+        await i.reply({ embeds:[embeds.success("Claimed",`You claimed this ticket`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (ch) {
             await ch.send({ embeds:[embeds.info("Claimed", `<@${i.user.id}> claimed this ticket`)] }).catch(()=>{});
@@ -427,9 +428,9 @@ export class TicketSystemService {
             updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: null, status: STATUS.OPEN } });
         } catch (e) {
             logger.error("tickets", "unclaim update failed", e);
-            return i.reply({ embeds:[embeds.error("Failed","Could not unclaim ticket")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Failed","Could not unclaim ticket")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        await i.reply({ embeds:[embeds.success("Unclaimed","Ticket unclaimed")], flags:64 }).catch(()=>{});
+        await i.reply({ embeds:[embeds.success("Unclaimed","Ticket unclaimed")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (ch) await this.updateTicketMessage(ch, updated);
     }
@@ -444,9 +445,9 @@ export class TicketSystemService {
             await this.prisma.ticket.update({ where:{ channelId }, data:{ status: val } });
         } catch (e) {
             logger.error("tickets", "status update failed", e);
-            return i.reply({ embeds:[embeds.error("Failed","Could not update status")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Failed","Could not update status")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        await i.reply({ embeds:[embeds.success("Status",`Status set to ${val}`)], flags:64 }).catch(()=>{});
+        await i.reply({ embeds:[embeds.success("Status",`Status set to ${val}`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId);
         if (ch) await ch.send({ embeds:[embeds.info("Status update", `Status → **${val}** by <@${i.user.id}>`)] }).catch(()=>{});
     }
@@ -461,9 +462,9 @@ export class TicketSystemService {
             await this.prisma.ticket.update({ where:{ channelId }, data:{ priority: val } });
         } catch (e) {
             logger.error("tickets", "priority update failed", e);
-            return i.reply({ embeds:[embeds.error("Failed","Could not update priority")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Failed","Could not update priority")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        await i.reply({ embeds:[embeds.success("Priority",`Priority set to ${val}`)], flags:64 }).catch(()=>{});
+        await i.reply({ embeds:[embeds.success("Priority",`Priority set to ${val}`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
     async handleAddUser(i) {
         if (!await this.requireTicketStaff(i)) return;
@@ -475,10 +476,10 @@ export class TicketSystemService {
             const uid = i.values[0];
             const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
             if (ch) await ch.permissionOverwrites.edit(uid, { ViewChannel:true, SendMessages:true, ReadMessageHistory:true, AttachFiles:true }).catch(()=>{});
-            return i.reply({ embeds:[embeds.success("Added", `<@${uid}> added`)], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.success("Added", `<@${uid}> added`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`ticket:add:${channelId}:menu`).setPlaceholder("Select user");
-        await i.reply({ embeds:[embeds.info("Add user","Pick user to add")], components:[new ActionRowBuilder().addComponents(menu)], flags:64 }).catch(()=>{});
+        const menu = new UserSelectMenuComponent({ custom_id: `ticket:add:${channelId}:menu`, placeholder: "Select user" });
+        await i.reply({ embeds:[embeds.info("Add user","Pick user to add")], components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
     async handleRemoveUser(i) {
         if (!await this.requireTicketStaff(i)) return;
@@ -490,17 +491,17 @@ export class TicketSystemService {
             const uid = i.values[0];
             const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
             if (ch) await ch.permissionOverwrites.delete(uid).catch(()=>{});
-            return i.reply({ embeds:[embeds.success("Removed", `<@${uid}> removed`)], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.success("Removed", `<@${uid}> removed`)], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`ticket:remove:${channelId}:menu`).setPlaceholder("Select user");
-        await i.reply({ embeds:[embeds.info("Remove user","Pick user to remove")], components:[new ActionRowBuilder().addComponents(menu)], flags:64 }).catch(()=>{});
+        const menu = new UserSelectMenuComponent({ custom_id: `ticket:remove:${channelId}:menu`, placeholder: "Select user" });
+        await i.reply({ embeds:[embeds.info("Remove user","Pick user to remove")], components:[new ActionRowBuilder().addComponents(menu)], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
     async handleInfo(i) {
         const channelId = i.customId.split(":")[2];
         const ticket = await this.fetchScopedTicket(i, channelId);
         if (!ticket) return;
         if (!await this.canViewTicket(i, ticket)) {
-            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view this.")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view this.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
         const ch = i.guild.channels.cache.get(channelId);
         const msgCount = ch ? (await ch.messages.fetch({ limit:100 }).catch(()=>null))?.size ?? "?" : "?";
@@ -513,7 +514,7 @@ export class TicketSystemService {
             {name:"Claimed", value: ticket.claimedById ? `<@${ticket.claimedById}>` : "—", inline:true},
             {name:"Created", value:`<t:${Math.floor(ticket.createdAt.getTime()/1000)}:R>`, inline:true},
             {name:"Messages", value: String(msgCount), inline:true},
-        ])], flags:64 }).catch(()=>{});
+        ])], flags: MessageFlags.Ephemeral }).catch(()=>{});
     }
     async handleClose(i) {
         const channelId = i.customId.split(":")[2];
@@ -522,7 +523,7 @@ export class TicketSystemService {
         if (!ticket) return;
         // Confirm
         if (!i.customId.includes(":confirm")) {
-            return i.reply({ embeds:[embeds.warn("Close ticket","Confirm closing? This will archive and optionally create transcript.")], components:[confirmationRow({ acceptCustomId:`ticket:close:${channelId}:confirm`, cancelCustomId:`ticket:close:${channelId}:cancel`, acceptLabel:"Close", danger:true })], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.warn("Close ticket","Confirm closing? This will archive and optionally create transcript.")], components:[confirmationRow({ acceptCustomId:`ticket:close:${channelId}:confirm`, cancelCustomId:`ticket:close:${channelId}:cancel`, acceptLabel:"Close", danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
         if (i.customId.endsWith(":cancel")) return i.update({ embeds:[embeds.info("Cancelled","Not closed")], components:[] }).catch(()=>{});
         await i.deferUpdate().catch(()=>{});
@@ -544,7 +545,7 @@ export class TicketSystemService {
 const displayName=branding?.displayName || ".pulse";
                 const html=this.buildHtmlTranscript({ channel:ch, ticket, guild:i.guild, messages:sorted, displayName, closerId:i.user.id });
                 const buf=Buffer.from(html,"utf-8");
-                htmlFile=new AttachmentBuilder(buf).setName(`transcript-${ch.name}-${ticket.id.slice(0,4)}.html`);
+                htmlFile={ attachment: buf, name: `transcript-${ch.name}-${ticket.id.slice(0,4)}.html` };
             } catch (e) { logger.error("tickets","html transcript failed", e); }
             // Archive: move to archive category, rename, lock
             try{
@@ -618,9 +619,9 @@ ${rows}
         const ticket = await this.fetchScopedTicket(i, channelId);
         if (!ticket) return;
         if (!await this.canViewTicket(i, ticket)) {
-            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view transcripts.")], flags:64 }).catch(()=>{});
+            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view transcripts.")], flags: MessageFlags.Ephemeral }).catch(()=>{});
         }
-        await i.deferReply({ flags:64 }).catch(()=>{});
+        await i.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (!ch) return i.editReply({ embeds:[embeds.error("Not found","Channel missing")] }).catch(()=>{});
         const msgs = await ch.messages.fetch({ limit:100 }).catch(()=>null);
@@ -632,12 +633,12 @@ ${rows}
             const branding=await this.client?.services?.branding?.get(i.guild.id).catch(()=>null);
             const displayName=branding?.displayName || ".pulse";
             const html=this.buildHtmlTranscript({ channel:ch, ticket: ticket||{ id:channelId, panelType:"Ticket", status:"OPEN", openerId:"unknown" }, guild:i.guild, messages:sorted, displayName, closerId:i.user.id });
-            const file=new AttachmentBuilder(Buffer.from(html,"utf-8")).setName(`transcript-${ch.name}.html`);
+            const file={ attachment: Buffer.from(html,"utf-8"), name: `transcript-${ch.name}.html` };
             return i.editReply({ embeds:[embeds.success("Transcript","HTML transcript")], files:[file] }).catch(()=>{});
         }catch{
             const lines = [`Transcript #${ch.name}`];
             for (const m of [...msgs.values()].reverse()) lines.push(`[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.content}`);
-            const file = new AttachmentBuilder(Buffer.from(lines.join("\n"),"utf-8")).setName(`transcript-${channelId}.txt`);
+            const file = { attachment: Buffer.from(lines.join("\n"),"utf-8"), name: `transcript-${channelId}.txt` };
             await i.editReply({ embeds:[embeds.success("Transcript","Here")], files:[file] }).catch(()=>{});
         }
     }

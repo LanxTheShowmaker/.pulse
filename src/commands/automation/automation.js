@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, ModalBuilder, TextInputBuilder, ActionRowBuilder, EmbedBuilder } from "@discordjs/builders";
+import { MessageFlags, TextInputStyle } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
 const TRIGGERS=["levelUp","memberJoin","ticketCreate","ticketClose","economyPurchase","messageCreate"];

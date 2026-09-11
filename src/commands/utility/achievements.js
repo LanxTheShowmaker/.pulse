@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "@discordjs/builders";
+import { MessageFlags } from "discord.js";
 import { Theme } from "../../design/theme.js";
 import { embeds } from "../../design/embeds.js";
 export default {
@@ -21,7 +22,7 @@ export default {
                 desc+=`\n**${cat}**\n` + arr.map(a=> `${a.icon||"🏆"} **${a.name}** — ${a.description} *(rewards: ${Object.entries(JSON.parse(a.rewards||"{}")).map(([k,v])=>`${v} ${k}`).join(", ")||"—"})*`).join("\n")+"\n";
             }
             embed.setDescription(desc.slice(0,4000)||"No achievements configured. An admin can add achievements for this server.");
-            return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
+            return interaction.reply({ embeds:[embed]});
         }
         if(sub==="view"){
             const user=interaction.options.getUser("user") ?? interaction.user;
@@ -38,7 +39,7 @@ export default {
             const embed=new EmbedBuilder().setColor(Theme.gold).setTitle("Achievement Leaderboard");
             if(!board.length) embed.setDescription("No achievement unlocks yet. Complete actions to earn achievements.");
             else embed.setDescription(board.map((r,i)=> `${i===0?"🥇":i===1?"🥈":i===2?"🥉":`${i+1}.`} <@${r.userId}> — **${r.count}**`).join("\n"));
-            return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
+            return interaction.reply({ embeds:[embed]});
         }
     }
 };

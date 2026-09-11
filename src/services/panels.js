@@ -1,4 +1,5 @@
-import { ChannelType, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { ActionRowBuilder, SelectMenuBuilder, ButtonBuilder } from "@discordjs/builders";
+import { ChannelType, PermissionFlagsBits, ButtonStyle } from "discord.js";
 import { embeds } from "../design/embeds.js";
 import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
@@ -228,7 +229,7 @@ export class PanelService {
             }));
             if (options.length) {
                 const placeholder = cfg.dropdownPlaceholder ?? (panel.panelType === PANEL_TYPES.ORDER ? "Choose a service to order" : "Choose a request");
-                const menu = new StringSelectMenuBuilder().setCustomId(`panel:select:${panel.panelType}`).setPlaceholder(placeholder.slice(0,150)).addOptions(options);
+                const menu = new SelectMenuBuilder().setCustomId(`panel:select:${panel.panelType}`).setPlaceholder(placeholder.slice(0,150)).addOptions(options);
                 rows.push(new ActionRowBuilder().addComponents(menu));
             }
         }
@@ -236,7 +237,7 @@ export class PanelService {
         if (panel.panelType === PANEL_TYPES.DASHBOARD) {
             const opts = cfg.dropdownOptions ?? DEFAULT_PANELS.DASHBOARD.dropdownOptions ?? [];
             if (opts.length) {
-                const menu = new StringSelectMenuBuilder().setCustomId(`panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), description:o.description?.slice(0,100)})));
+                const menu = new SelectMenuBuilder().setCustomId(`panel:dashboard:${panel.guildId}`).setPlaceholder(cfg.dropdownPlaceholder ?? "More Information").addOptions(opts.slice(0,25).map((o)=>({label:o.label.slice(0,100), value:o.value.slice(0,100), description:o.description?.slice(0,100)})));
                 rows.push(new ActionRowBuilder().addComponents(menu));
             }
         }

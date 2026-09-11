@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, ChannelType } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
+import { MessageFlags, ChannelType } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
 export default {

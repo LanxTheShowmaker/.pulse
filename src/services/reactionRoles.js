@@ -1,4 +1,5 @@
-import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, StringSelectMenuBuilder, MessageFlags } from "discord.js";
+import { EmbedBuilder, ButtonBuilder, ActionRowBuilder, SelectMenuBuilder } from "@discordjs/builders";
+import { MessageFlags, ButtonStyle } from "discord.js";
 import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 
@@ -36,7 +37,7 @@ export class ReactionRoleService {
             for (const m of mappings) await this.prisma.reactionRole.create({ data: { guildId: guild.id, channelId: channel.id, messageId: msg.id, emoji: m.emoji, roleId: m.roleId } });
             return msg;
         } else {
-            const menu = new StringSelectMenuBuilder().setCustomId(`rr:select:${Date.now()}`).setPlaceholder("Choose a role").addOptions(mappings.slice(0, 25).map(m => ({ label: m.label.slice(0, 100), value: m.roleId, emoji: m.emoji })));
+            const menu = new SelectMenuBuilder().setCustomId(`rr:select:${Date.now()}`).setPlaceholder("Choose a role").addOptions(mappings.slice(0, 25).map(m => ({ label: m.label.slice(0, 100), value: m.roleId, emoji: m.emoji })));
             const msg = await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
             for (const m of mappings) await this.prisma.reactionRole.create({ data: { guildId: guild.id, channelId: channel.id, messageId: msg.id, emoji: m.emoji, roleId: m.roleId } });
             return msg;

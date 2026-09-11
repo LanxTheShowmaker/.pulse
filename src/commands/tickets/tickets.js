@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, PermissionFlagsBits } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
+import { MessageFlags, PermissionFlagsBits } from "discord.js";
 import { containerReply, containerFollowUp } from "../../design/containers/base.js";
 import { successPanel, errorPanel, infoPanel } from "../../design/containers/panels.js";
 import { ticketTypeConfigPanel, ticketTypeEditPanel } from "../../design/containers/tickets.js";

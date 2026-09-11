@@ -1,8 +1,8 @@
 import {
-    SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder,
-    ChannelSelectMenuBuilder, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle,
-    PermissionFlagsBits, MessageFlags, EmbedBuilder
-} from "discord.js";
+    SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, SelectMenuBuilder,
+    ModalBuilder, TextInputBuilder, EmbedBuilder
+} from "@discordjs/builders";
+import { ChannelType, PermissionFlagsBits, MessageFlags, ChannelSelectMenuComponent, ButtonStyle, TextInputStyle } from "discord.js";
 import { embeds, confirmationRow } from "../../design/embeds.js";
 import { logger } from "../../core/logger.js";
 import { Theme } from "../../design/theme.js";
@@ -69,7 +69,7 @@ async function buildStatusEmbed(guild, client) {
 }
 
 function dashboardComponents() {
-    const panelMenu = new StringSelectMenuBuilder().setCustomId("pulse:setup:panelMenu").setPlaceholder("Select a panel").addOptions([
+    const panelMenu = new SelectMenuBuilder().setCustomId("pulse:setup:panelMenu").setPlaceholder("Select a panel").addOptions([
         { label: "Orders", value: PANEL_TYPES.ORDER, description: "Order panel and ticket types" },
         { label: "Assistance", value: PANEL_TYPES.ASSISTANCE, description: "Assistance requests" },
         { label: "Regulations", value: PANEL_TYPES.REGULATIONS, description: "Rules and sections" },
@@ -119,7 +119,7 @@ async function panelEditorEmbed(guild, panelType, client) {
 }
 
 function panelEditorComponents(panelType) {
-    const channelRow = new ActionRowBuilder().addComponents(new ChannelSelectMenuBuilder().setCustomId(`pulse:setup:panelChannel:${panelType}`).setPlaceholder("Select panel channel").addChannelTypes(ChannelType.GuildText));
+    const channelRow = new ActionRowBuilder().addComponents(new ChannelSelectMenuComponent({ custom_id: `pulse:setup:panelChannel:${panelType}`, placeholder: "Select panel channel", channel_types: [ChannelType.GuildText] }));
     const row1 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`pulse:setup:editTitle:${panelType}`).setLabel("Title").setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setCustomId(`pulse:setup:editDesc:${panelType}`).setLabel("Description").setStyle(ButtonStyle.Secondary),
@@ -312,7 +312,7 @@ export default {
             const embed = embeds.info(`${panelType} Ticket Types`, types.length ? types.map((t)=> `${t.emoji ?? "•"} **${t.displayName}** (\`${t.key}\`) ${t.enabled?"🟢":"🔴"}`).join("\n") : "No ticket types yet. Create one.", []);
             const opts = types.slice(0,25).map((t)=>({ label:t.displayName.slice(0,100), value:t.id, description:`${t.key}`.slice(0,100) }));
             const rows = [];
-            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`pulse:setup:typeSelect:${panelType}`).setPlaceholder("Select type to edit").addOptions(opts)));
+            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new SelectMenuBuilder().setCustomId(`pulse:setup:typeSelect:${panelType}`).setPlaceholder("Select type to edit").addOptions(opts)));
             rows.push(new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`pulse:setup:createType:${panelType}`).setLabel("Create Type").setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)
@@ -469,7 +469,7 @@ export default {
             const embed = embeds.info("Regulations Sections", sections.length? sections.map((s,idx)=> `**${idx+1}. ${s.title}** — ${(s.content??"").slice(0,60)}`).join("\n") : "No sections configured. Use Create Section to add one.", []);
             const opts = sections.slice(0,25).map((s,idx)=>({ label:s.title.slice(0,100), value:String(idx), description:`Section ${idx+1}`.slice(0,100) }));
             const rows=[];
-            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new StringSelectMenuBuilder().setCustomId(`pulse:setup:regSelect:${panelType}`).setPlaceholder("Select section to edit").addOptions(opts)));
+            if (opts.length) rows.push(new ActionRowBuilder().addComponents(new SelectMenuBuilder().setCustomId(`pulse:setup:regSelect:${panelType}`).setPlaceholder("Select section to edit").addOptions(opts)));
             rows.push(new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`pulse:setup:regCreate:${panelType}`).setLabel("Create Section").setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId("pulse:setup:back").setLabel("Back").setStyle(ButtonStyle.Secondary)

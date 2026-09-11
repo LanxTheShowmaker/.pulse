@@ -16,10 +16,16 @@ export default {
                             const res = await fetch(branding.avatarUrl).catch((e) => { logger.warn("ready", "fetch avatar failed", e.message); return null; });
                             if (res && res.ok) {
                                 const ct = res.headers.get("content-type") || "image/png";
-                                const buf = Buffer.from(await res.arrayBuffer());
-                                if (buf.length <= 8 * 1024 * 1024) {
-                                    const b64 = `data:${ct};base64,${buf.toString("base64")}`;
-                                    await guild.members.me?.edit({ avatar: b64 }).catch((e) => logger.warn("ready", "edit avatar failed", e.message));
+                                if (ct.startsWith("image/")) {
+                                    const buf = Buffer.from(await res.arrayBuffer());
+                                    if (buf.length > 0 && buf.length <= 8 * 1024 * 1024) {
+                                        const b64 = `data:${ct};base64,${buf.toString("base64")}`;
+                                        if (typeof guild.members.editMe === "function") {
+                                            await guild.members.editMe({ avatar: b64, reason: "Branding: per-server avatar" }).catch((e) => logger.warn("ready", "editMe avatar failed", e.message));
+                                        } else {
+                                            await guild.members.me?.edit({ avatar: b64 }).catch((e) => logger.warn("ready", "edit avatar failed", e.message));
+                                        }
+                                    }
                                 }
                             }
                         } catch (e) {

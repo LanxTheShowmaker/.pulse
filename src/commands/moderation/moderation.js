@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
+import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { containerReply, containerEdit, containerFollowUp } from "../../design/containers/base.js";
 import { moderationActionPanel, banConfirmationPanel, kickConfirmationPanel, timeoutConfirmationPanel, warnConfirmationPanel } from "../../design/containers/moderation.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";
@@ -106,6 +107,22 @@ export default {
                 { name: "disable", value: "disable" }
             )))
         .addSubcommand(sub => sub
+            .setName("browse")
+            .setDescription("Browse recent cases")
+            .addIntegerOption(opt => opt.setName("page").setDescription("Page number").setMinValue(1).setRequired(false)))
+        .addSubcommand(sub => sub
+            .setName("edit")
+            .setDescription("Edit case reason")
+            .addIntegerOption(opt => opt.setName("case").setDescription("Case number").setRequired(true))
+            .addStringOption(opt => opt.setName("reason").setDescription("New reason").setRequired(true)))
+        .addSubcommand(sub => sub
+            .setName("thresholds")
+            .setDescription("Configure escalation thresholds")
+            .addIntegerOption(opt => opt.setName("warn").setDescription("Warn threshold").setMinValue(1).setMaxValue(100).setRequired(false))
+            .addIntegerOption(opt => opt.setName("timeout").setDescription("Timeout threshold").setMinValue(1).setMaxValue(100).setRequired(false))
+            .addIntegerOption(opt => opt.setName("kick").setDescription("Kick threshold").setMinValue(1).setMaxValue(100).setRequired(false))
+            .addIntegerOption(opt => opt.setName("ban").setDescription("Ban threshold").setMinValue(1).setMaxValue(100).setRequired(false)))
+        .addSubcommand(sub => sub
             .setName("appeal")
             .setDescription("Manage case appeals")
             .addStringOption(opt => opt.setName("action").setDescription("Action to take").setRequired(true).addChoices(
@@ -160,6 +177,12 @@ export default {
                 await handleRaid(interaction, client);
             } else if (sub === "fortress") {
                 await handleFortress(interaction, client);
+            } else if (sub === "browse") {
+                await handleBrowse(interaction, client);
+            } else if (sub === "edit") {
+                await handleEdit(interaction, client);
+            } else if (sub === "thresholds") {
+                await handleThresholds(interaction, client);
             } else if (sub === "appeal") {
                 await handleAppeal(interaction, client);
             }
@@ -713,6 +736,106 @@ async function handleFortress(interaction, client) {
     } catch (e) {
         logger.error("moderation", "fortress failed", e);
         await containerEdit(interaction, errorPanel("Failed", "Could not process fortress command."));
+    }
+}
+
+async function handleBrowse(interaction, client) {
+    if (!(await requireModerator(interaction))) return;
+
+    const limit = 8;
+    const page = Math.max(1, interaction.options.getInteger("page") ?? 1);
+    const offset = (page - 1) * limit;
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+
+    try {
+        const svc = client.services.cases;
+        const [recent, total] = await Promise.all([svc.recent(interaction.guildId, limit, offset), svc.count(interaction.guildId)]);
+        const pages = Math.ceil(total / limit);
+
+        const { createContainer, headerText, bodyText, divider, mutedText, spacer } = await import("../../design/containers/base.js");
+        const { Brand } = await import("../../design/theme.js");
+
+        const container = createContainer([
+            headerText(`Browse Cases — Page ${page}/${pages || 1}`),
+            divider(),
+        ]);
+
+        if (!recent.length) {
+            container.components.push(bodyText("No cases found on this page."));
+        } else {
+            for (const c of recent) {
+                container.components.push(bodyText(`#${c.caseNumber} · ${c.action} · <@${c.targetId}> · ${c.reason?.slice(0, 60) || "No reason"}${c.resolved ? " · Resolved" : ""}`));
+            }
+        }
+
+        container.components.push(spacer());
+        container.components.push(mutedText(Brand.footer));
+
+        await containerEdit(interaction, container);
+    } catch (e) {
+        logger.error("moderation", "browse failed", e);
+        await containerEdit(interaction, errorPanel("Failed", "Could not browse cases."));
+    }
+}
+
+async function handleEdit(interaction, client) {
+    if (!(await requireModerator(interaction))) return;
+
+    const caseNum = interaction.options.getInteger("case", true);
+    const reason = interaction.options.getString("reason", true);
+
+    await interaction.deferReply().catch(() => {});
+
+    try {
+        const c = await client.services.cases.edit(interaction.guildId, caseNum, { reason });
+        if (!c) {
+            return containerEdit(interaction, errorPanel("Not found", `Case #${caseNum} does not exist.`));
+        }
+        await sendActionResult(interaction, "EDIT", { id: "n/a", tag: `Case #${caseNum}` }, interaction.user, reason, caseNum);
+    } catch (e) {
+        logger.error("moderation", "edit failed", e);
+        await containerEdit(interaction, errorPanel("Failed", "Could not edit case."));
+    }
+}
+
+async function handleThresholds(interaction, client) {
+    if (!(await requireModerator(interaction))) return;
+
+    const mod = client.services.moderation;
+    const patch = {};
+    for (const k of ["warn", "timeout", "kick", "ban"]) {
+        const v = interaction.options.getInteger(k);
+        if (v !== null) patch[k] = v;
+    }
+
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(() => {});
+
+    try {
+        if (Object.keys(patch).length === 0) {
+            const cur = await mod.getThresholds(interaction.guildId);
+            const { createContainer, headerText, bodyText, divider, mutedText, spacer } = await import("../../design/containers/base.js");
+            const { Brand } = await import("../../design/theme.js");
+
+            const container = createContainer([
+                headerText(`Escalation Thresholds`),
+                divider(),
+                bodyText(`**Warn:** ${cur.warn}`),
+                bodyText(`**Timeout:** ${cur.timeout}`),
+                bodyText(`**Kick:** ${cur.kick}`),
+                bodyText(`**Ban:** ${cur.ban}`),
+                spacer(),
+                mutedText(Brand.footer),
+            ]);
+            return containerEdit(interaction, container);
+        }
+
+        await mod.setThresholds(interaction.guildId, patch);
+        const entries = Object.entries(patch).map(([k, v]) => `${k}: ${v}`).join(", ");
+        await containerEdit(interaction, successPanel("Thresholds updated", entries));
+    } catch (e) {
+        logger.error("moderation", "thresholds failed", e);
+        await containerEdit(interaction, errorPanel("Failed", "Could not update thresholds."));
     }
 }
 

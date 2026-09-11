@@ -1,11 +1,14 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "@discordjs/builders";
+import { MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
 import { isStaff } from "../../core/services.js";
 export default {
     data: new SlashCommandBuilder().setName("economy").setDescription("Manage coins, jobs, gifts, and history.")
+        .addSubcommand(s=> s.setName("daily").setDescription("Claim daily coins"))
         .addSubcommand(s=> s.setName("weekly").setDescription("Claim weekly"))
-        .addSubcommand(s=> s.setName("work").setDescription("Work a job").addStringOption(o=>o.setName("job").setDescription("Job").setRequired(true).addChoices({name:"Miner",value:"miner"},{name:"Guardian",value:"guard"},{name:"Scribe",value:"scribe"},{name:"Healer",value:"healer"})))
+        .addSubcommand(s=> s.setName("balance").setDescription("Check your balance").addUserOption(o=>o.setName("user").setDescription("User")))
+        .addSubcommand(s=> s.setName("work").setDescription("Work a job").addStringOption(o=>o.setName("job").setDescription("Job").setRequired(true).addChoices({name:"Miner",value:"miner"},{name:"Guard",value:"guard"},{name:"Scribe",value:"scribe"},{name:"Healer",value:"healer"},{name:"Fisher",value:"fisher"},{name:"Farmer",value:"farmer"},{name:"Blacksmith",value:"blacksmith"},{name:"Merchant",value:"merchant"},{name:"Bard",value:"bard"},{name:"Thief",value:"thief"},{name:"Alchemist",value:"alchemist"},{name:"Hunter",value:"hunter"})))
         .addSubcommand(s=> s.setName("gift").setDescription("Gift coins").addUserOption(o=>o.setName("user").setDescription("Recipient").setRequired(true)).addIntegerOption(o=>o.setName("amount").setDescription("Amount").setRequired(true).setMinValue(1)))
         .addSubcommand(s=> s.setName("history").setDescription("Transaction history").addUserOption(o=>o.setName("user").setDescription("User")))
         .addSubcommand(s=> s.setName("leaderboard").setDescription("Economy leaderboard"))
@@ -14,6 +17,18 @@ export default {
     async execute(interaction){
         const sub=interaction.options.getSubcommand();
         const svc=interaction.client.services.economy;
+        if(sub==="daily"){
+            const res=await svc.claimDaily(interaction.guildId, interaction.user.id);
+            if(!res.success) return interaction.reply({ embeds:[embeds.error("Already claimed",`Next claim <t:${Math.floor(res.next/1000)}:R>`)], flags: MessageFlags.Ephemeral});
+            const embed=new EmbedBuilder().setColor(Theme.success).setDescription(`Claimed **${res.amount}** coins — balance **${res.balance}**`);
+            return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
+        }
+        if(sub==="balance"){
+            const user=interaction.options.getUser("user") ?? interaction.user;
+            const bal=await svc.get(interaction.guildId, user.id);
+            const embed=new EmbedBuilder().setColor(Theme.gold).setDescription(`**${user.tag}** — **${bal}** coins`);
+            return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
+        }
         if(sub==="weekly"){
             const res=await svc.claimWeekly(interaction.guildId, interaction.user.id);
             if(!res.success) return interaction.reply({ content:`Weekly on cooldown — <t:${Math.floor(res.next/1000)}:R>`, flags: MessageFlags.Ephemeral});
@@ -25,7 +40,7 @@ export default {
             const res=await svc.work(interaction.guildId, interaction.user.id, job);
             if(!res.success) return interaction.reply({ embeds:[embeds.error("Work failed", res.reason)], flags: MessageFlags.Ephemeral});
             const embed=new EmbedBuilder().setColor(Theme.success).setDescription(`Worked as **${res.job.name}** — earned **${res.payout}** coins • balance **${res.balance}**`);
-            return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
+            return interaction.reply({ embeds:[embed]});
         }
         if(sub==="gift"){
             const user=interaction.options.getUser("user");

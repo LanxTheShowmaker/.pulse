@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
+import { SlashCommandBuilder } from "@discordjs/builders";
 import { embeds } from "../../design/embeds.js";
 const jokes=[
     "There are only 10 kinds of people: those who understand binary and those who don't.",
@@ -14,6 +14,6 @@ export default {
     async execute(interaction){
         const j = jokes[Math.floor(Math.random()*jokes.length)];
         const embed = embeds.panel("Joke", `> *${j}*`, []);
-        await interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral }).catch(()=>{});
+        await interaction.reply({ embeds:[embed] }).catch(()=>{});
     }
 };

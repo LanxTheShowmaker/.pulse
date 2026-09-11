@@ -1,9 +1,17 @@
 import { logger } from "../core/logger.js";
 const JOBS = [
-    { id:"miner", name:"Miner", payout:[30,60], cooldown: 3600*1000, description:"Mine minerals" },
-    { id:"guard", name:"Guardian", payout:[40,80], cooldown: 3600*1000, description:"Guard the gates" },
-    { id:"scribe", name:"Scribe", payout:[25,50], cooldown: 3600*1000, description:"Copy sacred texts" },
-    { id:"healer", name:"Healer", payout:[35,70], cooldown: 3600*1000, description:"Heal the wounded" },
+    { id:"miner", name:"Miner", payout:[30,60], cooldown:3600*1000, description:"Mine minerals deep underground" },
+    { id:"guard", name:"Guardian", payout:[40,80], cooldown:3600*1000, description:"Guard the city gates" },
+    { id:"scribe", name:"Scribe", payout:[25,50], cooldown:3600*1000, description:"Copy sacred texts" },
+    { id:"healer", name:"Healer", payout:[35,70], cooldown:3600*1000, description:"Heal the wounded" },
+    { id:"fisher", name:"Fisher", payout:[20,55], cooldown:2700*1000, description:"Cast nets in the river" },
+    { id:"farmer", name:"Farmer", payout:[25,45], cooldown:2700*1000, description:"Tend the fields" },
+    { id:"blacksmith", name:"Blacksmith", payout:[45,90], cooldown:5400*1000, description:"Forge weapons and armor" },
+    { id:"merchant", name:"Merchant", payout:[35,75], cooldown:4500*1000, description:"Trade goods at market" },
+    { id:"bard", name:"Bard", payout:[15,40], cooldown:1800*1000, description:"Perform for coin" },
+    { id:"thief", name:"Thief", payout:[50,120], cooldown:7200*1000, description:"Lift purses in the crowd" },
+    { id:"alchemist", name:"Alchemist", payout:[40,85], cooldown:5400*1000, description:"Brew potions and remedies" },
+    { id:"hunter", name:"Hunter", payout:[30,65], cooldown:3600*1000, description:"Hunt game in the forest" },
 ];
 const DAILY_COOLDOWN=24*3600*1000, WEEKLY_COOLDOWN=7*24*3600*1000;
 const dailyMap=new Map(), weeklyMap=new Map(), jobMap=new Map();

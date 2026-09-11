@@ -1,8 +1,11 @@
 import {
-    ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle,
-    ActionRowBuilder, StringSelectMenuBuilder, UserSelectMenuBuilder, AttachmentBuilder,
-    ChannelType, PermissionFlagsBits, time, MessageFlags,
+    ModalBuilder, TextInputBuilder, ButtonBuilder,
+    ActionRowBuilder, SelectMenuBuilder,
+} from "@discordjs/builders";
+import {
+    ChannelType, PermissionFlagsBits, MessageFlags, UserSelectMenuComponent, ButtonStyle, TextInputStyle,
 } from "discord.js";
+import { time } from "@discordjs/formatters";
 import { embeds, confirmationRow } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
 
@@ -107,7 +110,7 @@ export class OrderService {
             return;
         }
         const cats = this.getCategories(await this.settings.get(i.guild.id).catch(() => null));
-        const menu = new StringSelectMenuBuilder()
+        const menu = new SelectMenuBuilder()
             .setCustomId("order:category")
             .setPlaceholder("Choose a design category")
             .addOptions(cats);
@@ -290,7 +293,7 @@ export class OrderService {
             .setCustomId(`order:claim:${channelId}`)
             .setLabel("Claim")
             .setStyle(ButtonStyle.Success);
-        const status = new StringSelectMenuBuilder()
+        const status = new SelectMenuBuilder()
             .setCustomId(`order:status:${channelId}`)
             .setPlaceholder("Update status")
             .addOptions([
@@ -526,7 +529,7 @@ export class OrderService {
             await i.reply({ embeds: [embeds.success("User added", `<@${userId}> can now access this order.`)], flags: MessageFlags.Ephemeral });
             return;
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`order:add:${channelId}:menu`).setPlaceholder("Select a user to add");
+        const menu = new UserSelectMenuComponent({ custom_id: `order:add:${channelId}:menu`, placeholder: "Select a user to add" });
         await i.reply({
             embeds: [embeds.info("Add user", "Pick a member to grant access to this order.")],
             components: [new ActionRowBuilder().addComponents(menu)],
@@ -564,7 +567,7 @@ export class OrderService {
             await i.reply({ embeds: [embeds.success("User removed", `<@${userId}> no longer has access to this order.`)], flags: MessageFlags.Ephemeral });
             return;
         }
-        const menu = new UserSelectMenuBuilder().setCustomId(`order:remove:${channelId}:menu`).setPlaceholder("Select a user to remove");
+        const menu = new UserSelectMenuComponent({ custom_id: `order:remove:${channelId}:menu`, placeholder: "Select a user to remove" });
         await i.reply({
             embeds: [embeds.info("Remove user", "Pick a member to revoke access from this order.")],
             components: [new ActionRowBuilder().addComponents(menu)],
@@ -617,7 +620,7 @@ export class OrderService {
         return lines.join("\n");
     }
     async deliverTranscript(guild, channelId, text, kind) {
-        const file = new AttachmentBuilder(Buffer.from(text, "utf-8")).setName(`transcript-${channelId}.txt`);
+        const file = { attachment: Buffer.from(text, "utf-8"), name: `transcript-${channelId}.txt` };
         const order = await this.fetchOrder(channelId);
         if (order) {
             const opener = await guild.members.fetch(order.openerId).catch(() => null);

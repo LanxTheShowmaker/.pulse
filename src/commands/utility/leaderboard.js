@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder } from "@discordjs/builders";
+import { MessageFlags, ButtonStyle } from "discord.js";
 import { Theme } from "../../design/theme.js";
 import { embeds } from "../../design/embeds.js";
 import { lvlXp } from "../../services/leveling.js";
@@ -66,8 +67,8 @@ export default {
         let page = pageArg ? Math.max(0, pageArg-1) : 0;
         const guildId = interaction.guildId;
         const guild = interaction.guild;
-        await interaction.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
-        const ephemeral = true;
+        await interaction.deferReply().catch(()=>{});
+        const ephemeral = false;
         if(interaction.deferred) await interaction.editReply({ content:"Loading leaderboard… "}).catch(()=>{});
 
         let data, totalPages;

@@ -1,4 +1,5 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder } from "@discordjs/builders";
+import { MessageFlags } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 export default {
     data: new SlashCommandBuilder().setName("intelligence").setDescription("Intelligence engine")

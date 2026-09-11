@@ -1,4 +1,5 @@
-import { EmbedBuilder, ContainerBuilder, SectionBuilder, TextDisplayBuilder, ThumbnailBuilder, SeparatorBuilder, MediaGalleryBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } from "discord.js";
+import { ContainerComponent, SectionComponent, TextDisplayComponent, ThumbnailComponent, SeparatorComponent, MediaGalleryComponent } from "discord.js";
+import { EmbedBuilder, ActionRowBuilder, ButtonBuilder } from "@discordjs/builders";
 import { logger } from "../core/logger.js";
 import { Theme, Brand } from "../design/theme.js";
 const POSTED_CAP = 1000;
@@ -24,24 +25,20 @@ export class StarboardService {
         return e;
     }
     _buildContainer(msg, count, avatarUrl, content, imageUrl){
-        const container = new ContainerBuilder()
-            .addComponents(
-                new SectionBuilder()
-                    .addComponents(
-                        new TextDisplayBuilder().setContent(`## Starred Message`)
-                    )
-                    .setAccessory(new ThumbnailBuilder().setURL(avatarUrl))
-            )
-            .addComponents(new SeparatorBuilder().setDivider(true))
-            .addComponents(new TextDisplayBuilder().setContent(content))
-            .addComponents(new SeparatorBuilder().setDivider(true))
-            .addComponents(
-                new TextDisplayBuilder().setContent(`-# ⭐ ${count} · #${msg.channel.name} · [Jump to message](${msg.url})`)
-            );
+        const components = [
+            new SectionComponent({
+                components: [new TextDisplayComponent({ content: `## Starred Message` })],
+                accessory: new ThumbnailComponent({ media: { url: avatarUrl } })
+            }),
+            new SeparatorComponent({ divider: true }),
+            new TextDisplayComponent({ content }),
+            new SeparatorComponent({ divider: true }),
+            new TextDisplayComponent({ content: `-# ⭐ ${count} · #${msg.channel.name} · [Jump to message](${msg.url})` })
+        ];
         if (imageUrl) {
-            container.addComponents(new MediaGalleryBuilder().addItems([{ media: { url: imageUrl } }]));
+            components.push(new MediaGalleryComponent({ items: [{ media: { url: imageUrl } }] }));
         }
-        return container;
+        return new ContainerComponent({ components });
     }
 
     async handleReactionAdd(reaction, user) {

@@ -1,4 +1,5 @@
-import { ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } from "discord.js";
+import { ButtonBuilder, ActionRowBuilder } from "@discordjs/builders";
+import { MessageFlags, ButtonStyle } from "discord.js";
 import { logger } from "../core/logger.js";
 import { embeds } from "../design/embeds.js";
 const POLL_VOTERS_CAP = 1000;
