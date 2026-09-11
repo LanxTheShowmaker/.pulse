@@ -57,7 +57,6 @@ export class ShopService {
     async getInventory(guildId, userId) {
         return this.prisma.shopInventory.findMany({
             where: { guildId, userId },
-            include: { },
         });
     }
 }

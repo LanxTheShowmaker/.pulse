@@ -30,14 +30,10 @@ export async function requireModerator(interaction) {
     if (interaction.member.permissions.has("Administrator") || interaction.member.permissions.has("ManageGuild")) return true;
     if (!config) return false;
     const roleIds = new Set(interaction.member.roles.cache.keys());
-    if (Array.isArray(config.staffRoleIds)) {
-        const ids = JSON.parse(config.staffRoleIds);
-        if (ids.some(id => roleIds.has(id))) return true;
-    }
-    if (Array.isArray(config.moderatorRoleIds)) {
-        const ids = JSON.parse(config.moderatorRoleIds);
-        if (ids.some(id => roleIds.has(id))) return true;
-    }
+    const staffIds = JSON.parse(config.staffRoleIds || "[]");
+    if (staffIds.some(id => roleIds.has(id))) return true;
+    const modIds = JSON.parse(config.moderatorRoleIds || "[]");
+    if (modIds.some(id => roleIds.has(id))) return true;
     return false;
 }
 
@@ -58,8 +54,8 @@ export async function ephemeral(interaction, content) {
     await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
 }
 
-export async function confirmAction(interaction, question, onConfirm) {
-    const { row, button } = await import("../design/components.js");
+export async function confirmAction(interaction, question) {
+    const { row, button } = await import("../../design/components.js");
     const { ButtonStyle } = await import("discord.js");
 
     await interaction.reply({

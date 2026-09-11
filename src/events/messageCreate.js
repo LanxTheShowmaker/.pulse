@@ -69,12 +69,14 @@ export default {
             if (!command) return;
 
             // Create a mock interaction-like object for prefix commands
+            let replyMsg = null;
             const mockInteraction = {
                 guild: message.guild,
                 channel: message.channel,
                 member: message.member,
                 user: message.author,
                 client: client,
+                createdTimestamp: message.createdTimestamp,
                 options: {
                     getSubcommand: () => null,
                     getString: (name) => {
@@ -87,9 +89,12 @@ export default {
                     getInteger: (name) => null,
                     getBoolean: (name) => null,
                 },
-                reply: (opts) => message.reply(typeof opts === "string" ? { content: opts } : opts),
+                reply: async (opts) => {
+                    replyMsg = await message.reply(typeof opts === "string" ? { content: opts } : opts);
+                    return replyMsg;
+                },
                 deferReply: () => Promise.resolve(),
-                editReply: (opts) => message.edit(typeof opts === "string" ? { content: opts } : opts),
+                editReply: (opts) => replyMsg?.edit(typeof opts === "string" ? { content: opts } : opts).catch(() => {}),
                 followUp: (opts) => message.reply(typeof opts === "string" ? { content: opts } : opts),
                 replied: false,
                 deferred: false,

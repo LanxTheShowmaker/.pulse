@@ -30,7 +30,7 @@ export class AutoModService {
         if (!ac || Object.keys(ac).length === 0) return;
 
         // Exemptions
-        if (this.isExempt(message.member, ac)) return;
+        if (this.isExempt(message.member, message.channel, ac)) return;
 
         // Track spam
         const now = Date.now();
@@ -59,13 +59,13 @@ export class AutoModService {
         }
     }
 
-    isExempt(member, ac) {
+    isExempt(member, channel, ac) {
         if (!member) return false;
         if (member.permissions.has("Administrator")) return true;
         const exempt = ac.exempt ?? {};
         const roleIds = new Set(member.roles.cache.keys());
         if (exempt.roles?.some(id => roleIds.has(id))) return true;
-        if (exempt.channels?.includes(member.channel?.id)) return true;
+        if (exempt.channels?.includes(channel?.id)) return true;
         return false;
     }
 

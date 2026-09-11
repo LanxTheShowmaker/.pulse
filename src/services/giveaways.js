@@ -66,14 +66,14 @@ export class GiveawayService {
 
     async create(guild, channel, host, prize, winners, endsAt) {
         const giveawayId = crypto.randomUUID();
-        const embed = this.buildEmbed({ id: giveawayId, prize, winners, endsAt, entryCount: 0, hostId: host.id, hostTag: host.user.tag, status: STATUS.ACTIVE });
+        const embed = this.buildEmbed({ id: giveawayId, prize, winners, endsAt, entryCount: 0, hostId: host.id, hostTag: host.tag, status: STATUS.ACTIVE });
         const components = this.buildComponents({ id: giveawayId, status: STATUS.ACTIVE });
         const msg = await channel.send({ embeds: [embed], components });
 
         const giveaway = await this.prisma.giveaway.create({
             data: {
                 guildId: guild.id, channelId: channel.id, messageId: msg.id,
-                hostId: host.id, hostTag: host.user.tag,
+                hostId: host.id, hostTag: host.tag,
                 prize, winners, endsAt, status: STATUS.ACTIVE,
             },
         });
@@ -206,7 +206,7 @@ export class GiveawayService {
         return new EmbedBuilder()
             .setColor(isActive ? Theme.gold : Theme.muted)
             .setTitle(isActive ? "Giveaway" : "Giveaway Ended")
-            .setDescription(`**${g.prize}**\n\n${g.winnerCount ?? g.winners} winner(s) • ${g.entryCount ?? 0} entries`)
+            .setDescription(`**${g.prize}**\n\n${g.winners} winner(s) • ${g.entryCount ?? 0} entries`)
             .addFields(
                 { name: "Host", value: g.hostTag ? `<@${g.hostId}>` : "Unknown", inline: true },
                 { name: "Ends", value: isActive ? `<t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>` : `<t:${Math.floor(new Date(g.endsAt).getTime() / 1000)}:R>`, inline: true },

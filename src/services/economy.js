@@ -52,10 +52,24 @@ export class EconomyService {
     }
 
     async gift(guildId, fromId, toId, amount) {
-        const bal = await this.getBalance(guildId, fromId);
-        if (bal < amount) return { ok: false, error: "Insufficient balance" };
-        await this.add(guildId, fromId, -amount, "gift_out", { to: toId });
-        await this.add(guildId, toId, amount, "gift_in", { from: fromId });
+        // Atomic: deduct from sender first, then credit receiver
+        const result = await this.prisma.$transaction(async (tx) => {
+            const sender = await tx.economy.findUnique({ where: { guildId_userId: { guildId, userId: fromId } } });
+            const balance = sender?.balance ?? 0;
+            if (balance < amount) throw new Error("Insufficient balance");
+
+            await tx.economy.update({ where: { guildId_userId: { guildId, userId: fromId } }, data: { balance: { decrement: amount } } });
+            await tx.economy.upsert({
+                where: { guildId_userId: { guildId, userId: toId } },
+                create: { guildId, userId: toId, balance: amount },
+                update: { balance: { increment: amount } },
+            });
+            return true;
+        }).catch(() => false);
+
+        if (!result) return { ok: false, error: "Insufficient balance" };
+        await this.add(guildId, fromId, 0, "gift_out", { to: toId }); // log only
+        await this.add(guildId, toId, 0, "gift_in", { from: fromId });
         return { ok: true };
     }
 

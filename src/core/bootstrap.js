@@ -27,6 +27,7 @@ async function main() {
     });
 
     client.services = createServices(client);
+    globalThis._client = client;
     await initDatabase(client.services.prisma);
 
     client.commands = await loadCommands();

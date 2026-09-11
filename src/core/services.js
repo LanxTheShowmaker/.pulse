@@ -78,4 +78,24 @@ export async function initDatabase(prisma) {
             if (n > 0) logger.info("db", `migrated ${n} ended giveaway(s)`);
         }
     } catch {}
+
+    // Reminder checker — polls every 30s for due reminders
+    setInterval(async () => {
+        try {
+            const due = await prisma.reminder.findMany({
+                where: { remindAt: { lte: new Date() } },
+                take: 10,
+            });
+            for (const r of due) {
+                try {
+                    const guild = globalThis._client?.guilds?.cache?.get(r.guildId);
+                    const ch = guild?.channels?.cache?.get(r.channelId);
+                    if (ch?.isTextBased()) {
+                        await ch.send({ content: `<@${r.userId}> Reminder: ${r.message}` }).catch(() => {});
+                    }
+                } catch {}
+                await prisma.reminder.delete({ where: { id: r.id } }).catch(() => {});
+            }
+        } catch {}
+    }, 30_000);
 }

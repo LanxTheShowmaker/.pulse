@@ -1,4 +1,4 @@
-import { Events, InteractionType, MessageFlags } from "discord.js";
+import { Events, MessageFlags } from "discord.js";
 import { logger } from "../core/logger.js";
 
 export default {

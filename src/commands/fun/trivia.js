@@ -39,8 +39,8 @@ export default {
         });
 
         collector.on("collect", async (i) => {
-            const idx = parseInt(i.customId.split(":")[3]);
-            const correct = parseInt(i.customId.split(":")[4]);
+            const idx = parseInt(i.customId.split(":")[2]);
+            const correct = parseInt(i.customId.split(":")[3]);
             const isCorrect = idx === correct;
             await i.update({
                 content: `${isCorrect ? "Correct!" : `Wrong! The answer was **${q.a}**.`}`,

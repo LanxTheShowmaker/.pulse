@@ -1,9 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
-import { panel, success, error } from "../../design/embeds.js";
-import { row, button, selectMenu } from "../../design/components.js";
-import { Theme } from "../../design/theme.js";
+import { panel, success } from "../../design/embeds.js";
 
 const MODULE_LIST = [
     { name: "moderation", label: "Moderation", desc: "Mod commands + case logging" },
