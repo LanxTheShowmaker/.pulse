@@ -224,15 +224,11 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await interaction.deferReply();
-
-        try {
-            await interaction.client.user.setAvatar(attachment.url);
-            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
-            await interaction.editReply({ embeds: [success("Bot Avatar Set", "Avatar updated successfully.")] });
-        } catch (e) {
-            await interaction.editReply({ embeds: [success("Avatar Saved", `Saved but could not apply: ${e.message}`)] });
-        }
+        await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+        await interaction.reply({
+            embeds: [success("Avatar Saved", "Avatar saved for this server. Note: Discord doesn't support per-server bot avatars — this is stored for dashboard/website use.")],
+            flags: MessageFlags.Ephemeral,
+        });
     },
 
     async handleBotBanner(interaction) {
@@ -243,14 +239,10 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await interaction.deferReply();
-
-        try {
-            await interaction.client.user.setBanner(attachment.url);
-            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
-            await interaction.editReply({ embeds: [success("Bot Banner Set", "Banner updated successfully.")] });
-        } catch (e) {
-            await interaction.editReply({ embeds: [success("Banner Saved", `Saved but could not apply: ${e.message}`)] });
-        }
+        await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+        await interaction.reply({
+            embeds: [success("Banner Saved", "Banner saved for this server. Note: Discord doesn't support per-server bot banners — this is stored for dashboard/website use.")],
+            flags: MessageFlags.Ephemeral,
+        });
     },
 };
