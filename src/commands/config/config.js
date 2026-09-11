@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
-import { panel, success } from "../../design/embeds.js";
+import { panel, success, error } from "../../design/embeds.js";
 
 const MODULE_LIST = [
     { name: "moderation", label: "Moderation", desc: "Mod commands + case logging" },
@@ -224,11 +224,22 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
-        await interaction.reply({
-            embeds: [success("Avatar Saved", "Avatar saved for this server. Note: Discord doesn't support per-server bot avatars — this is stored for dashboard/website use.")],
-            flags: MessageFlags.Ephemeral,
-        });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            // Use REST API for per-server avatar (PATCH /guilds/{id}/members/@me)
+            const { REST } = await import("discord.js");
+            const rest = new REST().setToken(interaction.client.token);
+            await rest.patch(`/guilds/${interaction.guild.id}/members/@me`, {
+                body: { avatar: attachment.url },
+            });
+
+            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+            await interaction.editReply({ embeds: [success("Bot Avatar Set", `Avatar updated for **${interaction.guild.name}**.`)] });
+        } catch (e) {
+            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+            await interaction.editReply({ embeds: [error("Failed", `Saved to DB but could not apply: ${e.message}`)] });
+        }
     },
 
     async handleBotBanner(interaction) {
@@ -239,10 +250,21 @@ export default {
             return ephemeral(interaction, "File must be an image.");
         }
 
-        await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
-        await interaction.reply({
-            embeds: [success("Banner Saved", "Banner saved for this server. Note: Discord doesn't support per-server bot banners — this is stored for dashboard/website use.")],
-            flags: MessageFlags.Ephemeral,
-        });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            // Use REST API for per-server banner (PATCH /guilds/{id}/members/@me)
+            const { REST } = await import("discord.js");
+            const rest = new REST().setToken(interaction.client.token);
+            await rest.patch(`/guilds/${interaction.guild.id}/members/@me`, {
+                body: { banner: attachment.url },
+            });
+
+            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+            await interaction.editReply({ embeds: [success("Bot Banner Set", `Banner updated for **${interaction.guild.name}**.`)] });
+        } catch (e) {
+            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+            await interaction.editReply({ embeds: [error("Failed", `Saved to DB but could not apply: ${e.message}`)] });
+        }
     },
 };
