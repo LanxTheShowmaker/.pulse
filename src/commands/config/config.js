@@ -67,6 +67,21 @@ export default {
             .setName("prefix")
             .setDescription("Set command prefix")
             .addStringOption(o => o.setName("prefix").setDescription("New prefix (max 5 chars)").setRequired(true))
+        )
+        .addSubcommand(sub => sub
+            .setName("botname")
+            .setDescription("Set bot display name for this server")
+            .addStringOption(o => o.setName("name").setDescription("Bot name (empty to reset)").setRequired(false))
+        )
+        .addSubcommand(sub => sub
+            .setName("botavatar")
+            .setDescription("Set bot avatar for this server")
+            .addAttachmentOption(o => o.setName("avatar").setDescription("Avatar image").setRequired(true))
+        )
+        .addSubcommand(sub => sub
+            .setName("botbanner")
+            .setDescription("Set bot banner for this server")
+            .addAttachmentOption(o => o.setName("banner").setDescription("Banner image").setRequired(true))
         ),
 
     async execute(interaction) {
@@ -81,11 +96,14 @@ export default {
         const config = await settings.get(interaction.guild.id);
 
         switch (sub) {
-            case "view":    return this.handleView(interaction, config);
-            case "modules": return this.handleModules(interaction, settings, config);
-            case "logs":    return this.handleLogs(interaction, settings, config);
-            case "staff":   return this.handleStaff(interaction, settings, config);
-            case "prefix":  return this.handlePrefix(interaction, settings, config);
+            case "view":      return this.handleView(interaction, config);
+            case "modules":   return this.handleModules(interaction, settings, config);
+            case "logs":      return this.handleLogs(interaction, settings, config);
+            case "staff":     return this.handleStaff(interaction, settings, config);
+            case "prefix":    return this.handlePrefix(interaction, settings, config);
+            case "botname":   return this.handleBotName(interaction);
+            case "botavatar": return this.handleBotAvatar(interaction);
+            case "botbanner": return this.handleBotBanner(interaction);
         }
     },
 
@@ -175,5 +193,70 @@ export default {
             embeds: [success("Prefix Updated", `Prefix set to \`${prefix}\``)],
             flags: MessageFlags.Ephemeral,
         });
+    },
+
+    async handleBotName(interaction) {
+        const { branding } = interaction.client.services;
+        const name = interaction.options.getString("name");
+
+        if (!name) {
+            // Reset to default
+            await branding.set(interaction.guild.id, { nickname: null });
+            await interaction.guild.members.me.setNickname(null).catch(() => {});
+            return interaction.reply({
+                embeds: [success("Bot Name Reset", "Bot name reset to default.")],
+                flags: MessageFlags.Ephemeral,
+            });
+        }
+
+        if (name.length > 32) return ephemeral(interaction, "Name must be 32 characters or less.");
+
+        await branding.set(interaction.guild.id, { nickname: name });
+        await interaction.guild.members.me.setNickname(name).catch(e => {
+            return interaction.reply({ embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${e.message}`)], flags: MessageFlags.Ephemeral });
+        });
+
+        await interaction.reply({
+            embeds: [success("Bot Name Set", `Bot name set to **${name}**.`)],
+            flags: MessageFlags.Ephemeral,
+        });
+    },
+
+    async handleBotAvatar(interaction) {
+        const { branding } = interaction.client.services;
+        const attachment = interaction.options.getAttachment("avatar");
+
+        if (!attachment.contentType?.startsWith("image/")) {
+            return ephemeral(interaction, "File must be an image.");
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            await interaction.client.user.setAvatar(attachment.url);
+            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+            await interaction.editReply({ embeds: [success("Bot Avatar Set", "Avatar updated successfully.")] });
+        } catch (e) {
+            await interaction.editReply({ embeds: [success("Avatar Saved", `Saved but could not apply: ${e.message}`)] });
+        }
+    },
+
+    async handleBotBanner(interaction) {
+        const { branding } = interaction.client.services;
+        const attachment = interaction.options.getAttachment("banner");
+
+        if (!attachment.contentType?.startsWith("image/")) {
+            return ephemeral(interaction, "File must be an image.");
+        }
+
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+            await interaction.client.user.setBanner(attachment.url);
+            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+            await interaction.editReply({ embeds: [success("Bot Banner Set", "Banner updated successfully.")] });
+        } catch (e) {
+            await interaction.editReply({ embeds: [success("Banner Saved", `Saved but could not apply: ${e.message}`)] });
+        }
     },
 };
