@@ -23,8 +23,8 @@ export default {
             .setDescription("Start a giveaway")
             .addChannelOption(o => o.setName("channel").setDescription("Channel to post in").setRequired(true))
             .addStringOption(o => o.setName("prize").setDescription("Prize").setRequired(true))
-            .addIntegerOption(o => o.setName("winners").setDescription("Number of winners").setRequired(false))
             .addStringOption(o => o.setName("duration").setDescription("Duration (e.g. 1h, 7d)").setRequired(true))
+            .addIntegerOption(o => o.setName("winners").setDescription("Number of winners").setRequired(false))
         )
         .addSubcommand(sub => sub
             .setName("end")
