@@ -4,8 +4,22 @@ import {
 } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { logger } from "../../core/logger.js";
+import { isStaff } from "../../core/services.js";
 
-const selections = new Map(); // guildId -> { staff:string[], mod:string[], createMissing:boolean }
+const selections = new Map(); // `${guildId}:${userId}` -> { staff:string[], mod:string[], createMissing:boolean }
+
+function selKey(guildId, userId) {
+    return `${guildId}:${userId}`;
+}
+
+async function requireSetupAccess(i, client) {
+    const cfg = await client.services.settings.get(i.guildId).catch(() => null);
+    if (!i.member.permissions.has(PermissionFlagsBits.ManageGuild) && !isStaff(i.member, cfg)) {
+        await i.reply({ embeds: [embeds.error("Missing permission", "You need **Manage Server** permission or a staff role to use auto-setup.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+        return false;
+    }
+    return true;
+}
 
 // Keywords per spec — conservative, case-insensitive
 const STAFF_KEYWORDS = ["staff", "staffs", "administrator", "admin", "management", "manager"];
@@ -336,8 +350,8 @@ function formatCategory(c) {
     return "—";
 }
 
-function renderSetup(guild) {
-    const sel = selections.get(guild.id) ?? { staff: [], mod: [], createMissing: false };
+function renderSetup(guild, userId) {
+    const sel = selections.get(selKey(guild.id, userId)) ?? { staff: [], mod: [], createMissing: false };
     const staffOpts = roleOptions(guild);
     const modOpts = roleOptions(guild);
     if (!staffOpts.length) staffOpts.push({ label: "No roles found", value: "none", description: "Create a role first" });
@@ -575,41 +589,46 @@ export default {
         const detectedStaff = detectStaffRole(guild);
         const detectedMod = detectModeratorRole(guild);
         const initial = { staff: detectedStaff ? [detectedStaff.id] : [], mod: detectedMod ? [detectedMod.id] : [], createMissing: false };
-        selections.set(guild.id, initial);
+        selections.set(selKey(guild.id, interaction.user.id), initial);
 
         const handlerStaff = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isStringSelectMenu()) return;
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             sel.staff = i.values.filter((v) => v !== "none");
-            selections.set(i.guild.id, sel);
-            await i.update(renderSetup(i.guild)).catch(()=>{});
+            selections.set(selKey(i.guild.id, i.user.id), sel);
+            await i.update(renderSetup(i.guild, i.user.id)).catch(()=>{});
         };
         const handlerMod = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isStringSelectMenu()) return;
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             sel.mod = i.values.filter((v) => v !== "none");
-            selections.set(i.guild.id, sel);
-            await i.update(renderSetup(i.guild)).catch(()=>{});
+            selections.set(selKey(i.guild.id, i.user.id), sel);
+            await i.update(renderSetup(i.guild, i.user.id)).catch(()=>{});
         };
         const handlerToggle = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isButton()) return;
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             sel.createMissing = !sel.createMissing;
-            selections.set(i.guild.id, sel);
-            await i.update(renderSetup(i.guild)).catch(()=>{});
+            selections.set(selKey(i.guild.id, i.user.id), sel);
+            await i.update(renderSetup(i.guild, i.user.id)).catch(()=>{});
         };
         const handlerPreview = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isButton()) return;
             await i.deferUpdate().catch(()=>{});
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             const config = await client.services.settings.get(i.guild.id).catch(()=>null);
             const plan = await buildSetupPlan(i.guild, sel, config, {});
             await i.editReply(renderPreview(i.guild, plan)).catch(()=>{});
         };
         const handlerRepair = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isButton()) return;
             await i.deferUpdate().catch(()=>{});
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             // Repair needs valid role selections — use detected or existing config as fallback
             const config = await client.services.settings.get(i.guild.id).catch(()=>null);
             if (!sel.staff.length && config?.staffRoleIds?.length) sel.staff = config.staffRoleIds.slice(0,1);
@@ -642,16 +661,18 @@ export default {
                 { name: "CONFIGURATION", value: results.config?.action==="saved" ? "Guild configuration saved" : `${results.config?.reason||"failed"}` },
             ]);
             await i.editReply({ embeds: [embed], components: [] }).catch(()=>{});
-            selections.delete(i.guild.id);
+            selections.delete(selKey(i.guild.id, i.user.id));
         };
         const handlerBack = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isButton()) return;
-            await i.update(renderSetup(i.guild)).catch(()=>{});
+            await i.update(renderSetup(i.guild, i.user.id)).catch(()=>{});
         };
         const handlerConfirm = async (i) => {
+            if (!await requireSetupAccess(i, client)) return;
             if (!i.isButton()) return;
             await i.deferUpdate().catch(()=>{});
-            const sel = selections.get(i.guild.id) ?? { staff: [], mod: [], createMissing: false };
+            const sel = selections.get(selKey(i.guild.id, i.user.id)) ?? { staff: [], mod: [], createMissing: false };
             const config = await client.services.settings.get(i.guild.id).catch(()=>null);
             const plan = await buildSetupPlan(i.guild, sel, config, {});
             // Validation before run
@@ -659,25 +680,25 @@ export default {
                 // Allow auto-detected or create path — check plan
                 if (plan.roles.staff.action==="skip") {
                     await i.editReply({ embeds: [embeds.warn("Roles required", "Please select a Staff role or enable **Create missing roles**.")], components: [] }).catch(()=>{});
-                    selections.delete(i.guild.id);
+                    selections.delete(selKey(i.guild.id, i.user.id));
                     return;
                 }
             }
             if (!sel.mod.length && plan.roles.mod.action==="skip") {
                 if (plan.roles.mod.action==="skip") {
                     await i.editReply({ embeds: [embeds.warn("Roles required", "Please select a Moderator role or enable **Create missing roles**.")], components: [] }).catch(()=>{});
-                    selections.delete(i.guild.id);
+                    selections.delete(selKey(i.guild.id, i.user.id));
                     return;
                 }
             }
             if (plan.permissions.warnings.length) {
                 await i.editReply({ embeds: [embeds.warn("Missing bot permissions", plan.permissions.warnings.join("\n") + "\n\nGive the bot **Manage Channels** and **Manage Roles** then try again.")], components: [] }).catch(()=>{});
-                selections.delete(i.guild.id);
+                selections.delete(selKey(i.guild.id, i.user.id));
                 return;
             }
             if (plan.hierarchy && !plan.hierarchy.ok) {
                 await i.editReply({ embeds: [embeds.warn("Hierarchy blocked", plan.hierarchy.problems.map((p)=>p.reason).join("\n") + "\n\nMove the bot role above the target roles.")], components: [] }).catch(()=>{});
-                selections.delete(i.guild.id);
+                selections.delete(selKey(i.guild.id, i.user.id));
                 return;
             }
             try {
@@ -703,7 +724,7 @@ export default {
                 logger.error("autosetup", "run failed", e);
                 await i.editReply({ embeds: [embeds.error("Setup failed", "Could not finish setup. Ensure the bot has **Manage Channels** and **Manage Roles**.")], components: [] }).catch(()=>{});
             }
-            selections.delete(i.guild.id);
+            selections.delete(selKey(i.guild.id, i.user.id));
         };
 
         client.components.set("pulse:setup:staff", handlerStaff);
@@ -714,6 +735,6 @@ export default {
         client.components.set("pulse:setup:back", handlerBack);
         client.components.set("pulse:setup:confirm", handlerConfirm);
 
-        await interaction.editReply(renderSetup(guild));
+        await interaction.editReply(renderSetup(guild, interaction.user.id));
     },
 };

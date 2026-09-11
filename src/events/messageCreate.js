@@ -4,6 +4,7 @@ import { logger } from "../core/logger.js";
 export default {
     name: "messageCreate",
     async execute(message, client) {
+        try {
         if (message.author.bot || message.system)
             return;
         const guildId = message.guildId;
@@ -27,7 +28,11 @@ export default {
         }
         // Raid: track message velocity
         if (modules.automod !== false) {
-            client.services.raid?.trackMessage(guildId);
+            try {
+                client.services.raid?.trackMessage(guildId);
+            } catch (e) {
+                logger.warn("raid", "trackMessage failed", e.message);
+            }
             // Trigger raid check if flood
             const cnt = client.services.raid?.msgWindow?.get(guildId)?.length || 0;
             if (cnt > 12) client.services.raid?.maybeTrigger(message.guild, "message_flood")
@@ -47,6 +52,9 @@ export default {
         // Automation trigger for message
         client.services.automation?.trigger(guildId, "messageCreate", { userId: message.author.id, channelId: message.channel.id, content: message.content?.slice(0, 100) })
             .catch((e) => logger.warn("automation", "trigger failed", e.message));
+        } catch (e) {
+            logger.error("messageCreate", "unhandled error", e?.message);
+        }
     },
 };
 //# sourceMappingURL=messageCreate.js.map

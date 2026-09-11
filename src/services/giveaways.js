@@ -18,22 +18,29 @@ export class GiveawayService {
         await this.prisma.giveaway.create({ data: { guildId: guild.id, channelId: channel.id, messageId: msg.id, prize, winners, endsAt } });
         return msg;
     }
+    async _endStale(id, reason, extra={}) {
+        try{
+            await this.prisma.giveaway.updateMany({ where: { id, ended: false }, data: { ended: true } });
+        }catch(e){ logger.error("giveaway", "stale mark failed", { id, error: e }); return; }
+        logger.warn?.("giveaway", `giveaway ${id} ended as stale: ${reason}`, extra);
+    }
     async tick() {
-        const due = await this.prisma.giveaway.findMany({ where: { ended: false, endsAt: { lte: new Date() } } }).catch(() => []);
+        const due = await this.prisma.giveaway.findMany({ where: { ended: false, endsAt: { lte: new Date() } }, orderBy: { endsAt: "asc" }, take: 50 }).catch(() => []);
         for (const g of due) {
             try {
-                const guild = this.client.guilds.cache.get(g.guildId) ?? await this.client.guilds.fetch(g.guildId).catch(() => null);
-                if (!guild) continue;
-                const ch = guild.channels.cache.get(g.channelId) ?? await guild.channels.fetch(g.channelId).catch(() => null);
-                if (!ch || !ch.isTextBased()) continue;
-                const msg = await ch.messages.fetch(g.messageId).catch(() => null);
-                if (!msg) continue;
+                const guild = this.client.guilds.cache.get(g.guildId) ?? await this.client.guilds.fetch(g.guildId).catch((e) => { logger.error("giveaway", "guild fetch failed", { id: g.id, error: e }); return null; });
+                if (!guild){ await this._endStale(g.id, "guild missing", { guildId: g.guildId }); continue; }
+                const ch = guild.channels.cache.get(g.channelId) ?? await guild.channels.fetch(g.channelId).catch((e) => { logger.error("giveaway", "channel fetch failed", { id: g.id, error: e }); return null; });
+                if (!ch || !ch.isTextBased()){ await this._endStale(g.id, "channel missing or not text", { channelId: g.channelId }); continue; }
+                const msg = await ch.messages.fetch(g.messageId).catch((e) => { logger.error("giveaway", "message fetch failed", { id: g.id, error: e }); return null; });
+                if (!msg){ await this._endStale(g.id, "message missing", { messageId: g.messageId }); continue; }
                 const reaction = msg.reactions.cache.get("🎉");
-                const users = reaction ? await reaction.users.fetch().catch(() => null) : null;
+                const users = reaction ? await reaction.users.fetch().catch((e) => { logger.error("giveaway", "reaction fetch failed", { id: g.id, error: e }); return null; }) : null;
                 const ids = users ? [...users.values()].filter(u => !u.bot).map(u => u.id) : [];
                 const winners = ids.sort(() => 0.5 - Math.random()).slice(0, g.winners);
-                await ch.send({ embeds: [new EmbedBuilder().setColor(Theme.success).setTitle("Giveaway Ended").setDescription(`**${g.prize}** — Winners: ${winners.length ? winners.map(id => `<@${id}>`).join(", ") : "No entries"}`)], }).catch(() => {});
-                await this.prisma.giveaway.update({ where: { id: g.id }, data: { ended: true } });
+                const claimed = await this.prisma.giveaway.updateMany({ where: { id: g.id, ended: false }, data: { ended: true } }).catch((e) => { logger.error("giveaway", "claim failed", { id: g.id, error: e }); return null; });
+                if (!claimed || claimed.count !== 1) continue;
+                await ch.send({ embeds: [new EmbedBuilder().setColor(Theme.success).setTitle("Giveaway Ended").setDescription(`**${g.prize}** — Winners: ${winners.length ? winners.map(id => `<@${id}>`).join(", ") : "No entries"}`)], }).catch((e) => { logger.error("giveaway", "announce failed", { id: g.id, error: e }); });
             } catch (e) { logger.error("giveaway", "end failed", e); }
         }
     }

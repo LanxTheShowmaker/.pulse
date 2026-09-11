@@ -289,6 +289,8 @@ export class PrefixService {
                 // Try to get user from client cache
                 let user = this.client.users.cache.get(id);
                 if (user) return user;
+                // Refuse to fabricate users for malformed IDs (prevents junk DB rows from typos)
+                if (!/^\d{17,20}$/.test(id)) return null;
                 // Fallback: create a mock user object with id only (will be fetched in command)
                 return { id, tag: `Unknown#0000`, username: "Unknown", displayAvatarURL: () => null, createdAt: new Date(0) };
             },

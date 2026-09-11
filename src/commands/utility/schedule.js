@@ -15,9 +15,13 @@ export default {
             const msg=interaction.options.getString("message");
             const delay=interaction.options.getInteger("delay");
             await interaction.reply({ embeds:[embeds.success("Scheduled",`In **${delay}s** to <#${ch.id}>`)], flags: MessageFlags.Ephemeral});
-            setTimeout(async()=>{
-                try{ const c=await interaction.guild.channels.fetch(ch.id).catch(()=>null); if(c?.isTextBased()) await c.send({ embeds:[embeds.info("Announcement",msg)] }); }catch{}
+            const client = interaction.client;
+            const guildId = interaction.guildId;
+            const channelId = ch.id;
+            const timer = setTimeout(async()=>{
+                try{ const g = client.guilds.cache.get(guildId); const c = g ? await g.channels.fetch(channelId).catch(()=>null) : null; if(c?.isTextBased()) await c.send({ embeds:[embeds.info("Announcement",msg)] }); }catch{}
             }, delay*1000);
+            if (timer.unref) timer.unref();
             await interaction.client.services.audit?.log(interaction.guildId,{ actorId:interaction.user.id, action:"schedule_announce", category:"automation", details:{ channelId:ch.id, delay }}).catch(()=>{});
             return;
         }
@@ -28,16 +32,21 @@ export default {
                 const ch=await interaction.guild.channels.create({ name, type: ChannelType.GuildVoice, userLimit: limit });
                 await interaction.reply({ embeds:[embeds.success("Created",`<#${ch.id}> *auto-deletes when empty*`)], flags: MessageFlags.Ephemeral});
                 // Simple watcher: delete when empty after 60s idle
+                const sClient = interaction.client;
+                const sGuildId = interaction.guildId;
                 const watcher=setInterval(async()=>{
                     try{
-                        const fresh=await interaction.guild.channels.fetch(ch.id).catch(()=>null);
+                        const g = sClient.guilds.cache.get(sGuildId);
+                        const fresh = g ? await g.channels.fetch(ch.id).catch(()=>null) : null;
                         if(!fresh || fresh.members.size===0){
                             await fresh?.delete().catch(()=>{});
                             clearInterval(watcher);
                         }
                     }catch{ clearInterval(watcher); }
                 }, 60*1000);
-                setTimeout(()=> clearInterval(watcher), 6*3600*1000);
+                if (watcher.unref) watcher.unref();
+                const cap = setTimeout(()=> clearInterval(watcher), 6*3600*1000);
+                if (cap.unref) cap.unref();
             }catch(e){ return interaction.reply({ embeds:[embeds.error("Failed", e.message)], flags: MessageFlags.Ephemeral}); }
         }
     }

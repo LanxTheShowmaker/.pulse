@@ -8,22 +8,22 @@ datasource db {
 }
 
 model GuildConfig {
-  guildId          String   @id
-  logChannelId     String?
-  modLogChannelId  String?
-  welcomeChannelId String?
-  goodbyeChannelId String?
-  staffRoleIds     String   @default("[]")
-  moderatorRoleIds String   @default("[]")
+  guildId           String   @id
+  logChannelId      String?
+  modLogChannelId   String?
+  welcomeChannelId  String?
+  goodbyeChannelId  String?
+  staffRoleIds      String   @default("[]")
+  moderatorRoleIds  String   @default("[]")
   ignoredChannelIds String   @default("[]")
-  ignoredRoleIds   String   @default("[]")
-  ignoredUserIds   String   @default("[]")
-  modules          String   @default("{}")
-  automod          String   @default("{}")
-  orders           String   @default("{}")
-  prefix           String   @default("!")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  ignoredRoleIds    String   @default("[]")
+  ignoredUserIds    String   @default("[]")
+  modules           String   @default("{}")
+  automod           String   @default("{}")
+  orders            String   @default("{}")
+  prefix            String   @default("!")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model GuildBranding {
@@ -37,23 +37,23 @@ model GuildBranding {
 }
 
 model Case {
-  id           Int      @id @default(autoincrement())
-  guildId      String
-  caseNumber   Int
-  targetId     String
-  targetTag    String
-  moderatorId  String
-  moderatorTag String
-  action       String
-  reason       String?
-  duration     String?
-  durationMs   BigInt?
-  resolved     Boolean  @default(false)
-  resolvedById String?
+  id            Int       @id @default(autoincrement())
+  guildId       String
+  caseNumber    Int
+  targetId      String
+  targetTag     String
+  moderatorId   String
+  moderatorTag  String
+  action        String
+  reason        String?
+  duration      String?
+  durationMs    BigInt?
+  resolved      Boolean   @default(false)
+  resolvedById  String?
   resolvedByTag String?
-  resolvedAt   DateTime?
-  metadata     String?
-  createdAt    DateTime @default(now())
+  resolvedAt    DateTime?
+  metadata      String?
+  createdAt     DateTime  @default(now())
 
   @@unique([guildId, caseNumber])
   @@index([guildId, targetId])
@@ -74,16 +74,17 @@ model Order {
   createdAt   DateTime  @default(now())
   closedAt    DateTime?
   transcript  String?
+
   @@index([guildId, status])
 }
 
 model FortressState {
-  guildId     String    @id
-  active      Boolean   @default(false)
-  enabledById String?
+  guildId      String    @id
+  active       Boolean   @default(false)
+  enabledById  String?
   enabledByTag String?
-  startedAt   DateTime?
-  snapshot    String
+  startedAt    DateTime?
+  snapshot     String
 }
 
 model Reminder {
@@ -94,19 +95,20 @@ model Reminder {
   message   String
   remindAt  DateTime
   createdAt DateTime @default(now())
+
   @@index([remindAt])
 }
 
 model Poll {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   guildId   String
   channelId String
-  messageId String   @unique
+  messageId String    @unique
   authorId  String
   question  String
   options   String
   endsAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Panel {
@@ -183,6 +185,7 @@ model Xp {
   xp        Int      @default(0)
   level     Int      @default(0)
   updatedAt DateTime @updatedAt
+
   @@id([guildId, userId])
   @@index([guildId, level])
 }
@@ -192,6 +195,7 @@ model Economy {
   userId    String
   balance   Int      @default(0)
   updatedAt DateTime @updatedAt
+
   @@id([guildId, userId])
 }
 
@@ -205,6 +209,7 @@ model ShopItem {
   emoji       String?
   stock       Int?
   createdAt   DateTime @default(now())
+
   @@unique([guildId, name])
   @@index([guildId])
 }
@@ -216,8 +221,9 @@ model ShopInventory {
   itemId      String
   quantity    Int      @default(1)
   purchasedAt DateTime @default(now())
-  @@index([guildId, userId])
+
   @@unique([guildId, userId, itemId])
+  @@index([guildId, userId])
 }
 
 model ReactionRole {
@@ -227,6 +233,7 @@ model ReactionRole {
   messageId String
   emoji     String
   roleId    String
+
   @@unique([guildId, messageId, emoji])
   @@index([guildId])
 }
@@ -241,6 +248,7 @@ model Giveaway {
   endsAt    DateTime
   ended     Boolean  @default(false)
   createdAt DateTime @default(now())
+
   @@index([endsAt])
 }
 
@@ -253,6 +261,7 @@ model Suggestion {
   content   String
   status    String   @default("PENDING")
   createdAt DateTime @default(now())
+
   @@index([guildId, status])
 }
 
@@ -264,32 +273,33 @@ model StarboardConfig {
 }
 
 model Afk {
-  guildId   String
-  userId    String
-  reason    String?
-  since     DateTime @default(now())
+  guildId String
+  userId  String
+  reason  String?
+  since   DateTime @default(now())
+
   @@id([guildId, userId])
 }
 
 model LevelConfig {
-  guildId            String  @id
-  xpMultiplier       Float   @default(1.0)
-  channelMultipliers String  @default("{}")
-  roleRewards        String  @default("[]")
-  streakEnabled      Boolean @default(true)
+  guildId            String   @id
+  xpMultiplier       Float    @default(1.0)
+  channelMultipliers String   @default("{}")
+  roleRewards        String   @default("[]")
+  streakEnabled      Boolean  @default(true)
   announceChannelId  String?
-  antiFarmEnabled    Boolean @default(true)
-  prestigeEnabled    Boolean @default(true)
+  antiFarmEnabled    Boolean  @default(true)
+  prestigeEnabled    Boolean  @default(true)
   updatedAt          DateTime @updatedAt
 }
 
 model EconomyConfig {
-  guildId        String  @id
-  dailyAmount    Int     @default(100)
-  weeklyAmount   Int     @default(500)
-  shopEnabled    Boolean @default(true)
-  tradingEnabled Boolean @default(true)
-  jobsEnabled    Boolean @default(true)
+  guildId        String   @id
+  dailyAmount    Int      @default(100)
+  weeklyAmount   Int      @default(500)
+  shopEnabled    Boolean  @default(true)
+  tradingEnabled Boolean  @default(true)
+  jobsEnabled    Boolean  @default(true)
   updatedAt      DateTime @updatedAt
 }
 
@@ -302,6 +312,7 @@ model AuditLog {
   category  String
   details   String?
   createdAt DateTime @default(now())
+
   @@index([guildId, createdAt])
   @@index([guildId, category])
 }
@@ -317,18 +328,20 @@ model Achievement {
   rewards     String   @default("{}")
   conditions  String   @default("{}")
   createdAt   DateTime @default(now())
+
   @@unique([guildId, key])
   @@index([guildId])
 }
 
 model UserAchievement {
-  guildId         String
-  userId          String
-  achievementId   String
-  progress        Int      @default(0)
-  unlocked        Boolean  @default(false)
-  unlockedAt      DateTime?
-  updatedAt       DateTime @updatedAt
+  guildId       String
+  userId        String
+  achievementId String
+  progress      Int       @default(0)
+  unlocked      Boolean   @default(false)
+  unlockedAt    DateTime?
+  updatedAt     DateTime  @updatedAt
+
   @@id([guildId, userId, achievementId])
   @@index([guildId, userId])
 }
@@ -343,17 +356,19 @@ model AutomationRule {
   actions    String   @default("[]")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
   @@index([guildId, trigger])
 }
 
 model Backup {
-  id          String   @id @default(uuid())
-  guildId     String
-  data        String
-  version     Int      @default(1)
-  createdById String
+  id           String   @id @default(uuid())
+  guildId      String
+  data         String
+  version      Int      @default(1)
+  createdById  String
   createdByTag String?
-  createdAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+
   @@index([guildId, createdAt])
 }
 
@@ -366,6 +381,7 @@ model EconomyTransaction {
   balanceAfter Int
   meta         String?
   createdAt    DateTime @default(now())
+
   @@index([guildId, userId])
   @@index([guildId, createdAt])
 }
@@ -379,6 +395,7 @@ model CaseNote {
   authorTag  String?
   content    String
   createdAt  DateTime @default(now())
+
   @@index([guildId, targetId])
   @@index([guildId, caseNumber])
 }
@@ -394,6 +411,7 @@ model Appeal {
   reviewerTag String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
   @@index([guildId, status])
 }
 
@@ -405,6 +423,7 @@ model TicketRating {
   rating    Int
   feedback  String?
   createdAt DateTime @default(now())
+
   @@unique([guildId, channelId, raterId])
   @@index([guildId])
 }
@@ -417,15 +436,17 @@ model RaidIncident {
   details   String?
   resolved  Boolean  @default(false)
   createdAt DateTime @default(now())
+
   @@index([guildId, createdAt])
 }
 
 model XpStreak {
-  guildId    String
-  userId     String
-  streak     Int      @default(0)
-  longest    Int      @default(0)
-  lastXpAt   DateTime?
-  updatedAt  DateTime @updatedAt
+  guildId   String
+  userId    String
+  streak    Int       @default(0)
+  longest   Int       @default(0)
+  lastXpAt  DateTime?
+  updatedAt DateTime  @updatedAt
+
   @@id([guildId, userId])
 }

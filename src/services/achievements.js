@@ -11,16 +11,22 @@ export const DEFAULT_ACHIEVEMENTS = [
     { key:"mod_first", name:"First Moderation", description:"Perform a moderation action", category:"moderation", rewards:{ coins:20 }, conditions:{ modActions:1 } },
     { key:"streak_7", name:"Week Warrior", description:"7 day XP streak", category:"leveling", rewards:{ coins:700 }, conditions:{ streak:7 } },
 ];
+const SEED_CACHE_TTL = 5*60*1000;
+const seedCache = new Map(); // guildId -> timestamp of last successful seed
 
 export class AchievementService {
     prisma; client;
     constructor(prisma, client){ this.prisma=prisma; this.client=client; }
     async ensureDefaults(guildId=null){
+        const key = guildId ?? "__global__";
+        const last = seedCache.get(key) || 0;
+        if(Date.now()-last < SEED_CACHE_TTL) return;
         for(const def of DEFAULT_ACHIEVEMENTS){
             try{
                 await this.prisma.achievement.upsert({ where:{ guildId_key:{ guildId: guildId, key: def.key }}, update:{}, create:{ guildId, key: def.key, name: def.name, description: def.description, category: def.category, rewards: JSON.stringify(def.rewards), conditions: JSON.stringify(def.conditions) }});
             }catch(e){ logger.error("achievements","ensure failed",e); }
         }
+        seedCache.set(key, Date.now());
     }
     async getForGuild(guildId){
         await this.ensureDefaults(guildId);
@@ -36,6 +42,28 @@ export class AchievementService {
             const map=new Map(prog.map(p=> [p.achievementId, p]));
             return all.map(a=> ({ achievement:a, progress:map.get(a.id)||null }));
         }catch(e){ logger.error("achievements","progress failed",e); return []; }
+    }
+    async _claim(guildId, userId, achievementId){
+        // Try to flip an existing locked row first.
+        try{
+            const res = await this.prisma.userAchievement.updateMany({ where:{ guildId, userId, achievementId, unlocked:false }, data:{ unlocked:true, unlockedAt:new Date(), progress:1 }});
+            if(res.count===1) return true;
+        }catch(e){ logger.error("achievements","claim update failed",e); }
+        // No locked row — try to create the unlock row.
+        try{
+            await this.prisma.userAchievement.create({ data:{ guildId, userId, achievementId, unlocked:true, unlockedAt:new Date(), progress:1 }});
+            return true;
+        }catch(e){
+            if(e?.code==="P2002"){
+                // Lost the create race — try to claim the winner's locked row.
+                try{
+                    const res = await this.prisma.userAchievement.updateMany({ where:{ guildId, userId, achievementId, unlocked:false }, data:{ unlocked:true, unlockedAt:new Date(), progress:1 }});
+                    return res.count===1;
+                }catch(ie){ logger.error("achievements","claim race retry failed",ie); return false; }
+            }
+            logger.error("achievements","claim create failed",e);
+            return false;
+        }
     }
     async checkAndUnlock(guildId, userId, context){
         // context: { level, balance, messages, tickets, ticketsClosed, modActions, streak }
@@ -53,13 +81,12 @@ export class AchievementService {
                 else if(cond.modActions && context.modActions!==undefined) met=context.modActions>=cond.modActions;
                 else if(cond.ticketsClosed && context.ticketsClosed!==undefined) met=context.ticketsClosed>=cond.ticketsClosed;
                 if(!met) continue;
-                const existing = await this.prisma.userAchievement.findUnique({ where:{ guildId_userId_achievementId:{ guildId, userId, achievementId:def.id }}}).catch(()=>null);
-                if(existing?.unlocked) continue;
-                await this.prisma.userAchievement.upsert({ where:{ guildId_userId_achievementId:{ guildId, userId, achievementId:def.id }}, update:{ unlocked:true, unlockedAt:new Date(), progress:1 }, create:{ guildId, userId, achievementId:def.id, unlocked:true, unlockedAt:new Date(), progress:1 }});
-                // Grant rewards
+                const claimed = await this._claim(guildId, userId, def.id);
+                if(!claimed) continue;
+                // Grant rewards only to the single claim winner
                 const rewards = JSON.parse(def.rewards||"{}");
-                if(rewards.xp) await this.prisma.xp.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ xp:{ increment: rewards.xp }}, create:{ guildId, userId, xp: rewards.xp, level:0 }}).catch(()=>{});
-                if(rewards.coins) await this.prisma.economy.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ balance:{ increment: rewards.coins }}, create:{ guildId, userId, balance: rewards.coins }}).catch(()=>{});
+                if(rewards.xp) await this.prisma.xp.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ xp:{ increment: rewards.xp }}, create:{ guildId, userId, xp: rewards.xp, level:0 }}).catch((e)=>{ logger.error("achievements","xp reward failed",e); });
+                if(rewards.coins) await this.prisma.economy.upsert({ where:{ guildId_userId:{ guildId, userId }}, update:{ balance:{ increment: rewards.coins }}, create:{ guildId, userId, balance: rewards.coins }}).catch((e)=>{ logger.error("achievements","coin reward failed",e); });
                 if(rewards.roleId){
                     try{ const g=this.client.guilds.cache.get(guildId); const m=await g?.members.fetch(userId).catch(()=>null); if(m && g.roles.cache.has(rewards.roleId)) await m.roles.add(rewards.roleId).catch(()=>{}); }catch{}
                 }

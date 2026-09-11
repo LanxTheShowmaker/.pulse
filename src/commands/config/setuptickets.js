@@ -34,15 +34,6 @@ function clearSession(guildId, userId) {
     SESSIONS.delete(key);
 }
 
-function isOwner(interaction) {
-    const s = getSession(interaction.guildId, interaction.user.id);
-    if (!s) return false;
-    // Also allow if interaction is from same user who owns the guild session (any guild session owned by this user)
-    // For simplicity, check if there's any session for this guild owned by interaction.user
-    const key = `${interaction.guildId}:${interaction.user.id}`;
-    return SESSIONS.has(key);
-}
-
 async function buildStatusEmbed(guild, client) {
     const panels = await client.services.panels.list(guild.id);
     const types = await client.prisma.ticketType.findMany({ where: { guildId: guild.id } }).catch(() => []);
@@ -169,7 +160,8 @@ export default {
 
         // Register global handlers once per execution (overwrite for this guild session)
         const ensureOwner = async (i) => {
-            if (i.user.id !== interaction.user.id) {
+            const session = getSession(i.guildId, i.user.id);
+            if (!session || session.ownerId !== i.user.id) {
                 await i.reply({ embeds: [embeds.error("Not your session", "You cannot use this setup session.")], flags: MessageFlags.Ephemeral }).catch(() => {});
                 return false;
             }
@@ -213,7 +205,7 @@ export default {
         });
         client.components.set("pulse:setup:modalTitle", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return i.reply({ embeds: [embeds.error("Not your session","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
+            if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const title = i.fields.getTextInputValue("title");
             await client.services.panels.upsert(i.guild.id, panelType, { title });
@@ -234,7 +226,7 @@ export default {
         });
         client.components.set("pulse:setup:modalDesc", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const desc = i.fields.getTextInputValue("desc");
             await client.services.panels.upsert(i.guild.id, panelType, { description: desc });
@@ -261,7 +253,7 @@ export default {
         });
         client.components.set("pulse:setup:modalBannerUrl", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const url = i.fields.getTextInputValue("url");
             try {
@@ -343,7 +335,7 @@ export default {
         });
         client.components.set("pulse:setup:modalCreateType", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const key = i.fields.getTextInputValue("key").toLowerCase().replace(/[^a-z0-9_-]+/g,"-").slice(0,32);
             const name = i.fields.getTextInputValue("name");
@@ -362,7 +354,7 @@ export default {
             if (!i.isStringSelectMenu()) return;
             const panelType = i.customId.split(":")[3];
             const typeId = i.values[0];
-            const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
+            const type = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
             if (!type) return i.reply({ embeds:[embeds.error("Not found","")] , flags: MessageFlags.Ephemeral }).catch(()=>{});
             const embed = embeds.info(`Edit ${type.displayName}`, `Key: \`${type.key}\`\nEmoji: ${type.emoji??"—"}\nEnabled: ${type.enabled?"Yes":"No"}`, [
                 { name:"Category", value: type.categoryId ? `<#${type.categoryId}>` : "Auto" },
@@ -381,21 +373,23 @@ export default {
         client.components.set("pulse:setup:deleteType", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
-            const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
+            const type = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
             if (!type) return;
             await i.reply({ embeds:[embeds.warn("Delete?",`Delete **${type.displayName}**?`)], components:[confirmationRow({ acceptCustomId:`pulse:setup:confirmDeleteType:${typeId}`, cancelCustomId:`pulse:setup:cancelDeleteType:${typeId}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:setup:confirmDeleteType", async (i) => {
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
+            const existing = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!existing) return i.update({ embeds:[embeds.error("Not found","")] , components:[] }).catch(()=>{});
             await client.prisma.ticketType.delete({ where:{ id:typeId } }).catch(()=>{});
             await i.update({ embeds:[embeds.success("Deleted","Type deleted")], components:[] }).catch(()=>{});
         });
-        client.components.set("pulse:setup:cancelDeleteType", async (i) => { await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:cancelDeleteType", async (i) => { if (!await ensureOwner(i)) return; await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
         client.components.set("pulse:setup:editType", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
-            const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
+            const type = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
             if (!type) return;
             const modal = new ModalBuilder().setCustomId(`pulse:setup:modalEditType:${typeId}`).setTitle("Edit Type");
             modal.addComponents(
@@ -408,8 +402,10 @@ export default {
         });
         client.components.set("pulse:setup:modalEditType", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
+            const existing = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!existing) return i.reply({ embeds:[embeds.error("Not found","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const name = i.fields.getTextInputValue("name");
             const desc = i.fields.getTextInputValue("desc");
             const emoji = i.fields.getTextInputValue("emoji");
@@ -421,7 +417,8 @@ export default {
         client.components.set("pulse:setup:editQuestions", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
-            const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
+            const type = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!type) return i.reply({ embeds:[embeds.error("Not found","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             let qs=[]; try{ qs=JSON.parse(type.questions??"[]"); }catch{}
             const embed = embeds.info("Questions", qs.length? qs.map((q,idx)=> `${idx+1}. ${q.label??q.question} ${q.required===false?"(optional)":""}`).join("\n") : "No questions. Add up to 5.");
             const row = new ActionRowBuilder().addComponents(
@@ -434,6 +431,8 @@ export default {
         client.components.set("pulse:setup:addQuestion", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
+            const existing = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!existing) return i.reply({ embeds:[embeds.error("Not found","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             const modal = new ModalBuilder().setCustomId(`pulse:setup:modalAddQ:${typeId}`).setTitle("Add Question");
             modal.addComponents(
                 new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("label").setLabel("Question").setStyle(TextInputStyle.Short).setRequired(true).setMaxLength(45).setPlaceholder("What are you ordering?")),
@@ -443,9 +442,10 @@ export default {
         });
         client.components.set("pulse:setup:modalAddQ", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
-            const type = await client.prisma.ticketType.findUnique({ where:{ id:typeId } }).catch(()=>null);
+            const type = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!type) return i.reply({ embeds:[embeds.error("Not found","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             let qs=[]; try{ qs=JSON.parse(type.questions??"[]"); }catch{}
             if (qs.length>=5) return i.reply({ embeds:[embeds.warn("Limit","Max 5 questions")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             qs.push({ label: i.fields.getTextInputValue("label"), placeholder: i.fields.getTextInputValue("placeholder")||"", required:true, style:"SHORT" });
@@ -455,6 +455,8 @@ export default {
         client.components.set("pulse:setup:clearQuestions", async (i) => {
             if (!await ensureOwner(i)) return;
             const typeId = i.customId.split(":")[3];
+            const existing = await client.prisma.ticketType.findFirst({ where:{ id:typeId, guildId:i.guild.id } }).catch(()=>null);
+            if (!existing) return i.reply({ embeds:[embeds.error("Not found","")], flags: MessageFlags.Ephemeral }).catch(()=>{});
             await client.prisma.ticketType.update({ where:{ id:typeId }, data:{ questions:"[]" } }).catch(()=>{});
             await i.update({ embeds:[embeds.success("Cleared","Questions cleared")], components:[] }).catch(()=>{});
         });
@@ -488,7 +490,7 @@ export default {
         });
         client.components.set("pulse:setup:modalRegCreate", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const panelType = i.customId.split(":")[3];
             const panel = await client.services.panels.get(i.guild.id, panelType);
             const cfg = panel.parsedConfig ?? {}; const sections = cfg.sections ?? [];
@@ -529,7 +531,7 @@ export default {
         });
         client.components.set("pulse:setup:modalRegEdit", async (i) => {
             if (!i.isModalSubmit()) return;
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const parts = i.customId.split(":"); const pt=parts[3]; const idx=Number(parts[4]);
             const panel = await client.services.panels.get(i.guild.id, pt);
             const cfg = panel.parsedConfig ?? {}; const sections = cfg.sections ?? [];
@@ -543,7 +545,7 @@ export default {
             await i.reply({ embeds:[embeds.warn("Delete?","Confirm delete")], components:[confirmationRow({ acceptCustomId:`pulse:setup:regConfirmDel:${pt}:${idx}`, cancelCustomId:`pulse:setup:regCancelDel:${pt}:${idx}`, danger:true })], flags: MessageFlags.Ephemeral }).catch(()=>{});
         });
         client.components.set("pulse:setup:regConfirmDel", async (i) => {
-            if (i.user.id !== interaction.user.id) return;
+            if (!await ensureOwner(i)) return;
             const parts=i.customId.split(":"); const pt=parts[3]; const idx=Number(parts[4]);
             const panel=await client.services.panels.get(i.guild.id, pt);
             const cfg=panel.parsedConfig??{}; const sections=cfg.sections??[];
@@ -551,7 +553,7 @@ export default {
             await client.services.panels.upsert(i.guild.id, pt, { config: JSON.stringify({...cfg, sections}) });
             await i.update({ embeds:[embeds.success("Deleted","Section removed")], components:[] }).catch(()=>{});
         });
-        client.components.set("pulse:setup:regCancelDel", async (i)=>{ await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
+        client.components.set("pulse:setup:regCancelDel", async (i)=>{ if (!await ensureOwner(i)) return; await i.update({ embeds:[embeds.info("Cancelled","No changes made.")], components:[] }).catch(()=>{}); });
 
         // Ticket / Global settings stubs
         client.components.set("pulse:setup:ticketSettings", async (i) => {

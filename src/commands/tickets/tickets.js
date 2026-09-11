@@ -32,6 +32,9 @@ export default {
         const prisma = interaction.client.prisma;
         
         if (sub === "config") {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+                return containerReply(interaction, errorPanel("Missing Permission", "You need Manage Server permission."), true);
+            }
             const types = await prisma.ticketType.findMany({ where: { guildId: interaction.guildId } }).catch(() => []);
             return containerReply(interaction, ticketTypeConfigPanel(types, interaction.guild), true);
         }
@@ -90,6 +93,9 @@ export default {
         }
         
         if (sub === "panel") {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+                return containerReply(interaction, errorPanel("Missing Permission", "You need Manage Server permission."), true);
+            }
             const channel = interaction.options.getChannel("channel");
             const types = await prisma.ticketType.findMany({ where: { guildId: interaction.guildId, enabled: true } });
             

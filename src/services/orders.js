@@ -420,10 +420,25 @@ export class OrderService {
         const channelId = this.parseChannelId(i.customId, "order:close");
         if (!channelId)
             return;
+        const member = i.member;
+        const config = await this.settings.get(i.guild.id).catch(() => null);
+        if (!this.isStaffMember(member, config)) {
+            await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can close orders.")], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        const scoped = await this.fetchOrder(channelId);
+        if (!scoped || scoped.guildId !== i.guild.id) {
+            await i.reply({ embeds: [embeds.error("Order not found", "This order does not belong to this server.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            return;
+        }
         if (i.customId.endsWith(":confirm")) {
             await i.deferUpdate().catch(() => { });
             const order = await this.fetchOrder(channelId);
-            await this.closeOrder(i.guild, channelId, i.member, order?.claimedById ?? i.member.id);
+            const ok = await this.closeOrder(i.guild, channelId, i.member, order?.claimedById ?? i.member.id).catch(() => false);
+            if (!ok) {
+                await i.editReply({ embeds: [embeds.error("Failed", "Could not close order.")] }).catch(() => { });
+                return;
+            }
             await i.editReply({ embeds: [embeds.success("Order closed", "This order has been closed.")], components: [] }).catch(() => { });
             return;
         }
@@ -452,13 +467,20 @@ export class OrderService {
     async closeOrder(guild, channelId, closer, claimedById) {
         const channel = await this.getOrderChannel(guild, channelId);
         if (!channel)
-            return;
+            return false;
         const transcript = await this.buildTranscriptText(channel).catch(() => null);
         const order = await this.fetchOrder(channelId);
-        await this.prisma.order.update({
-            where: { channelId },
-            data: { status: "CLOSED", closedAt: new Date(), transcript: transcript ?? undefined, claimedById: claimedById ?? order?.claimedById },
-        }).catch(() => { });
+        if (!order || order.guildId !== guild.id)
+            return false;
+        try {
+            await this.prisma.order.update({
+                where: { channelId },
+                data: { status: "CLOSED", closedAt: new Date(), transcript: transcript ?? undefined, claimedById: claimedById ?? order?.claimedById },
+            });
+        } catch (e) {
+            logger.error("orders", "close update failed", e);
+            return false;
+        }
         const everyone = guild.roles.everyone;
         await channel.permissionOverwrites.edit(everyone, { SendMessages: false, ViewChannel: false }).catch(() => { });
         await channel.permissionOverwrites.edit(closer.id, { SendMessages: false, ViewChannel: false }).catch(() => { });
@@ -475,11 +497,24 @@ export class OrderService {
             await this.deliverTranscript(guild, channelId, transcript, "closed");
         if (finalOrder)
             await this.logOrder(guild, finalOrder, `Order closed by ${closer.user.tag}`);
+        this.introMessages.delete(channelId);
+        return true;
     }
     async handleAddUser(i) {
         const channelId = this.parseChannelId(i.customId, "order:add");
         if (!channelId)
             return;
+        const member = i.member;
+        const config = await this.settings.get(i.guild.id).catch(() => null);
+        if (!this.isStaffMember(member, config)) {
+            await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can manage order members.")], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        const scoped = await this.fetchOrder(channelId);
+        if (!scoped || scoped.guildId !== i.guild.id) {
+            await i.reply({ embeds: [embeds.error("Order not found", "This order does not belong to this server.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            return;
+        }
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu())
                 return;
@@ -502,6 +537,17 @@ export class OrderService {
         const channelId = this.parseChannelId(i.customId, "order:remove");
         if (!channelId)
             return;
+        const member = i.member;
+        const config = await this.settings.get(i.guild.id).catch(() => null);
+        if (!this.isStaffMember(member, config)) {
+            await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can manage order members.")], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        const scoped = await this.fetchOrder(channelId);
+        if (!scoped || scoped.guildId !== i.guild.id) {
+            await i.reply({ embeds: [embeds.error("Order not found", "This order does not belong to this server.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            return;
+        }
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu())
                 return;
@@ -531,6 +577,18 @@ export class OrderService {
         const channelId = this.parseChannelId(i.customId, "order:transcript");
         if (!channelId)
             return;
+        const order = await this.fetchOrder(channelId);
+        if (!order || order.guildId !== i.guild.id) {
+            await i.reply({ embeds: [embeds.error("Order not found", "This order does not belong to this server.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            return;
+        }
+        const member = i.member;
+        const config = await this.settings.get(i.guild.id).catch(() => null);
+        const allowed = order.openerId === member.id || (order.claimedById && order.claimedById === member.id) || this.isStaffMember(member, config);
+        if (!allowed) {
+            await i.reply({ embeds: [embeds.error("Missing permission", "Only the opener or staff can view transcripts.")], flags: MessageFlags.Ephemeral });
+            return;
+        }
         await i.deferReply({ flags: MessageFlags.Ephemeral });
         const channel = await this.getOrderChannel(i.guild, channelId);
         if (!channel) {
@@ -542,7 +600,6 @@ export class OrderService {
             await i.editReply({ embeds: [embeds.error("Transcript failed", "Could not collect messages for this order.")] });
             return;
         }
-        const order = await this.fetchOrder(channelId);
         await this.deliverTranscript(i.guild, channelId, text, order?.status === "CLOSED" ? "archived" : "requested");
         await i.editReply({ embeds: [embeds.success("Transcript sent", "The transcript was delivered to your DMs and the mod-log channel.")] });
     }

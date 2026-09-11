@@ -16,7 +16,8 @@ export default {
         client.components.set(`${key}:rock`, async (i)=> handle(i,"rock"));
         client.components.set(`${key}:paper`, async (i)=> handle(i,"paper"));
         client.components.set(`${key}:scissors`, async (i)=> handle(i,"scissors"));
-        setTimeout(()=>{ client.components.delete(`${key}:rock`); client.components.delete(`${key}:paper`); client.components.delete(`${key}:scissors`); }, 60_000);
+        const cleanup = setTimeout(()=>{ client.components.delete(`${key}:rock`); client.components.delete(`${key}:paper`); client.components.delete(`${key}:scissors`); }, 60_000);
+        if (cleanup.unref) cleanup.unref();
         async function handle(i, userChoice){
             const choices=["rock","paper","scissors"];
             const bot=choices[Math.floor(Math.random()*3)];

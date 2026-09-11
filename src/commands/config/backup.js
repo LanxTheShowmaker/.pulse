@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
+import { SlashCommandBuilder, MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from "discord.js";
 import { embeds, confirmationRow } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
 export default {
@@ -24,6 +24,9 @@ export default {
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});
         }
         if(sub==="restore"){
+            if(!interaction.member.permissions.has(PermissionFlagsBits.Administrator) && !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)){
+                return interaction.reply({ embeds:[embeds.error("No perm","Administrator or Manage Server required")], flags: MessageFlags.Ephemeral});
+            }
             const id=interaction.options.getString("id");
             const backup=await svc.get(interaction.guildId, id);
             if(!backup) return interaction.reply({ embeds:[embeds.error("Not found",id)], flags: MessageFlags.Ephemeral});
@@ -33,7 +36,7 @@ export default {
             const msg=await interaction.reply({ embeds:[embed], components:[row], flags: MessageFlags.Ephemeral});
             const reply=await interaction.fetchReply().catch(()=>null);
             if(!reply) return;
-            const collector=reply.createMessageComponentCollector({ time:30000, max:1 });
+            const collector=reply.createMessageComponentCollector({ filter: (i) => i.user.id === interaction.user.id, time:30000, max:1 });
             collector.on("collect", async i=>{
                 if(i.customId.endsWith(":no")) return i.update({ embeds:[embeds.info("Cancelled","Not restored")], components:[]}).catch(()=>{});
                 await i.deferUpdate().catch(()=>{});

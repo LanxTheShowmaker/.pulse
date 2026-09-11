@@ -7,15 +7,27 @@ export class ModerationService {
     cases;
     logging;
     client;
+    expiryTimer;
     constructor(prisma, cases, logging, client=null) {
         this.prisma = prisma;
         this.cases = cases;
         this.logging = logging;
         this.client = client;
         // Expiration checker every 60s
-        setInterval(()=> this.checkExpirations().catch(()=>{}), 60_000);
+        this.expiryTimer = setInterval(()=> this.checkExpirations().catch((e)=> logger.error("moderation", "expiry sweep failed", e?.message)), 60_000);
+        if(this.expiryTimer?.unref) this.expiryTimer.unref();
     }
+    shutdown(){ if(this.expiryTimer) clearInterval(this.expiryTimer); this.expiryTimer=null; }
     setClient(client){ this.client=client; }
+    async _markFailed(guildId, caseNumber, error){
+        try{
+            await this.cases.edit(guildId, caseNumber, { metadata:{ failed:true, error: String(error?.message ?? error).slice(0,500) } }).catch(()=>null);
+        }catch{}
+        try{
+            const sys = this.client?.user ? { id: this.client.user.id, tag: this.client.user.tag } : { id: "system", tag: "system" };
+            await this.cases.resolve(guildId, caseNumber, sys).catch(()=>null);
+        }catch{}
+    }
     async record(guild, target, moderator, action, reason, duration) {
         const created = await this.cases.create({
             guildId: guild.id,
@@ -29,47 +41,67 @@ export class ModerationService {
             durationMs: duration?.ms,
         });
         await this.logging.logCase(created).catch((e) => logger.error("moderation", "case log failed", e));
-        // Audit & automation via client.services if available
-        try {
-            const audit = this.client?.services?.audit ?? null;
-            if (audit) audit.log(guild.id, { actorId: moderator.id, targetId: target.id, action: action.toLowerCase(), category: "moderation", details: { caseNumber: created.caseNumber, reason } }).catch(() => {});
-            this.client?.services?.automation?.trigger(guild.id, "moderationCase", { caseNumber: created.caseNumber, action, targetId: target.id, moderatorId: moderator.id }).catch(() => {});
-        } catch {}
+        // Audit & automation via client.services if available (awaited; caller catches failures)
+        const audit = this.client?.services?.audit ?? null;
+        if (audit) await audit.log(guild.id, { actorId: moderator.id, targetId: target.id, action: action.toLowerCase(), category: "moderation", details: { caseNumber: created.caseNumber, reason } });
+        if (this.client?.services?.automation) await this.client.services.automation.trigger(guild.id, "moderationCase", { caseNumber: created.caseNumber, action, targetId: target.id, moderatorId: moderator.id });
         return created;
     }
     async ban(guild, target, moderator, reason, days = 0) {
         const c = await this.record(guild, target, moderator, "BAN", reason);
-        await guild.bans
-            .create(target.id, { reason: `${reason ?? "No reason"} · Case #${c.caseNumber}`, deleteMessageSeconds: days * 86400 })
-            .catch((e) => logger.error("moderation", "ban failed", e));
+        try{
+            await guild.bans.create(target.id, { reason: `${reason ?? "No reason"} · Case #${c.caseNumber}`, deleteMessageSeconds: days * 86400 });
+        }catch(e){
+            logger.error("moderation", "ban failed", e);
+            await this._markFailed(guild.id, c.caseNumber, e);
+            throw e;
+        }
         return c;
     }
     async unban(guild, userId, userTagStr, moderator, reason) {
         const c = await this.cases.create({ guildId: guild.id, targetId: userId, targetTag: userTagStr, moderatorId: moderator.id, moderatorTag: userTag(moderator), action: "UNBAN", reason });
-        await guild.bans.remove(userId, reason).catch((e) => logger.error("moderation", "unban failed", e));
+        try{
+            await guild.bans.remove(userId, reason);
+        }catch(e){
+            logger.error("moderation", "unban failed", e);
+            await this._markFailed(guild.id, c.caseNumber, e);
+            throw e;
+        }
         await this.logging.logCase(c).catch(() => { });
         return c;
     }
     async kick(guild, target, moderator, reason) {
         const c = await this.record(guild, target, moderator, "KICK", reason);
-        await target.kick(reason).catch((e) => logger.error("moderation", "kick failed", e));
+        try{
+            await target.kick(reason);
+        }catch(e){
+            logger.error("moderation", "kick failed", e);
+            await this._markFailed(guild.id, c.caseNumber, e);
+            throw e;
+        }
         return c;
     }
     async timeout(target, moderator, ms, reason) {
         const c = await this.record(target.guild, target, moderator, "TIMEOUT", reason, { label: timeLabel(ms), ms });
-        await target.disableCommunicationUntil(new Date(Date.now() + Number(ms))).catch((e) => logger.error("moderation", "timeout failed", e));
+        try{
+            await target.disableCommunicationUntil(new Date(Date.now() + Number(ms)));
+        }catch(e){
+            logger.error("moderation", "timeout failed", e);
+            await this._markFailed(target.guild.id, c.caseNumber, e);
+            throw e;
+        }
         return c;
     }
     async warn(guild, target, moderator, reason) {
         const c = await this.record(guild, target, moderator, "WARN", reason);
         // Check escalation
-        await this.checkEscalation(guild, target).catch(()=>{});
+        await this.checkEscalation(guild, target).catch((e)=> logger.error("moderation", "escalation check failed", e?.message));
         return c;
     }
     async note(guild, target, moderator, reason) {
         return this.record(guild, target, moderator, "NOTE", reason);
     }
-    // V5: thresholds
+    // Escalation thresholds
     async getThresholds(guildId){
         try{
             const cfg = await this.prisma.guildConfig.findUnique({ where:{ guildId }}).catch(()=>null);

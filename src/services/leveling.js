@@ -4,11 +4,25 @@ import { logger } from "../core/logger.js";
 const COOLDOWN = 60_000;
 const cd = new Map();
 const recentContent = new Map(); // anti-farm: userId -> { content, count, last }
+const xpLocks = new Map(); // guildId:userId -> tail promise
+setInterval(()=>{
+    const cutoff=Date.now()-2*COOLDOWN;
+    for(const [k,v] of cd){ if(v < cutoff) cd.delete(k); }
+    for(const [k,v] of recentContent){ if((v?.last ?? 0) < cutoff) recentContent.delete(k); }
+}, 5*60*1000).unref?.();
 export function lvlXp(lvl){ return 5 * lvl * lvl + 50 * lvl + 100; }
 export function totalXpForLevel(lvl){
     let total=0;
     for(let i=0;i<lvl;i++) total+=lvlXp(i);
     return total;
+}
+function runSerialized(key, fn){
+    const tail = xpLocks.get(key) ?? Promise.resolve();
+    const next = tail.then(fn, fn);
+    const guarded = next.catch(()=>{});
+    xpLocks.set(key, guarded);
+    next.finally(()=>{ if(xpLocks.get(key)===guarded) xpLocks.delete(key); }).catch(()=>{});
+    return next;
 }
 export class LevelingService {
     prisma; client;
@@ -54,6 +68,7 @@ export class LevelingService {
             const prev=recentContent.get(key);
             if(prev && prev.content===message.content){
                 prev.count=(prev.count||1)+1;
+                prev.last=now;
                 if(prev.count>=3) return; // farming
             } else {
                 recentContent.set(key,{ content:message.content, count:1, last:now });
@@ -62,6 +77,9 @@ export class LevelingService {
             if(message.content.trim().length<5 && Math.random()<0.5) return;
         }
         cd.set(key, now);
+        return runSerialized(key, ()=>this._awardXp(message, cfg, userId, guildId));
+    }
+    async _awardXp(message, cfg, userId, guildId){
         try{
             // Channel multiplier
             let mult=cfg.xpMultiplier;
@@ -101,8 +119,8 @@ export class LevelingService {
                 // Role rewards
                 try{
                     const rewards=cfg.roleRewards.filter(r=> r.level<=level && r.level>oldLevel);
+                    const member=message.member ?? await message.guild.members.fetch(userId).catch(()=>null);
                     for(const r of rewards){
-                        const member=message.member ?? await message.guild.members.fetch(userId).catch(()=>null);
                         if(member && message.guild.roles.cache.has(r.roleId) && !member.roles.cache.has(r.roleId)){
                             await member.roles.add(r.roleId).catch(()=>{});
                         }
@@ -128,10 +146,11 @@ export class LevelingService {
     async getRank(guildId, userId){
         const row = await this.prisma.xp.findUnique({ where:{ guildId_userId:{ guildId, userId }}}).catch(()=>null);
         if(!row) return null;
-        const all = await this.prisma.xp.findMany({ where:{ guildId }, orderBy:[{ level:"desc" }, { xp:"desc" }] }).catch(()=>[]);
-        const rank = all.findIndex(x=>x.userId===userId)+1;
-        const total = all.length;
-        return { ...row, rank, total, next: lvlXp(row.level) };
+        const [ahead, total] = await Promise.all([
+            this.prisma.xp.count({ where:{ guildId, OR:[{ level:{ gt: row.level }}, { level: row.level, xp:{ gt: row.xp }}]}}).catch(()=>0),
+            this.prisma.xp.count({ where:{ guildId } }).catch(()=>0)
+        ]);
+        return { ...row, rank: ahead+1, total, next: lvlXp(row.level) };
     }
     async getLeaderboard(guildId, limit=10, offset=0){
         limit = Math.min(Math.max(limit,1),25);

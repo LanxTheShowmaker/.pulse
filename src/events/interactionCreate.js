@@ -21,17 +21,34 @@ export default {
     name: "interactionCreate",
     async execute(interaction, client) {
         try {
+            if (!interaction.inGuild()) {
+                if (interaction.isAutocomplete()) {
+                    await interaction.respond([]).catch(() => {});
+                    return;
+                }
+                await interaction.reply({ content: "This action is only available in servers.", flags: MessageFlags.Ephemeral }).catch(() => {});
+                return;
+            }
             if (interaction.isChatInputCommand()) {
                 const command = client.commands.get(interaction.commandName);
-                if (!command)
+                if (!command) {
+                    await interaction.reply({ content: "Unknown command.", flags: MessageFlags.Ephemeral }).catch(() => {});
                     return;
+                }
                 await command.execute(interaction);
                 return;
             }
             if (interaction.isAutocomplete()) {
-                const command = client.commands.get(interaction.commandName);
-                if (command?.autocomplete)
-                    await command.autocomplete(interaction);
+                try {
+                    const command = client.commands.get(interaction.commandName);
+                    if (command?.autocomplete)
+                        await command.autocomplete(interaction);
+                    else
+                        await interaction.respond([]).catch(() => {});
+                } catch (e) {
+                    logger.error("interaction", "autocomplete failed", e?.message);
+                    await interaction.respond([]).catch(() => {});
+                }
                 return;
             }
             if (interaction.isMessageComponent()) {
@@ -41,6 +58,7 @@ export default {
                     await handler(interaction);
                 } else {
                     logger.warn("interaction", `no handler for ${interaction.customId}`);
+                    await interaction.deferUpdate().catch(() => {});
                 }
                 return;
             }
@@ -51,6 +69,7 @@ export default {
                     await handler(interaction);
                 } else {
                     logger.warn("interaction", `no modal handler for ${interaction.customId}`);
+                    await interaction.reply({ content: "This form has expired. Run the command again.", flags: MessageFlags.Ephemeral }).catch(() => {});
                 }
             }
         }

@@ -69,23 +69,21 @@ export default {
                     .addOptions(items.map(it=>({ label: `${it.name} — ${it.price}c`, value: it.name, description: (it.description??"").slice(0,100) || undefined, emoji: it.emoji && !it.emoji.startsWith("<") ? it.emoji : undefined })));
                 // Discord requires emoji as string if unicode; custom emoji parsing omitted for simplicity
                 comps = [new ActionRowBuilder().addComponents(menu)];
-                // Register handler once
+                // Register handler (always overwrite so role/price changes take effect)
                 const key = `pulse:shop:buy:${guildId}`;
-                if(!interaction.client.components.has(key)){
-                    interaction.client.components.set(key, async (i)=>{
-                        const chosen = i.values?.[0];
-                        if(!chosen) return;
-                        await i.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
-                        const res = await i.client.services.economy.buyItem(i.guildId, i.user.id, chosen, i.member).catch(e=>({ success:false, reason:e.message }));
-                        if(!res.success){
-                            await i.editReply({ embeds:[embeds.error("Purchase failed", res.reason ?? "Unknown error")] }).catch(()=>{});
-                            return;
-                        }
-                        const ok = embeds.success("Purchase complete", `Bought **${res.item.name}** for **${res.item.price}** coins — balance **${res.newBalance}**${res.roleGranted?` • Role <@&${res.item.roleId}> granted`:""}`);
-                        if(res.roleError) ok.addFields({ name:"Role warning", value: res.roleError.slice(0,1024) });
-                        await i.editReply({ embeds:[ok] }).catch(()=>{});
-                    });
-                }
+                interaction.client.components.set(key, async (i)=>{
+                    const chosen = i.values?.[0];
+                    if(!chosen) return;
+                    await i.deferReply({ flags: MessageFlags.Ephemeral }).catch(()=>{});
+                    const res = await i.client.services.economy.buyItem(i.guildId, i.user.id, chosen, i.member).catch(e=>({ success:false, reason:e.message }));
+                    if(!res.success){
+                        await i.editReply({ embeds:[embeds.error("Purchase failed", res.reason ?? "Unknown error")] }).catch(()=>{});
+                        return;
+                    }
+                    const ok = embeds.success("Purchase complete", `Bought **${res.item.name}** for **${res.item.price}** coins — balance **${res.newBalance}**${res.roleGranted?` • Role <@&${res.item.roleId}> granted`:""}`);
+                    if(res.roleError) ok.addFields({ name:"Role warning", value: res.roleError.slice(0,1024) });
+                    await i.editReply({ embeds:[ok] }).catch(()=>{});
+                });
             }
             await interaction.editReply({ embeds:[embed], components: comps }).catch(()=>{});
             return;
@@ -114,12 +112,16 @@ export default {
                     await interaction.editReply({ embeds:[embeds.error("Invalid role","Cannot sell @everyone.")] });
                     return;
                 }
+                if(role && (role.managed || role.permissions.has(PermissionFlagsBits.Administrator) || role.permissions.has(PermissionFlagsBits.ManageGuild) || role.permissions.has(PermissionFlagsBits.ManageRoles) || role.permissions.has(PermissionFlagsBits.BanMembers) || role.permissions.has(PermissionFlagsBits.ModerateMembers))){
+                    await interaction.editReply({ embeds:[embeds.error("Invalid role","Roles with moderation permissions or managed integrations cannot be sold.")] });
+                    return;
+                }
                 // Validate role hierarchy: bot must be able to assign
                 if(role && guild.members.me){
                     const botHighest = guild.members.me.roles.highest;
                     if(role.position >= botHighest.position){
-                        await interaction.editReply({ embeds:[embeds.warn("Role hierarchy", `I may not be able to grant <@&${role.id}> because it is higher than my highest role. Item will be created but role grant may fail.`)] });
-                        // continue anyway; don't return
+                        await interaction.editReply({ embeds:[embeds.error("Invalid role",`I cannot grant <@&${role.id}> because it is at or above my highest role.`)] });
+                        return;
                     }
                 }
                 const item = await svc.createShopItem(guildId, { name, description, price, roleId: role?.id ?? null, emoji: emoji ?? null, stock: stock ?? null });

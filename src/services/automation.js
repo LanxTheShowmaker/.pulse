@@ -6,7 +6,7 @@ export class AutomationService {
         return this.prisma.automationRule.create({ data:{ guildId, name: name?.slice(0,80)||null, trigger, conditions: JSON.stringify(conditions), actions: JSON.stringify(actions) }});
     }
     async list(guildId){
-        return this.prisma.automationRule.findMany({ where:{ guildId }, orderBy:{ createdAt:"desc" }}).catch(()=>[]);
+        return this.prisma.automationRule.findMany({ where:{ guildId }, orderBy:{ createdAt:"desc" }, take: 50 }).catch(()=>[]);
     }
     async delete(guildId, id){
         return this.prisma.automationRule.delete({ where:{ id }}).catch(()=>null);
@@ -15,7 +15,7 @@ export class AutomationService {
         return this.prisma.automationRule.update({ where:{ id }, data:{ enabled }}).catch(()=>null);
     }
     async trigger(guildId, event, context={}){
-        const rules = await this.prisma.automationRule.findMany({ where:{ guildId, trigger:event, enabled:true }}).catch(()=>[]);
+        const rules = await this.prisma.automationRule.findMany({ where:{ guildId, trigger:event, enabled:true }, take: 50 }).catch(()=>[]);
         for(const rule of rules){
             try{
                 const cond = JSON.parse(rule.conditions||"{}");

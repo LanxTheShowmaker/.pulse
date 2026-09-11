@@ -3,7 +3,7 @@ import { embeds } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
 import { isStaff } from "../../core/services.js";
 export default {
-    data: new SlashCommandBuilder().setName("economy").setDescription("Economy V5 — jobs, gifts, history")
+    data: new SlashCommandBuilder().setName("economy").setDescription("Manage coins, jobs, gifts, and history.")
         .addSubcommand(s=> s.setName("weekly").setDescription("Claim weekly"))
         .addSubcommand(s=> s.setName("work").setDescription("Work a job").addStringOption(o=>o.setName("job").setDescription("Job").setRequired(true).addChoices({name:"Miner",value:"miner"},{name:"Guardian",value:"guard"},{name:"Scribe",value:"scribe"},{name:"Healer",value:"healer"})))
         .addSubcommand(s=> s.setName("gift").setDescription("Gift coins").addUserOption(o=>o.setName("user").setDescription("Recipient").setRequired(true)).addIntegerOption(o=>o.setName("amount").setDescription("Amount").setRequired(true).setMinValue(1)))
@@ -37,6 +37,10 @@ export default {
         }
         if(sub==="history"){
             const user=interaction.options.getUser("user") ?? interaction.user;
+            if(user.id !== interaction.user.id){
+                const cfg=await interaction.client.services.settings.get(interaction.guildId).catch(()=>null);
+                if(!isStaff(interaction.member,cfg)) return interaction.reply({ embeds:[embeds.error("No perm","Staff only")], flags: MessageFlags.Ephemeral});
+            }
             const hist=await svc.getHistory(interaction.guildId, user.id, 8);
             const embed=new EmbedBuilder().setColor(Theme.panel).setAuthor({ name:`${user.tag} — History`, iconURL:user.displayAvatarURL()}).setDescription(hist.length? hist.map(h=> `\`${h.type}\` **${h.amount>=0?"+":""}${h.amount}** → ${h.balanceAfter} <t:${Math.floor(new Date(h.createdAt).getTime()/1000)}:R>`).join("\n") : "No transaction history yet.");
             return interaction.reply({ embeds:[embed], flags: MessageFlags.Ephemeral});

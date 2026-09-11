@@ -93,6 +93,9 @@ export const componentHandlers = {
     },
     
     "settings:module:config:": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         const key = i.customId.replace("settings:module:config:", "");
         if (key === "automod") {
             const cfg = await i.client.services.settings.get(i.guildId);
@@ -126,6 +129,9 @@ export const componentHandlers = {
     },
     
     "settings:logs:modlog:select": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         const channelId = i.values[0];
         await i.client.services.settings.patch(i.guildId, { modLogChannelId: channelId });
         
@@ -135,6 +141,9 @@ export const componentHandlers = {
     },
     
     "settings:logs:generallog": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         const { createContainer, createActionRow, divider, headerText, bodyText, mutedText, spacer } = await import("../../design/containers/base.js");
         const { ChannelSelectMenuBuilder, ChannelType } = await import("discord.js");
         
@@ -155,6 +164,9 @@ export const componentHandlers = {
     },
     
     "settings:logs:generallog:select": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         await i.client.services.settings.patch(i.guildId, { logChannelId: i.values[0] });
         const cfg = await i.client.services.settings.get(i.guildId);
         const panel = logChannelsPanel(cfg);
@@ -186,6 +198,9 @@ export const componentHandlers = {
     },
     
     "settings:prefix:modal": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         const prefix = i.fields.getTextInputValue("prefix");
         await i.client.services.settings.patch(i.guildId, { prefix });
         
@@ -204,6 +219,9 @@ export const componentHandlers = {
     },
     
     "settings:staff:add": async (i) => {
+        if (!isStaff(i.member, await i.client.services.settings.get(i.guildId).catch(() => null))) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
         const { RoleSelectMenuBuilder } = await import("discord.js");
         const { createContainer, createActionRow, divider, headerText, bodyText, mutedText, spacer } = await import("../../design/containers/base.js");
         
@@ -225,8 +243,17 @@ export const componentHandlers = {
     },
     
     "settings:staff:add:select": async (i) => {
-        const cfg = await i.client.services.settings.get(i.guildId);
-        const current = cfg.staffRoleIds ? cfg.staffRoleIds.split(",") : [];
+        const cfg = await i.client.services.settings.get(i.guildId).catch(() => null);
+        if (!i.member.permissions.has(PermissionFlagsBits.ManageGuild) && !isStaff(i.member, cfg)) {
+            return i.reply({ components: [errorPanel("Missing Permission", "Staff only")], flags: MessageFlags.Ephemeral });
+        }
+        for (const roleId of i.values) {
+            const role = i.guild.roles.cache.get(roleId) ?? await i.guild.roles.fetch(roleId).catch(() => null);
+            if (!role || role.managed || role.id === i.guild.roles.everyone.id) {
+                return i.reply({ components: [errorPanel("Invalid role", "Selected roles must exist, not be managed integrations, and not be @everyone.")], flags: MessageFlags.Ephemeral });
+            }
+        }
+        const current = cfg?.staffRoleIds ? cfg.staffRoleIds.split(",") : [];
         const newRoles = [...new Set([...current, ...i.values])];
         await i.client.services.settings.patch(i.guildId, { staffRoleIds: newRoles.join(",") });
         

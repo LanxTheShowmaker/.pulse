@@ -1,6 +1,7 @@
 const ORDER = { debug: 10, info: 20, warn: 30, error: 40 };
 function emit(level, scope, message, meta) {
-    const threshold = process.env.LOG_LEVEL || "info";
+    const raw = process.env.LOG_LEVEL || "info";
+    const threshold = ORDER[raw] === undefined ? "info" : raw;
     if (ORDER[level] < ORDER[threshold])
         return;
     const ts = new Date().toISOString();

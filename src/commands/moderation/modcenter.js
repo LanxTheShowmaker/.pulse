@@ -47,14 +47,16 @@ export default {
             if(!recent.length) embed.setDescription("No cases yet — new cases will appear here.");
             else embed.setDescription(recent.map(c=> `\`#${c.caseNumber}\` **${c.action}** <@${c.targetId}> by <@${c.moderatorId}> — ${c.reason?.slice(0,60)||"No reason"} ${c.resolved?" (Resolved)":""}`).join("\n"));
             const row=new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`modcenter:browse:${page+1}`).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(recent.length<per)
+                new ButtonBuilder().setCustomId(`modcenter:browse:${guildId}:${interaction.user.id}:${page+1}`).setLabel("Next").setStyle(ButtonStyle.Secondary).setDisabled(recent.length<per)
             );
             await interaction.reply({ embeds:[embed], components: recent.length? [row] : [], flags: MessageFlags.Ephemeral }).catch(()=>{});
             // handler
-            const key=`modcenter:browse:${page+1}`;
+            const key=`modcenter:browse:${guildId}:${interaction.user.id}`;
             interaction.client.components.set(key, async(i)=>{
-                if(!isModerator(i.member, await i.client.services.settings.get(guildId).catch(()=>null))) return i.reply({ embeds:[embeds.error("No perm","")], flags: MessageFlags.Ephemeral});
-                const nextPage=parseInt(i.customId.split(":")[2]);
+                if(i.guildId !== guildId) return i.reply({ embeds:[embeds.error("No permission","This browser belongs to another server")], flags: MessageFlags.Ephemeral});
+                const clickCfg=await i.client.services.settings.get(i.guildId).catch(()=>null);
+                if(!isStaff(i.member, clickCfg) && !isModerator(i.member, clickCfg)) return i.reply({ embeds:[embeds.error("No permission","Moderator required")], flags: MessageFlags.Ephemeral});
+                const nextPage=parseInt(i.customId.split(":")[4]);
                 const more=await i.client.services.cases.recent(guildId, per); // simplified pagination
                 await i.update({ embeds:[embed], components:[] }).catch(()=>{});
             });
@@ -123,6 +125,9 @@ export default {
             if(Object.keys(patch).length===0){
                 const cur=await mod.getThresholds(guildId);
                 return interaction.reply({ embeds:[embeds.info("Thresholds", `warn:${cur.warn} timeout:${cur.timeout} kick:${cur.kick} ban:${cur.ban}`)], flags: MessageFlags.Ephemeral});
+            }
+            if(!interaction.member.permissions.has("ManageGuild")){
+                return interaction.reply({ embeds:[embeds.error("No permission","Manage Server required to change thresholds")], flags: MessageFlags.Ephemeral});
             }
             // Confirmation for destructive lowering?
             await mod.setThresholds(guildId, patch);

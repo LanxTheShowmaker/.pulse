@@ -2,6 +2,7 @@ import { ChannelType, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, Butt
 import { embeds, confirmationRow } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
 import { Theme, Brand } from "../design/theme.js";
+import { isStaff } from "../core/services.js";
 
 const STATUS = {
     OPEN: "OPEN",
@@ -24,15 +25,12 @@ export class TicketSystemService {
     settings;
     logging;
     cooldowns = new Map(); // `${guildId}:${userId}:${typeKey}` -> timestamp
-    autoCloseTimers = new Map();
     constructor(prisma, client, settings, logging) {
         this.prisma = prisma;
         this.client = client;
         this.settings = settings;
         this.logging = logging;
         this.registerHandlers();
-        // Auto-close interval (check every minute)
-        setInterval(() => this.checkAutoClose().catch((e) => logger.error("tickets", "autoclose failed", e)), 60_000);
         // Auto-deletion: archived tickets are deleted after delay, survives restart via DB polling
         setInterval(() => this.checkDeletions().catch((e) => logger.error("tickets", "autodelete failed", e)), 60_000);
         // Initial check 30s after startup (after client ready and guilds cached)
@@ -88,7 +86,7 @@ export class TicketSystemService {
         return s.slice(0, 12);
     }
     async uniqueChannelName(guild, categoryKey, userName, shortId, prefix) {
-        // V5 intelligent: [category][user][id] => category-user-id (Discord safe)
+        // Channel name: [category][user][id] => category-user-id (Discord safe)
         const cat = String(categoryKey||prefix||"ticket").toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,15);
         const user = this.sanitizeName(userName);
         const id = String(shortId).toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,6) || Math.random().toString(36).slice(2,6);
@@ -133,10 +131,10 @@ export class TicketSystemService {
         return overwrites;
     }
 
-    // Anti-duplicate + cooldowns — V5: allow multiple tickets per user (intelligent list)
+    // Anti-duplicate + cooldowns — allow multiple tickets per user up to limits
     async canOpen(guild, userId, type) {
         const cfg = await this.prisma.ticketType.findUnique({ where: { guildId_key: { guildId: guild.id, key: type.key } } }).catch(()=>null) ?? type;
-        // Use higher default for V5 (3) if not set, and respect per-type maxOpen
+        // Default max 3 open tickets if not set, and respect per-type maxOpen
         const maxOpen = cfg.maxOpen ?? 3;
         const open = await this.prisma.ticket.count({ where: { guildId: guild.id, openerId: userId, status: { not: STATUS.CLOSED } } }).catch(()=>0);
         if (open >= maxOpen) return { ok: false, reason: `You have ${open} open ticket(s) (max ${maxOpen}). Close one before opening another.` };
@@ -149,12 +147,13 @@ export class TicketSystemService {
                 const remain = Math.ceil((cfg.cooldown * 1000 - (now - last)) / 1000);
                 return { ok: false, reason: `Cooldown: wait ${remain}s before opening another ${cfg.displayName} ticket.` };
             }
+            this.cooldowns.delete(key);
         }
-        // V5: allow multiple same-type tickets up to per-type limit (if configured). Previously blocked any duplicate.
+        // Allow multiple same-type tickets up to per-type limit (if configured).
         // Only block if per-type count >= 2 and maxOpen is still 1 (legacy) — now allow.
         const sameTypeCount = await this.prisma.ticket.count({ where: { guildId: guild.id, openerId: userId, typeId: cfg.id, status: { not: STATUS.CLOSED } } }).catch(()=>0);
         const perTypeLimit = cfg.maxOpen ?? 3;
-        // If user already has 2 of same type and perTypeLimit is 1, would have been blocked earlier by total open check; for V5 we allow up to perTypeLimit
+        // If user already has 2 of same type and perTypeLimit is 1, would have been blocked earlier by total open check; we allow up to perTypeLimit
         if (sameTypeCount >= perTypeLimit) {
             return { ok: false, reason: `You have ${sameTypeCount} open ${cfg.displayName} tickets (max ${perTypeLimit} per type).` };
         }
@@ -247,7 +246,7 @@ export class TicketSystemService {
 
     async createTicket(guild, member, type, answers) {
         const prefix = type.channelPrefix ?? "ticket";
-        // V5 intelligent: [category][user][id] => e.g., uniform-ultim-a1b2 , order-ultim-8f3c
+        // Channel name: [category][user][id] => e.g., uniform-ultim-a1b2 , order-ultim-8f3c
         const shortId = Math.random().toString(36).slice(2,6).toLowerCase();
         const categoryKey = type.key || type.panelType || prefix;
         const name = await this.uniqueChannelName(guild, categoryKey, member.user.username, shortId, prefix);
@@ -261,7 +260,7 @@ export class TicketSystemService {
         // Cooldown set
         if (type.cooldown) this.cooldowns.set(`${guild.id}:${member.id}:${type.key}`, Date.now());
 
-        // V5 Welcome — matches ORDER-HERE image: banner, Clothing Ticket, Terms, Information
+        // Welcome embed matches panel image: banner, ticket title, terms, information
         const branding = await this.client?.services?.branding?.get(guild.id).catch(() => null);
         const display = await this.client?.services?.branding?.getDisplay(guild).catch(() => ({ name: ".pulse", icon: null }));
         // Resolve banner: branding banner > type banner > panel banner > fallback ORDER-HERE dark
@@ -354,50 +353,117 @@ export class TicketSystemService {
         } catch {}
     }
 
+    async isTicketStaff(member, guildId) {
+        try {
+            if (member.permissions.has(PermissionFlagsBits.Administrator) || member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
+        } catch { return false; }
+        const cfg = await this.settings.get(guildId).catch(() => null);
+        try {
+            return isStaff(member, cfg);
+        } catch { return false; }
+    }
+    async requireTicketStaff(i) {
+        if (await this.isTicketStaff(i.member, i.guild.id)) return true;
+        await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can use ticket controls.")], flags: 64 }).catch(() => {});
+        return false;
+    }
+    async fetchScopedTicket(i, channelId) {
+        const ticket = await this.prisma.ticket.findUnique({ where: { channelId } }).catch(() => null);
+        if (!ticket) {
+            await i.reply({ embeds: [embeds.error("Not found", "Ticket not in DB")], flags: 64 }).catch(() => {});
+            return null;
+        }
+        if (ticket.guildId !== i.guild.id || ticket.channelId !== i.channelId) {
+            await i.reply({ embeds: [embeds.error("Denied", "This ticket does not belong to this channel.")], flags: 64 }).catch(() => {});
+            return null;
+        }
+        return ticket;
+    }
+    async canViewTicket(i, ticket) {
+        const uid = i.user.id;
+        if (ticket.openerId === uid) return true;
+        if (ticket.claimedById && ticket.claimedById === uid) return true;
+        return this.isTicketStaff(i.member, i.guild.id);
+    }
     // Ticket controls
     async handleClaim(i) {
         if (!i.isButton()) return;
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
-        const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
-        if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket not in DB")], flags:64 }).catch(()=>{});
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         if (ticket.status === STATUS.CLOSED) return i.reply({ embeds:[embeds.warn("Closed","Ticket is closed")], flags:64 }).catch(()=>{});
         const type = ticket.typeId ? await this.prisma.ticketType.findUnique({ where:{ id: ticket.typeId } }).catch(()=>null) : null;
         if (type && !type.allowClaim) return i.reply({ embeds:[embeds.warn("Claim disabled","Claiming disabled for this type")], flags:64 }).catch(()=>{});
         if (ticket.claimedById && ticket.claimedById !== i.user.id) return i.reply({ embeds:[embeds.warn("Claimed",`Already claimed by <@${ticket.claimedById}>`)], flags:64 }).catch(()=>{});
-        const updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: i.user.id, status: STATUS.CLAIMED } }).catch(()=>null);
+        let updated;
+        try {
+            updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: i.user.id, status: STATUS.CLAIMED } });
+        } catch (e) {
+            logger.error("tickets", "claim update failed", e);
+            return i.reply({ embeds:[embeds.error("Failed","Could not claim ticket")], flags:64 }).catch(()=>{});
+        }
         await i.reply({ embeds:[embeds.success("Claimed",`You claimed this ticket`)], flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (ch) {
             await ch.send({ embeds:[embeds.info("Claimed", `<@${i.user.id}> claimed this ticket`)] }).catch(()=>{});
-            await this.updateTicketMessage(ch, updated ?? { ...ticket, claimedById: i.user.id, status: STATUS.CLAIMED });
+            await this.updateTicketMessage(ch, updated);
         }
     }
     async handleUnclaim(i) {
         if (!i.isButton()) return;
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
-        const updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: null, status: STATUS.OPEN } }).catch(()=>null);
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
+        let updated;
+        try {
+            updated = await this.prisma.ticket.update({ where:{ channelId }, data:{ claimedById: null, status: STATUS.OPEN } });
+        } catch (e) {
+            logger.error("tickets", "unclaim update failed", e);
+            return i.reply({ embeds:[embeds.error("Failed","Could not unclaim ticket")], flags:64 }).catch(()=>{});
+        }
         await i.reply({ embeds:[embeds.success("Unclaimed","Ticket unclaimed")], flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
-        if (ch) await this.updateTicketMessage(ch, updated ?? { claimedById: null, status: STATUS.OPEN });
+        if (ch) await this.updateTicketMessage(ch, updated);
     }
     async handleStatusSelect(i) {
         if (!i.isStringSelectMenu()) return;
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         const val = i.values[0];
-        await this.prisma.ticket.update({ where:{ channelId }, data:{ status: val } }).catch(()=>{});
+        try {
+            await this.prisma.ticket.update({ where:{ channelId }, data:{ status: val } });
+        } catch (e) {
+            logger.error("tickets", "status update failed", e);
+            return i.reply({ embeds:[embeds.error("Failed","Could not update status")], flags:64 }).catch(()=>{});
+        }
         await i.reply({ embeds:[embeds.success("Status",`Status set to ${val}`)], flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId);
         if (ch) await ch.send({ embeds:[embeds.info("Status update", `Status → **${val}** by <@${i.user.id}>`)] }).catch(()=>{});
     }
     async handlePrioritySelect(i) {
         if (!i.isStringSelectMenu()) return;
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         const val = i.values[0];
-        await this.prisma.ticket.update({ where:{ channelId }, data:{ priority: val } }).catch(()=>{});
+        try {
+            await this.prisma.ticket.update({ where:{ channelId }, data:{ priority: val } });
+        } catch (e) {
+            logger.error("tickets", "priority update failed", e);
+            return i.reply({ embeds:[embeds.error("Failed","Could not update priority")], flags:64 }).catch(()=>{});
+        }
         await i.reply({ embeds:[embeds.success("Priority",`Priority set to ${val}`)], flags:64 }).catch(()=>{});
     }
     async handleAddUser(i) {
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu()) return;
             const uid = i.values[0];
@@ -409,7 +475,10 @@ export class TicketSystemService {
         await i.reply({ embeds:[embeds.info("Add user","Pick user to add")], components:[new ActionRowBuilder().addComponents(menu)], flags:64 }).catch(()=>{});
     }
     async handleRemoveUser(i) {
+        if (!await this.requireTicketStaff(i)) return;
         const channelId = i.customId.split(":")[2];
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         if (i.customId.endsWith(":menu")) {
             if (!i.isUserSelectMenu()) return;
             const uid = i.values[0];
@@ -422,8 +491,11 @@ export class TicketSystemService {
     }
     async handleInfo(i) {
         const channelId = i.customId.split(":")[2];
-        const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
-        if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket missing")], flags:64 }).catch(()=>{});
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
+        if (!await this.canViewTicket(i, ticket)) {
+            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view this.")], flags:64 }).catch(()=>{});
+        }
         const ch = i.guild.channels.cache.get(channelId);
         const msgCount = ch ? (await ch.messages.fetch({ limit:100 }).catch(()=>null))?.size ?? "?" : "?";
         await i.reply({ embeds:[embeds.info("Ticket Info", `Channel: <#${channelId}>`, [
@@ -439,19 +511,25 @@ export class TicketSystemService {
     }
     async handleClose(i) {
         const channelId = i.customId.split(":")[2];
-        const ticket = await this.prisma.ticket.findUnique({ where:{ channelId } }).catch(()=>null);
-        if (!ticket) return i.reply({ embeds:[embeds.error("Not found","Ticket missing")], flags:64 }).catch(()=>{});
+        if (!await this.requireTicketStaff(i)) return;
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
         // Confirm
         if (!i.customId.includes(":confirm")) {
             return i.reply({ embeds:[embeds.warn("Close ticket","Confirm closing? This will archive and optionally create transcript.")], components:[confirmationRow({ acceptCustomId:`ticket:close:${channelId}:confirm`, cancelCustomId:`ticket:close:${channelId}:cancel`, acceptLabel:"Close", danger:true })], flags:64 }).catch(()=>{});
         }
         if (i.customId.endsWith(":cancel")) return i.update({ embeds:[embeds.info("Cancelled","Not closed")], components:[] }).catch(()=>{});
         await i.deferUpdate().catch(()=>{});
-        await this.prisma.ticket.update({ where:{ channelId }, data:{ status: STATUS.CLOSED, closedAt: new Date() } }).catch(()=>{});
+        try {
+            await this.prisma.ticket.update({ where:{ channelId }, data:{ status: STATUS.CLOSED, closedAt: new Date() } });
+        } catch (e) {
+            logger.error("tickets", "close update failed", e);
+            return i.editReply({ embeds:[embeds.error("Failed","Could not close ticket")] }).catch(()=>{});
+        }
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (ch) {
             await ch.send({ embeds:[embeds.info("Closed",`Closed by <@${i.user.id}> — archiving...`)] }).catch(()=>{});
-            // Build HTML transcript (V5 archive)
+            // Build HTML transcript
             let htmlFile=null;
             try {
                 const msgs = await ch.messages.fetch({ limit:100 });
@@ -495,7 +573,7 @@ const displayName=branding?.displayName || ".pulse";
                 if(htmlFile) await ch.send({ embeds:[embeds.info("Archived",`This ticket is now archived. HTML transcript saved.`)], files:[htmlFile] }).catch(()=>{});
             }catch(e){ logger.error("tickets","archive send failed",e); }
             // Save transcript reference to DB
-            try{ await this.prisma.ticket.update({ where:{ channelId }, data:{ transcript: `archived-${ch.name}.html` }}).catch(()=>{}); }catch{}
+            try{ await this.prisma.ticket.update({ where:{ channelId }, data:{ transcript: `archived-${ch.name}.html` }}); }catch(e){ logger.error("tickets","transcript ref save failed",e); }
         }
         await i.editReply({ embeds:[embeds.success("Closed & Archived","Ticket archived — HTML transcript created")] , components:[] }).catch(()=>{});
     }
@@ -531,12 +609,17 @@ ${rows}
     }
     async handleTranscript(i) {
         const channelId = i.customId.split(":")[2];
+        const ticket = await this.fetchScopedTicket(i, channelId);
+        if (!ticket) return;
+        if (!await this.canViewTicket(i, ticket)) {
+            return i.reply({ embeds:[embeds.error("Denied","Only the ticket opener or staff can view transcripts.")], flags:64 }).catch(()=>{});
+        }
         await i.deferReply({ flags:64 }).catch(()=>{});
         const ch = i.guild.channels.cache.get(channelId) ?? await i.guild.channels.fetch(channelId).catch(()=>null);
         if (!ch) return i.editReply({ embeds:[embeds.error("Not found","Channel missing")] }).catch(()=>{});
         const msgs = await ch.messages.fetch({ limit:100 }).catch(()=>null);
         if (!msgs) return i.editReply({ embeds:[embeds.error("Failed","Cannot fetch")] }).catch(()=>{});
-        // Prefer HTML (V5) with fallback txt
+        // Prefer HTML with fallback txt
         try{
             const ticket=await this.prisma.ticket.findUnique({ where:{ channelId }}).catch(()=>null);
             const sorted=[...msgs.values()].sort((a,b)=>a.createdTimestamp-b.createdTimestamp);
@@ -553,10 +636,6 @@ ${rows}
         }
     }
 
-    async checkAutoClose() {
-        // Simple: if Panel config has autoClose hours, close tickets older than that with no activity
-        // For now, no-op — placeholder for production
-    }
     async checkDeletions(){
         // Find tickets that are CLOSED and archived, and whose closedAt + delay has passed, then delete channel
         // This runs every 60s and on startup, so survives restarts
@@ -605,7 +684,7 @@ ${rows}
         }catch(e){ logger.error("tickets","checkDeletions outer failed",e); }
     }
 
-    // V5 intelligent ticket list: [category][user][id]
+    // Ticket list: [category][user][id]
     async listTickets(guildId, { status=null, category=null, userId=null, limit=10, offset=0 }={}){
         const where={ guildId };
         if(status) where.status=status;

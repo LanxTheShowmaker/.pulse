@@ -27,6 +27,18 @@ const JSON_FIELDS = [
     "staffRoleIds", "moderatorRoleIds", "ignoredChannelIds", "ignoredRoleIds", "ignoredUserIds",
     "modules", "automod", "orders",
 ];
+const ID_ARRAY_FIELDS = ["staffRoleIds", "moderatorRoleIds", "ignoredChannelIds", "ignoredRoleIds", "ignoredUserIds"];
+const AUTOMOD_RANGES = {
+    maxMentions: [1, 50],
+    spamThreshold: [2, 50],
+    spamWindowMs: [1000, 120000],
+    raidJoinThreshold: [2, 100],
+    raidWindowMs: [5000, 600000],
+    newAccountMaxAgeDays: [1, 90],
+    emojiSpamThreshold: [2, 100],
+    clusterSpamThreshold: [2, 20],
+    clusterSpamWindowMs: [5000, 600000],
+};
 
 function parseField(key, val) {
     if (val == null)
@@ -41,6 +53,30 @@ function parseField(key, val) {
 
 function serializeField(key, val) {
     return JSON.stringify(val ?? (key.endsWith("Ids") ? [] : {}));
+}
+
+function validatePatch(patch) {
+    if (!patch || typeof patch !== "object") throw new Error("Invalid settings patch");
+    if ("prefix" in patch) {
+        const p = patch.prefix;
+        if (typeof p !== "string" || p.length < 1 || p.length > 10 || /\s/.test(p)) throw new Error("Invalid prefix: must be 1–10 chars with no whitespace");
+    }
+    for (const f of ID_ARRAY_FIELDS) {
+        if (f in patch) {
+            const v = patch[f];
+            if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) throw new Error(`Invalid ${f}: must be an array of strings`);
+        }
+    }
+    if ("automod" in patch && patch.automod !== undefined) {
+        const a = patch.automod;
+        if (!a || typeof a !== "object" || Array.isArray(a)) throw new Error("Invalid automod: must be an object");
+        for (const [k, [min, max]] of Object.entries(AUTOMOD_RANGES)) {
+            if (k in a && a[k] !== undefined) {
+                const n = a[k];
+                if (typeof n !== "number" || !Number.isFinite(n) || n < min || n > max) throw new Error(`Invalid automod.${k}: must be ${min}–${max}`);
+            }
+        }
+    }
 }
 
 export class SettingsService {
@@ -60,11 +96,10 @@ export class SettingsService {
         return o;
     }
     async get(guildId) {
-        const existing = await this.prisma.guildConfig.findUnique({ where: { guildId } });
-        if (existing)
-            return this.parse(existing);
-        return this.parse(await this.prisma.guildConfig.create({
-            data: {
+        const row = await this.prisma.guildConfig.upsert({
+            where: { guildId },
+            update: {},
+            create: {
                 guildId,
                 modules: JSON.stringify(DEFAULT_MODULES),
                 automod: JSON.stringify(DEFAULT_AUTOMOD),
@@ -74,9 +109,11 @@ export class SettingsService {
                 ignoredRoleIds: "[]",
                 ignoredUserIds: "[]",
             },
-        }));
+        });
+        return this.parse(row);
     }
     async patch(guildId, data) {
+        validatePatch(data);
         const next = { ...data };
         for (const f of JSON_FIELDS) {
             if (f in next)

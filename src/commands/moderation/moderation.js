@@ -2,7 +2,7 @@ import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from "discord.
 import { containerReply, containerEdit, containerFollowUp } from "../../design/containers/base.js";
 import { moderationActionPanel, banConfirmationPanel, kickConfirmationPanel, timeoutConfirmationPanel, warnConfirmationPanel } from "../../design/containers/moderation.js";
 import { errorPanel, successPanel } from "../../design/containers/panels.js";
-import { requireModerator, confirmAction, sendActionResult } from "./shared.js";
+import { requireModerator, confirmAction, sendActionResult, canModerate } from "./shared.js";
 import { logger } from "../../core/logger.js";
 
 export default {
@@ -186,6 +186,10 @@ async function handleWarn(interaction, client) {
         return containerReply(interaction, errorPanel("Not found", "That member is not in the server."), true);
     }
 
+    if (!canModerate(interaction.member, target)) {
+        return containerReply(interaction, errorPanel("Cannot moderate", "You cannot warn this member (higher or equal role, server owner, or bot cannot moderate them)."), true);
+    }
+
     const confirmed = await confirmAction(interaction, warnConfirmationPanel(target.user, interaction.user, reason));
     if (!confirmed) return;
 
@@ -213,6 +217,10 @@ async function handleBan(interaction, client) {
     const reason = interaction.options.getString("reason", true);
     const deleteDays = interaction.options.getInteger("delete-days") ?? 0;
 
+    if (target && !canModerate(interaction.member, target)) {
+        return containerReply(interaction, errorPanel("Cannot moderate", "You cannot ban this member (higher or equal role, server owner, or bot cannot moderate them)."), true);
+    }
+
     if (target) {
         const confirmed = await confirmAction(interaction, banConfirmationPanel(target.user, interaction.user, reason, deleteDays));
         if (!confirmed) return;
@@ -222,6 +230,10 @@ async function handleBan(interaction, client) {
 
     try {
         const c = await client.services.moderation.ban(interaction.guild, target || { id: user.id, tag: user.tag }, interaction.user, reason, deleteDays);
+        const banned = await interaction.guild.bans.fetch(user.id).catch(() => null);
+        if (!banned) {
+            return containerEdit(interaction, errorPanel("Failed", "Could not ban user (Discord action did not succeed)."));
+        }
         await sendActionResult(interaction, "BAN", user, interaction.user, reason, c.caseNumber, `${deleteDays} day(s) message deletion`);
     } catch (e) {
         logger.error("moderation", "ban failed", e);
@@ -240,6 +252,10 @@ async function handleKick(interaction, client) {
         return containerReply(interaction, errorPanel("Not found", "That member is not in the server."), true);
     }
 
+    if (!canModerate(interaction.member, target)) {
+        return containerReply(interaction, errorPanel("Cannot moderate", "You cannot kick this member (higher or equal role, server owner, or bot cannot moderate them)."), true);
+    }
+
     const confirmed = await confirmAction(interaction, kickConfirmationPanel(target.user, interaction.user, reason));
     if (!confirmed) return;
 
@@ -247,6 +263,10 @@ async function handleKick(interaction, client) {
 
     try {
         const c = await client.services.moderation.kick(interaction.guild, target, interaction.user, reason);
+        const stillPresent = await interaction.guild.members.fetch(user.id).catch(() => null);
+        if (stillPresent) {
+            return containerEdit(interaction, errorPanel("Failed", "Could not kick user (Discord action did not succeed)."));
+        }
         await sendActionResult(interaction, "KICK", target.user, interaction.user, reason, c.caseNumber);
     } catch (e) {
         logger.error("moderation", "kick failed", e);
@@ -270,6 +290,10 @@ async function handleTimeout(interaction, client) {
         return containerReply(interaction, errorPanel("Cannot timeout", "I cannot timeout that member (higher/equal role or missing permissions)."), true);
     }
 
+    if (!canModerate(interaction.member, target)) {
+        return containerReply(interaction, errorPanel("Cannot moderate", "You cannot timeout this member (higher or equal role, server owner, or bot cannot moderate them)."), true);
+    }
+
     const confirmed = await confirmAction(interaction, timeoutConfirmationPanel(target.user, interaction.user, reason, formatDuration(ms)));
     if (!confirmed) return;
 
@@ -277,6 +301,10 @@ async function handleTimeout(interaction, client) {
 
     try {
         const c = await client.services.moderation.timeout(target, interaction.user, ms, reason);
+        const refreshed = await interaction.guild.members.fetch(target.id).catch(() => null);
+        if (!refreshed || !refreshed.isCommunicationDisabled()) {
+            return containerEdit(interaction, errorPanel("Failed", "Could not timeout user (Discord action did not succeed)."));
+        }
         await sendActionResult(interaction, "TIMEOUT", target.user, interaction.user, reason, c.caseNumber, formatDuration(ms));
     } catch (e) {
         logger.error("moderation", "timeout failed", e);
@@ -726,7 +754,11 @@ async function handleAppeal(interaction, client) {
             const decision = interaction.options.getString("decision", true);
             const reason = interaction.options.getString("reason") || "No reason provided";
 
-            await client.services.cases.reviewAppeal(interaction.guildId, caseNumber, { id: interaction.user.id, tag: interaction.user.tag }, decision, reason);
+            const status = decision === "approve" ? "APPROVED" : decision === "deny" ? "DENIED" : String(decision).toUpperCase();
+            const reviewed = await client.services.cases.reviewAppealByCase(interaction.guildId, caseNumber, { id: interaction.user.id, tag: interaction.user.tag }, status, reason);
+            if (!reviewed) {
+                return containerEdit(interaction, errorPanel("Not found", `No appeal found for case #${caseNumber}.`));
+            }
             return containerEdit(interaction, successPanel("Appeal reviewed", `Appeal for case #${caseNumber} has been ${decision}.`));
         }
     } catch (e) {

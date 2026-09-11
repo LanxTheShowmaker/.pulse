@@ -4,6 +4,7 @@ import { logger } from "../core/logger.js";
 export default {
     name: "guildMemberAdd",
     async execute(member, client) {
+        try {
         const guildId = member.guild.id;
         await client.services.logging.logMember(member.guild, "join", { tag: member.user.tag, id: member.id })
             .catch((e) => logger.warn("logging", "logMember failed", e.message));
@@ -14,7 +15,12 @@ export default {
         await client.services.automod.handleJoin(member)
             .catch((e) => logger.warn("automod", "handleJoin failed", e.message));
         // Raid: track join burst
-        const joins = client.services.raid?.trackJoin(guildId) ?? 0;
+        let joins = 0;
+        try {
+            joins = client.services.raid?.trackJoin(guildId) ?? 0;
+        } catch (e) {
+            logger.warn("raid", "trackJoin failed", e.message);
+        }
         if (joins > 5) client.services.raid?.maybeTrigger(member.guild, "join_spike")
             .catch((e) => logger.warn("raid", "maybeTrigger failed", e.message));
         // Intelligence: assess new account
@@ -30,6 +36,9 @@ export default {
         client.services.automation?.trigger(guildId, "memberJoin", { userId: member.id, accountAge: member.user.createdAt })
             .catch((e) => logger.warn("automation", "trigger failed", e.message));
         // Analytics handled via audit
+        } catch (e) {
+            logger.error("guildMemberAdd", "unhandled error", e?.message);
+        }
     },
 };
 //# sourceMappingURL=guildMemberAdd.js.map

@@ -12,12 +12,12 @@ export class CasesService {
         return (last?.caseNumber ?? 0) + 1;
     }
     async create(input) {
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 5; attempt++) {
             const caseNumber = await this.nextCaseNumber(input.guildId);
             try {
                 return await this.prisma.case.create({ data: { ...input, caseNumber } });
             } catch (e) {
-                if (e?.code === "P2002" && attempt < 2) continue;
+                if (e?.code === "P2002" && attempt < 4) continue;
                 throw e;
             }
         }
@@ -92,6 +92,8 @@ export class CasesService {
         return this.prisma.appeal.findMany({ where, orderBy:{ createdAt:"desc" }, take:25 }).catch(()=>[]);
     }
     async reviewAppeal(guildId, appealId, reviewer, status, note=null){
+        const existing = await this.prisma.appeal.findFirst({ where:{ id: appealId, guildId } }).catch(()=>null);
+        if (!existing) return null;
         return this.prisma.appeal.update({ where:{ id: appealId }, data:{ status, reviewerId: reviewer.id, reviewerTag: reviewer.tag }}).catch(()=>null);
     }
     async reviewAppealByCase(guildId, caseNumber, reviewer, status, reason=null){

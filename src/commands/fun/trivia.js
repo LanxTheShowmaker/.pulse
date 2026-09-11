@@ -22,6 +22,7 @@ export default {
                 await ii.update({ embeds:[embeds[correct?"success":"error"](correct?"Correct!":"Wrong!", `Answer: **${cur.a[cur.c]}**`)], components:[] }).catch(()=>{});
             });
         });
-        setTimeout(()=>{ cur.a.forEach((_,i)=> client.components.delete(`trivia:${interaction.id}:${i}`)); }, 60_000);
+        const cleanup = setTimeout(()=>{ cur.a.forEach((_,i)=> client.components.delete(`trivia:${interaction.id}:${i}`)); }, 60_000);
+        if (cleanup.unref) cleanup.unref();
     }
 };

@@ -46,6 +46,22 @@ export function isStaff(member, config) {
     return false;
 }
 
+export function canModerate(invokerMember, targetMember) {
+    try {
+        if (!invokerMember || !targetMember) return false;
+        if (invokerMember.id === targetMember.id) return false;
+        if (targetMember.id === targetMember.guild?.ownerId) return false;
+        const invokerTop = invokerMember.roles?.highest?.position;
+        const targetTop = targetMember.roles?.highest?.position;
+        if (typeof invokerTop !== "number" || typeof targetTop !== "number") return false;
+        if (invokerTop <= targetTop) return false;
+        if (!targetMember.moderatable) return false;
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 export async function confirmAction(interaction, panel) {
     const acceptId = `confirm:${interaction.id}:yes`;
     const cancelId = `confirm:${interaction.id}:no`;
@@ -88,7 +104,16 @@ export async function confirmAction(interaction, panel) {
             }
         });
         collector.on("end", (collected) => {
-            if (collected.size === 0) resolve(false);
+            if (collected.size === 0) {
+                try {
+                    const row = confirmPanel.components[confirmPanel.components.length - 1];
+                    for (const btn of row?.components ?? []) {
+                        if (typeof btn?.setDisabled === "function") btn.setDisabled(true);
+                    }
+                    response.edit({ components: [confirmPanel] }).catch(() => {});
+                } catch {}
+                resolve(false);
+            }
         });
     });
 }

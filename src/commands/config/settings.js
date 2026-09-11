@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, } from "discord.js";
+import { SlashCommandBuilder, StringSelectMenuBuilder, ChannelSelectMenuBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, } from "discord.js";
 import { embeds } from "../../design/embeds.js";
 import { isStaff } from "../../core/services.js";
 const CATEGORIES = [
@@ -39,39 +39,67 @@ export default {
         }
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const cfg = await client.services.settings.get(interaction.guildId);
+        const requireSettingsStaff = async (i) => {
+            const c = await client.services.settings.get(i.guildId).catch(() => null);
+            if (!isStaff(i.member, c)) {
+                await i.reply({ embeds: [embeds.error("Missing permission", "Only staff can change settings.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+                return false;
+            }
+            return true;
+        };
+        const validateGuildChannel = async (i, id) => {
+            const channel = i.guild.channels.cache.get(id) ?? await i.guild.channels.fetch(id).catch(() => null);
+            if (!channel) {
+                await i.reply({ embeds: [embeds.error("Not found", "That channel no longer exists in this server.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+                return null;
+            }
+            return channel;
+        };
         client.components.set("pulse:settings:menu", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const category = i.values[0];
             await renderCategory(i, category, await client.services.settings.get(i.guildId));
         });
         client.components.set("pulse:settings:back", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             await i.update({ embeds: [mainEmbed(await client.services.settings.get(i.guildId))], components: [mainRow()] });
         });
         client.components.set("pulse:settings:channel:logChannelId", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const id = i.values[0];
+            if (!await validateGuildChannel(i, id)) return;
             await         i.client.services.settings.patch(i.guildId, { logChannelId: id });
             await renderCategory(i, "logging", await client.services.settings.get(i.guildId));
         });
         client.components.set("pulse:settings:channel:modLogChannelId", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const id = i.values[0];
+            if (!await validateGuildChannel(i, id)) return;
             await         i.client.services.settings.patch(i.guildId, { modLogChannelId: id });
             await renderCategory(i, "logging", await client.services.settings.get(i.guildId));
         });
         client.components.set("pulse:settings:channel:welcomeChannelId", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const id = i.values[0];
+            if (!await validateGuildChannel(i, id)) return;
             await         i.client.services.settings.patch(i.guildId, { welcomeChannelId: id });
             await renderCategory(i, "welcome", await client.services.settings.get(i.guildId));
         });
         client.components.set("pulse:settings:channel:goodbyeChannelId", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const id = i.values[0];
+            if (!await validateGuildChannel(i, id)) return;
             await         i.client.services.settings.patch(i.guildId, { goodbyeChannelId: id });
             await renderCategory(i, "welcome", await client.services.settings.get(i.guildId));
         });
         client.components.set("pulse:settings:prefix", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const modal = new ModalBuilder().setCustomId("pulse:settings:prefix:modal").setTitle("Set command prefix");
             modal.addComponents(new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("prefix").setLabel("Prefix").setStyle(TextInputStyle.Short).setMaxLength(3).setValue(cfg.prefix)));
             await i.showModal(modal);
         });
         client.components.set("pulse:settings:prefix:modal", async (i) => {
+            if (!await requireSettingsStaff(i)) return;
             const prefix = i.fields.getTextInputValue("prefix");
             await client.services.settings.patch(i.guildId, { prefix });
             await i.reply({ embeds: [embeds.success("Prefix updated", `Commands prefix set to \`${prefix}\`.`)], flags: MessageFlags.Ephemeral });

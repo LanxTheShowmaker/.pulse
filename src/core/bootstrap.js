@@ -2,13 +2,20 @@ import "dotenv/config";
 import { GatewayIntentBits, Partials } from "discord.js";
 import { PulseClient } from "./client.js";
 import { loadCommands, loadEvents } from "./registry.js";
-import { createServices } from "./services.js";
+import { createServices, initDatabase } from "./services.js";
 import { logger } from "./logger.js";
+
+process.on("unhandledRejection", (e) => logger.error("process", "unhandledRejection", e));
+process.on("uncaughtException", (e) => logger.error("process", "uncaughtException", e));
 
 async function main() {
     const token = process.env.DISCORD_TOKEN;
     if (!token) {
         logger.error("bootstrap", "DISCORD_TOKEN is missing");
+        process.exit(1);
+    }
+    if (!process.env.DATABASE_URL) {
+        logger.error("bootstrap", "DATABASE_URL is missing");
         process.exit(1);
     }
 
@@ -28,6 +35,9 @@ async function main() {
     // Initialize services first (before commands/events that depend on them)
     client.services = createServices(client);
 
+    // Connect database before accepting any work
+    await initDatabase(client.services.prisma);
+
     // Load commands
     client.commands = await loadCommands();
 
@@ -35,6 +45,10 @@ async function main() {
     for (const [name, cmd] of client.commands) {
         if (cmd.componentHandlers) {
             for (const [customId, handler] of Object.entries(cmd.componentHandlers)) {
+                if (client.components.has(customId)) {
+                    logger.warn("bootstrap", `Duplicate component handler: ${customId} (from ${name})`);
+                    continue;
+                }
                 client.components.set(customId, handler);
             }
         }
@@ -50,21 +64,30 @@ async function main() {
         }
     }
 
-    await client.login(token);
-    logger.info("bootstrap", `.pulse online as ${client.user?.tag ?? "unknown"}`);
-
-    // Graceful shutdown
+    // Graceful shutdown (registered before login so early failures also clean up)
     const shutdown = async (signal) => {
         logger.info("bootstrap", `Received ${signal}, shutting down...`);
         try {
+            for (const svc of Object.values(client.services)) {
+                if (svc && typeof svc.shutdown === "function") {
+                    await svc.shutdown().catch((e) => logger.warn("bootstrap", "service shutdown failed", e?.message));
+                }
+            }
             await client.services.prisma.$disconnect();
         } catch {}
         client.destroy();
         process.exit(0);
     };
-
     process.on("SIGINT", () => shutdown("SIGINT"));
     process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+    client.on("shardDisconnect", (e, id) => logger.warn("shard", `shard ${id} disconnected`, e?.code));
+    client.on("shardReconnecting", (id) => logger.warn("shard", `shard ${id} reconnecting`));
+    client.on("shardResume", (id) => logger.info("shard", `shard ${id} resumed`));
+    client.on("guildUnavailable", (guild) => logger.warn("shard", `guild unavailable: ${guild?.id}`));
+
+    await client.login(token);
+    logger.info("bootstrap", `.pulse online as ${client.user?.tag ?? "unknown"}`);
 }
 
 main().catch((e) => {

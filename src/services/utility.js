@@ -1,6 +1,7 @@
 import { ButtonBuilder, ButtonStyle, ActionRowBuilder, MessageFlags } from "discord.js";
 import { logger } from "../core/logger.js";
 import { embeds } from "../design/embeds.js";
+const POLL_VOTERS_CAP = 1000;
 
 export class UtilityService {
     prisma;
@@ -13,17 +14,33 @@ export class UtilityService {
         this.interval = setInterval(() => {
             this.tickReminders().catch((e) => logger.error("utility", "reminder tick failed", e));
         }, 15000);
+        if(this.interval?.unref) this.interval.unref();
         this.client.components.set("poll:vote", async (interaction) => {
             await this.handlePollVote(interaction).catch((e) => logger.error("utility", "poll vote failed", e));
         });
         process.once("beforeExit", () => clearInterval(this.interval));
+    }
+    shutdown(){ if(this.interval) clearInterval(this.interval); this.interval=null; }
+    _trackPollVoter(messageId, userId){
+        let voters = this.pollVoters.get(messageId);
+        if (!voters) {
+            voters = new Set();
+            if(this.pollVoters.size >= POLL_VOTERS_CAP){
+                const oldest = this.pollVoters.keys().next().value;
+                if(oldest) this.pollVoters.delete(oldest);
+            }
+            this.pollVoters.set(messageId, voters);
+        }
+        return voters;
     }
     async tickReminders() {
         let due = [];
         try {
             due = await this.prisma.reminder.findMany({
                 where: { remindAt: { lte: new Date() } },
-                select: { id: true, guildId: true, channelId: true, userId: true, message: true },
+                orderBy: { remindAt: "asc" },
+                take: 50,
+                select: { id: true, guildId: true, channelId: true, userId: true, message: true, remindAt: true },
             });
         }
         catch (e) {
@@ -32,13 +49,18 @@ export class UtilityService {
         }
         for (const r of due) {
             try {
-                const guild = this.client.guilds.cache.get(r.guildId);
+                const guild = this.client.guilds.cache.get(r.guildId) ?? await this.client.guilds.fetch(r.guildId).catch((e) => { logger.error("utility", "guild fetch failed", { id: r.id, error: e }); return null; });
                 if (!guild) {
+                    const stillThere = await this.client.guilds.fetch(r.guildId).catch(() => null);
+                    if(stillThere) continue;
                     await this.prisma.reminder.delete({ where: { id: r.id } }).catch(() => { });
                     continue;
                 }
-                const channel = guild.channels.cache.get(r.channelId);
+                const channel = guild.channels.cache.get(r.channelId) ?? await guild.channels.fetch(r.channelId).catch((e) => { logger.error("utility", "channel fetch failed", { id: r.id, error: e }); return null; });
                 if (!channel || !("send" in channel)) {
+                    if(channel) continue;
+                    const retry = await guild.channels.fetch(r.channelId).catch(() => null);
+                    if(retry) continue;
                     await this.prisma.reminder.delete({ where: { id: r.id } }).catch(() => { });
                     continue;
                 }
@@ -76,6 +98,12 @@ export class UtilityService {
         const userId = interaction.user.id;
         const poll = await this.prisma.poll.findUnique({ where: { messageId } }).catch(() => null);
         if (!poll) {
+            this.pollVoters.delete(messageId);
+            await interaction.reply({ embeds: [embeds.error("Poll ended", "This poll no longer exists.")], flags: MessageFlags.Ephemeral });
+            return;
+        }
+        if(poll.endsAt && new Date(poll.endsAt) <= new Date()){
+            this.pollVoters.delete(messageId);
             await interaction.reply({ embeds: [embeds.error("Poll ended", "This poll no longer exists.")], flags: MessageFlags.Ephemeral });
             return;
         }
@@ -84,18 +112,15 @@ export class UtilityService {
             await interaction.reply({ embeds: [embeds.error("Invalid option", "That option does not exist.")], flags: MessageFlags.Ephemeral });
             return;
         }
-        let voters = this.pollVoters.get(messageId);
-        if (!voters) {
-            voters = new Set();
-            this.pollVoters.set(messageId, voters);
-        }
+        const voters = this._trackPollVoter(messageId, userId);
         if (voters.has(userId)) {
             await interaction.reply({ embeds: [embeds.warn("Already voted", "You have already voted in this poll.")], flags: MessageFlags.Ephemeral });
             return;
         }
         voters.add(userId);
         options[index] = { ...options[index], votes: options[index].votes + 1 };
-        await this.prisma.poll.update({ where: { messageId }, data: { options: JSON.stringify(options) } }).catch(() => { });
+        const updated = await this.prisma.poll.update({ where: { messageId }, data: { options: JSON.stringify(options) } }).catch(() => null);
+        if(!updated){ this.pollVoters.delete(messageId); }
         const message = interaction.message;
         if (message?.editable) {
             await message.edit({ embeds: [this.buildPollEmbed(poll.question, options)] }).catch(() => { });

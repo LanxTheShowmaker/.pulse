@@ -1,7 +1,7 @@
 {
   "name": "@pulse/bot",
   "version": "2.0.0",
-  "description": ".pulse — a professional, universal Discord moderation and management bot. Pulse Variant 2.",
+  "description": ".pulse — a professional, universal Discord moderation and management bot.",
   "type": "module",
   "main": "src/core/bootstrap.js",
   "scripts": {

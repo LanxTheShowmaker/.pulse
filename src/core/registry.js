@@ -75,18 +75,36 @@ export async function loadCommands() {
 
 export async function loadEvents() {
     const events = [];
+    const seen = new Set();
+    let failed = 0;
     const files = await walk(path.join(here, "..", "events"));
     for (const file of files) {
         try {
             const mod = await import(pathToFileURL(file).href);
             const ev = mod.default ?? mod;
-            if (ev?.name)
-                events.push(ev);
+            if (!ev?.name) {
+                failed++;
+                logger.error("registry", `Event missing name: ${file}`);
+                continue;
+            }
+            if (typeof ev.execute !== "function") {
+                failed++;
+                logger.error("registry", `Event missing execute: ${ev.name} (${file})`);
+                continue;
+            }
+            if (seen.has(ev.name)) {
+                failed++;
+                logger.error("registry", `Duplicate event name: ${ev.name} (${file})`);
+                continue;
+            }
+            seen.add(ev.name);
+            events.push(ev);
         } catch (e) {
+            failed++;
             logger.error("registry", `Event load failed: ${file}`, e);
         }
     }
-    logger.info("registry", `Events loaded: ${events.length}`);
+    logger.info("registry", `Events loaded: ${events.length}, failed: ${failed}`);
     return events;
 }
 //# sourceMappingURL=registry.js.map
