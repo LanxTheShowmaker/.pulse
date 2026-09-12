@@ -85,11 +85,13 @@ export default {
 
     async handleStats(interaction, tickets) {
         const stats = await tickets.getStats(interaction.guild.id);
+        const avgText = stats.avgRating ? `${stats.avgRating.toFixed(1)}/5 (${stats.ratedCount} ratings)` : "No ratings yet";
         await interaction.reply({
             embeds: [panel("Ticket Stats", [
                 stat("Open", stats.open),
                 stat("Closed", stats.closed),
                 stat("Total", stats.total),
+                stat("Avg Rating", avgText),
             ].map(f => `${f.name}: **${f.value}**`).join("\n"))],
             flags: MessageFlags.Ephemeral,
         });

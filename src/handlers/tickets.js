@@ -358,4 +358,21 @@ export default {
             embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)],
         });
     },
+
+    // ── Rating Handler ──
+
+    "ticketrate:": async (i, client) => {
+        const parts = i.customId.split(":");
+        const ticketId = parts[1];
+        const rating = parseInt(parts[2]);
+        if (!ticketId || isNaN(rating)) return i.reply({ embeds: [error("Error", "Invalid rating.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+
+        const ticket = await client.prisma.ticket.findUnique({ where: { id: ticketId } });
+        if (!ticket) return i.reply({ embeds: [error("Error", "Ticket not found.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+
+        await client.services.tickets.rate(ticketId, ticket.channelId, ticket.guildId, i.user.id, rating);
+
+        const stars = "⭐".repeat(rating);
+        await i.reply({ embeds: [success("Thanks!", `You rated this ticket **${stars}** (${rating}/5)`)], flags: MessageFlags.Ephemeral }).catch(() => {});
+    },
 };
