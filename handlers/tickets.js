@@ -253,11 +253,11 @@ export default {
     },
 
     "ticket:cfg:types:add:submit": async (i, client) => {
-        const name = i.fields.getTextInputValue("name");
-        const emoji = i.fields.getTextInputValue("emoji") || null;
-        const description = i.fields.getTextInputValue("description") || null;
-        const channelPrefix = i.fields.getTextInputValue("channel_prefix") || "ticket";
-        const welcomeMessage = i.fields.getTextInputValue("welcome") || null;
+        const name = i.components.getTextInputValue("name");
+        const emoji = i.components.getTextInputValue("emoji") || null;
+        const description = i.components.getTextInputValue("description") || null;
+        const channelPrefix = i.components.getTextInputValue("channel_prefix") || "ticket";
+        const welcomeMessage = i.components.getTextInputValue("welcome") || null;
 
         const existing = await client.services.prisma.ticketType.findFirst({
             where: { guildId: i.guild.id, key: name.toLowerCase().replace(/\s+/g, "-") },
@@ -354,11 +354,11 @@ export default {
         await client.services.prisma.ticketType.update({
             where: { id: typeId },
             data: {
-                displayName: i.fields.getTextInputValue("name"),
-                emoji: i.fields.getTextInputValue("emoji") || null,
-                description: i.fields.getTextInputValue("description") || null,
-                channelPrefix: i.fields.getTextInputValue("channel_prefix") || "ticket",
-                categoryId: i.fields.getTextInputValue("category") || null,
+                displayName: i.components.getTextInputValue("name"),
+                emoji: i.components.getTextInputValue("emoji") || null,
+                description: i.components.getTextInputValue("description") || null,
+                channelPrefix: i.components.getTextInputValue("channel_prefix") || "ticket",
+                categoryId: i.components.getTextInputValue("category") || null,
             },
         });
         await i.reply({ embeds: [success("Updated", "Type info updated.")], flags: MessageFlags.Ephemeral });
@@ -383,8 +383,8 @@ export default {
 
     "ticket:cfg:types:sub:roles:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const staffRaw = i.fields.getTextInputValue("staff_roles") || "";
-        const modRaw = i.fields.getTextInputValue("mod_roles") || "";
+        const staffRaw = i.components.getTextInputValue("staff_roles") || "";
+        const modRaw = i.components.getTextInputValue("mod_roles") || "";
 
         const staffRoles = staffRaw.split(",").map(s => s.trim()).filter(Boolean);
         const modRoles = modRaw.split(",").map(s => s.trim()).filter(Boolean);
@@ -416,9 +416,9 @@ export default {
 
     "ticket:cfg:types:sub:limits:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const maxOpen = parseInt(i.fields.getTextInputValue("max_open")) || 0;
-        const cooldownMin = parseInt(i.fields.getTextInputValue("cooldown")) || 0;
-        const autoCloseMin = parseInt(i.fields.getTextInputValue("auto_close")) || 0;
+        const maxOpen = parseInt(i.components.getTextInputValue("max_open")) || 0;
+        const cooldownMin = parseInt(i.components.getTextInputValue("cooldown")) || 0;
+        const autoCloseMin = parseInt(i.components.getTextInputValue("auto_close")) || 0;
 
         await client.services.prisma.ticketType.update({
             where: { id: typeId },
@@ -450,8 +450,8 @@ export default {
         await client.services.prisma.ticketType.update({
             where: { id: typeId },
             data: {
-                welcomeMessage: i.fields.getTextInputValue("welcome") || null,
-                instructions: i.fields.getTextInputValue("instructions") || null,
+                welcomeMessage: i.components.getTextInputValue("welcome") || null,
+                instructions: i.components.getTextInputValue("instructions") || null,
             },
         });
         await i.reply({ embeds: [success("Updated", "Messages updated.")], flags: MessageFlags.Ephemeral });
@@ -515,11 +515,11 @@ export default {
         const typeId = i.customId.split(":")[5];
 
         const questions = [];
-        const q1Label = i.fields.getTextInputValue("q1");
-        const q2Label = i.fields.getTextInputValue("q2");
-        const q3Label = i.fields.getTextInputValue("q3");
-        const q1Req = i.fields.getTextInputValue("q1_req").toLowerCase() === "yes";
-        const q2Req = i.fields.getTextInputValue("q2_req").toLowerCase() === "yes";
+        const q1Label = i.components.getTextInputValue("q1");
+        const q2Label = i.components.getTextInputValue("q2");
+        const q3Label = i.components.getTextInputValue("q3");
+        const q1Req = i.components.getTextInputValue("q1_req").toLowerCase() === "yes";
+        const q2Req = i.components.getTextInputValue("q2_req").toLowerCase() === "yes";
 
         if (q1Label) questions.push({ id: "q1", label: q1Label, style: "paragraph", required: q1Req });
         if (q2Label) questions.push({ id: "q2", label: q2Label, style: "short", required: q2Req });
@@ -802,7 +802,7 @@ export default {
         const answers = {};
         for (const q of formQuestions.slice(0, 5)) {
             try {
-                answers[q.id] = i.fields.getTextInputValue(q.id);
+                answers[q.id] = i.components.getTextInputValue(q.id);
             } catch {
                 answers[q.id] = "";
             }
@@ -1033,7 +1033,7 @@ export default {
     "ticket:ws:note:submit:": async (i, client) => {
         const ticketId = i.customId.split(":")[4];
         const tickets = client.services.tickets;
-        const content = i.fields.getTextInputValue("content");
+        const content = i.components.getTextInputValue("content");
 
         try {
             await tickets.addNote(ticketId, i.user.id, content);
@@ -1057,7 +1057,7 @@ export default {
 
     "ticket:ws:adduser:submit:": async (i, client) => {
         const ticketId = i.customId.split(":")[4];
-        const userId = i.fields.getTextInputValue("userid").trim();
+        const userId = i.components.getTextInputValue("userid").trim();
 
         try {
             const member = await i.guild.members.fetch(userId);
@@ -1084,7 +1084,7 @@ export default {
 
     "ticket:ws:rmuser:submit:": async (i, client) => {
         const ticketId = i.customId.split(":")[4];
-        const userId = i.fields.getTextInputValue("userid").trim();
+        const userId = i.components.getTextInputValue("userid").trim();
 
         try {
             await i.channel.permissionOverwrites.edit(userId, { ViewChannel: false });
