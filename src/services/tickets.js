@@ -44,6 +44,10 @@ export class TicketService {
             .setTimestamp();
 
         await channel.send({ embeds: [embed] }).catch(() => {});
+
+        // Achievement: ticket opened
+        this.client.services.achievements?.increment(guild.id, opener.id, "ticketsOpened").catch(() => {});
+
         return ticket;
     }
 
@@ -69,10 +73,15 @@ export class TicketService {
     }
 
     async claim(ticketId, userId) {
-        return this.prisma.ticket.update({
+        const ticket = await this.prisma.ticket.update({
             where: { id: ticketId },
             data: { claimedById: userId, status: "CLAIMED" },
         });
+
+        // Achievement: tickets claimed
+        this.client.services.achievements?.increment(ticket.guildId, userId, "ticketsClaimed").catch(() => {});
+
+        return ticket;
     }
 
     async getStats(guildId) {

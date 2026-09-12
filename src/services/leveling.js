@@ -96,6 +96,9 @@ export class LevelingService {
                     }
                 }
             }
+
+            // Achievement: level reached
+            message.client.services.achievements?.increment(message.guild.id, message.author.id, "level", newLevel).catch(() => {});
         }
     }
 

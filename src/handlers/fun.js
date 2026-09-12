@@ -18,6 +18,9 @@ function play(i, playerChoice) {
     const resultText = result === "draw" ? "It's a draw!" : result === "win" ? "You win!" : "You lose!";
     const embed = panel("Rock Paper Scissors", `${EMOJI[playerChoice]} **You** vs **Bot** ${EMOJI[botChoice]}\n\n${resultEmoji} **${resultText}**`);
     i.update({ embeds: [embed], components: [] });
+
+    // Achievement: RPS played
+    i.client.services.achievements?.increment(i.guild.id, i.user.id, "rpsPlayed").catch(() => {});
 }
 
 export default {

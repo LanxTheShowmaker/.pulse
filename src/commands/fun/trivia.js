@@ -49,6 +49,11 @@ export default {
             const resultText = isCorrect ? "Correct!" : `Wrong! The answer was **${q.a}**.`;
             const embed = panel("Trivia", `${emoji} ${resultText}`);
             await i.update({ embeds: [embed], components: [] });
+
+            // Achievement: trivia won
+            if (isCorrect) {
+                i.client.services.achievements?.increment(i.guild.id, i.user.id, "triviaWon").catch(() => {});
+            }
         });
 
         collector.on("end", (collected) => {

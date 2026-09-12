@@ -160,6 +160,8 @@ export class EconomyService {
             update: { lastDaily: new Date(), dailyStreak: streak },
         });
         const balance = await this.addCoins(guildId, userId, amount, "daily", { streak });
+        // Achievement: daily claimed
+        this.client.services.achievements?.increment(guildId, userId, "dailyClaimed").catch(() => {});
         return { ok: true, amount, balance, streak };
     }
 
@@ -216,6 +218,9 @@ export class EconomyService {
                 crimesFailed: success ? undefined : { increment: 1 },
             },
         });
+
+        // Achievement: crime committed
+        this.client.services.achievements?.increment(guildId, userId, "crimesCommitted").catch(() => {});
 
         if (success) {
             const balance = await this.addCoins(guildId, userId, option.successReward, "crime_success", { crime: option.crime });
@@ -293,6 +298,10 @@ export class EconomyService {
             where: { guildId_userId: { guildId, userId } },
             update: { slotsPlayed: { increment: 1 }, slotsWon: multiplier > 0 ? { increment: 1 } : undefined },
         });
+
+        // Achievement: slots played/won
+        this.client.services.achievements?.increment(guildId, userId, "slotsPlayed").catch(() => {});
+        if (multiplier > 0) this.client.services.achievements?.increment(guildId, userId, "slotsWon").catch(() => {});
 
         const balance = await this.addCoins(guildId, userId, net, "slots", { reels: [r1, r2, r3], bet, win: winAmount });
         return { ok: true, reels: [r1, r2, r3], multiplier, winAmount, net, balance };

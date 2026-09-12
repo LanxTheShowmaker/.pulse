@@ -19,6 +19,7 @@ export class ModerationService {
         });
 
         await this.audit.log(guildId, moderator.id, target.id, "warn", "moderation", { caseNumber: case_.caseNumber, reason });
+        this.client.services.achievements?.increment(guildId, moderator.id, "modActions").catch(() => {});
 
         const embed = this.buildModEmbed("Warned", target, moderator, reason, case_.caseNumber);
         await this.logging.logMod(guildId, embed);
@@ -48,6 +49,7 @@ export class ModerationService {
 
         const embed = this.buildModEmbed("Banned", target, moderator, reason, case_.caseNumber, duration?.text);
         await this.logging.logMod(guildId, embed);
+        this.client.services.achievements?.increment(guildId, moderator.id, "modActions").catch(() => {});
 
         if (member) {
             await member.send({ content: `You have been banned from **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}${duration?.text ? `\nDuration: ${duration.text}` : ""}` }).catch(() => {});
@@ -77,6 +79,7 @@ export class ModerationService {
 
         const embed = this.buildModEmbed("Kicked", target, moderator, reason, case_.caseNumber);
         await this.logging.logMod(guildId, embed);
+        this.client.services.achievements?.increment(guildId, moderator.id, "modActions").catch(() => {});
 
         return { case: case_ };
     }
@@ -104,6 +107,7 @@ export class ModerationService {
 
         const embed = this.buildModEmbed("Timed out", target, moderator, reason, case_.caseNumber, duration?.text);
         await this.logging.logMod(guildId, embed);
+        this.client.services.achievements?.increment(guildId, moderator.id, "modActions").catch(() => {});
 
         if (member) {
             await member.send({ content: `You have been timed out in **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}\nDuration: ${duration?.text ?? "Unknown"}` }).catch(() => {});

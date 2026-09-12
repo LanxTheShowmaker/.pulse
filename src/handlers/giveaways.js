@@ -24,6 +24,8 @@ export default {
             g.entries.push(i.user.id);
             g.entryCount = g.entries.length;
             client.services.giveaways.markDirty();
+            // Achievement: giveaway entered
+            client.services.achievements?.increment(i.guild.id, i.user.id, "giveawaysEntered").catch(() => {});
             await i.reply({ embeds: [successEmbed("Entered", `You're entered to win **${g.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
         }
 

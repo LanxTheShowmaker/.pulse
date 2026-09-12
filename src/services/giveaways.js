@@ -159,6 +159,11 @@ export class GiveawayService {
         const winnerIds = newWinners ?? g.winnerIds ?? [];
         const mentions = winnerIds.length ? winnerIds.map(id => `<@${id}>`).join(", ") : "No valid entries";
         await ch.send({ content: `**Giveaway ended!** Prize: **${g.prize}**\nWinner(s): ${mentions}` }).catch(() => {});
+
+        // Achievement: giveaway won
+        for (const id of winnerIds) {
+            this.client.services.achievements?.increment(g.guildId, id, "giveawaysWon").catch(() => {});
+        }
     }
 
     async refreshMessage(g) {

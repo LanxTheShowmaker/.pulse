@@ -45,6 +45,9 @@ export default {
             logger.error("events", "leveling failed", e.message);
         }
 
+        // Achievement: messages sent
+        client.services.achievements?.increment(message.guild.id, message.author.id, "messagesSent").catch(() => {});
+
         // AFK
         try {
             await client.services.afk.handleMessage(message);
