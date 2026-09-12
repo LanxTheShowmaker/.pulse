@@ -17,6 +17,28 @@ export default {
             .addStringOption(o => o.setName("reason").setDescription("Reason for opening").setRequired(false)))
         .addSubcommand(sub => sub.setName("close").setDescription("Close the current ticket"))
         .addSubcommand(sub => sub.setName("claim").setDescription("Claim the current ticket"))
+        .addSubcommand(sub => sub.setName("unassign").setDescription("Unassign the current ticket"))
+        .addSubcommand(sub => sub.setName("status").setDescription("Change ticket status")
+            .addStringOption(o => o.setName("status").setDescription("New status").setRequired(true)
+                .addChoices(
+                    { name: "Open", value: "OPEN" },
+                    { name: "Claimed", value: "CLAIMED" },
+                    { name: "In Progress", value: "IN_PROGRESS" },
+                    { name: "Waiting", value: "WAITING" },
+                    { name: "Resolved", value: "RESOLVED" },
+                    { name: "Closed", value: "CLOSED" },
+                )))
+        .addSubcommand(sub => sub.setName("priority").setDescription("Change ticket priority")
+            .addStringOption(o => o.setName("priority").setDescription("New priority").setRequired(true)
+                .addChoices(
+                    { name: "Low", value: "LOW" },
+                    { name: "Normal", value: "NORMAL" },
+                    { name: "High", value: "HIGH" },
+                    { name: "Urgent", value: "URGENT" },
+                )))
+        .addSubcommand(sub => sub.setName("note").setDescription("Add an internal note")
+            .addStringOption(o => o.setName("content").setDescription("Note content").setRequired(true)))
+        .addSubcommand(sub => sub.setName("history").setDescription("View ticket history"))
         .addSubcommand(sub => sub.setName("list").setDescription("List open tickets"))
         .addSubcommand(sub => sub.setName("stats").setDescription("Ticket statistics"))
         .addSubcommand(sub => sub.setName("triage").setDescription("View triage AI stats and test analysis")
@@ -32,6 +54,11 @@ export default {
             case "create": return this.handleCreate(interaction, tickets);
             case "close": return this.handleClose(interaction, tickets);
             case "claim": return this.handleClaim(interaction, tickets);
+            case "unassign": return this.handleUnassign(interaction, tickets);
+            case "status": return this.handleStatus(interaction, tickets);
+            case "priority": return this.handlePriority(interaction, tickets);
+            case "note": return this.handleNote(interaction, tickets);
+            case "history": return this.handleHistory(interaction, tickets);
             case "list": return this.handleList(interaction, tickets);
             case "stats": return this.handleStats(interaction, tickets);
             case "triage": return this.handleTriage(interaction);
@@ -45,16 +72,12 @@ export default {
         const [types, settings, openCount, totalCount] = await Promise.all([
             prisma.ticketType.findMany({ where: { guildId } }),
             interaction.client.services.settings.get(guildId),
-            prisma.ticket.count({ where: { guildId, status: { in: ["OPEN", "CLAIMED"] } } }),
+            prisma.ticket.count({ where: { guildId, status: { notIn: ["CLOSED"] } } }),
             prisma.ticket.count({ where: { guildId } }),
         ]);
 
-        const category = settings?.ticketCategoryId
-            ? `<#${settings.ticketCategoryId}>`
-            : "Not set";
-        const logChannel = settings?.ticketLogChannelId
-            ? `<#${settings.ticketLogChannelId}>`
-            : "Not set";
+        const category = settings?.ticketCategoryId ? `<#${settings.ticketCategoryId}>` : "Not set";
+        const logChannel = settings?.ticketLogChannelId ? `<#${settings.ticketLogChannelId}>` : "Not set";
 
         const typeList = types.length
             ? types.map(t => {
@@ -129,7 +152,7 @@ export default {
 
     async handleCreate(interaction, tickets) {
         const existing = await interaction.client.services.prisma.ticket.findFirst({
-            where: { guildId: interaction.guild.id, openerId: interaction.user.id, status: { in: ["OPEN", "CLAIMED"] } },
+            where: { guildId: interaction.guild.id, openerId: interaction.user.id, status: { notIn: ["CLOSED"] } },
         });
         if (existing) return interaction.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
 
@@ -142,35 +165,119 @@ export default {
             parent: config.ticketCategoryId || null,
         });
 
-        await tickets.open(interaction.guild, channel, interaction.user, null, null);
+        await tickets.applyPermissions(channel, interaction.guild, interaction.user, null);
+        const ticket = await tickets.create(interaction.guild, channel, interaction.user, null);
+
+        const embed = new EmbedBuilder()
+            .setColor(Theme.ticket)
+            .setTitle("Support Ticket")
+            .setDescription(interaction.options.getString("reason") || "A staff member will be with you shortly.")
+            .setFooter({ text: Brand.footer })
+            .setTimestamp();
+
+        await channel.send({ embeds: [embed] }).catch(() => {});
         await interaction.editReply({ embeds: [success("Ticket Created", `<#${channel.id}>`)] });
     },
 
     async handleClose(interaction, tickets) {
-        const ticket = await interaction.client.services.prisma.ticket.findFirst({
-            where: { guildId: interaction.guild.id, channelId: interaction.channel.id, status: { in: ["OPEN", "CLAIMED"] } },
-        });
+        const ticket = await tickets.getByChannel(interaction.channel.id);
         if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+        if (!["OPEN", "CLAIMED", "IN_PROGRESS", "WAITING", "RESOLVED"].includes(ticket.status)) {
+            return interaction.reply({ embeds: [error("Invalid State", `Ticket is already ${ticket.status}.`)], flags: MessageFlags.Ephemeral });
+        }
 
         await tickets.close(interaction.channel.id, interaction.user.id);
         await interaction.reply({ embeds: [success("Ticket Closed", "Channel will be deleted shortly.")] });
     },
 
     async handleClaim(interaction, tickets) {
-        const ticket = await interaction.client.services.prisma.ticket.findFirst({
-            where: { guildId: interaction.guild.id, channelId: interaction.channel.id, status: "OPEN" },
-        });
+        const ticket = await tickets.getByChannel(interaction.channel.id);
         if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
 
-        await tickets.claim(ticket.id, interaction.user.id);
-        await interaction.reply({ embeds: [success("Ticket Claimed", `<@${interaction.user.id}> is now handling this ticket.`)] });
+        try {
+            await tickets.claim(ticket.id, interaction.user.id);
+            await interaction.reply({ embeds: [success("Ticket Claimed", `<@${interaction.user.id}> is now handling this ticket.`)] });
+        } catch (e) {
+            await interaction.reply({ embeds: [error("Cannot Claim", e.message)], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async handleUnassign(interaction, tickets) {
+        const ticket = await tickets.getByChannel(interaction.channel.id);
+        if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+
+        try {
+            await tickets.unassign(ticket.id, interaction.user.id);
+            await interaction.reply({ embeds: [success("Unassigned", "Ticket is no longer assigned.")] });
+        } catch (e) {
+            await interaction.reply({ embeds: [error("Error", e.message)], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async handleStatus(interaction, tickets) {
+        const ticket = await tickets.getByChannel(interaction.channel.id);
+        if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+
+        const newStatus = interaction.options.getString("status");
+        try {
+            await tickets.setStatus(ticket.id, newStatus, interaction.user.id);
+            await interaction.reply({ embeds: [success("Status Updated", `Ticket status set to **${newStatus}**.`)] });
+        } catch (e) {
+            await interaction.reply({ embeds: [error("Cannot Update", e.message)], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async handlePriority(interaction, tickets) {
+        const ticket = await tickets.getByChannel(interaction.channel.id);
+        if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+
+        const newPriority = interaction.options.getString("priority");
+        try {
+            await tickets.setPriority(ticket.id, newPriority, interaction.user.id);
+            await interaction.reply({ embeds: [success("Priority Updated", `Ticket priority set to **${newPriority}**.`)] });
+        } catch (e) {
+            await interaction.reply({ embeds: [error("Cannot Update", e.message)], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async handleNote(interaction, tickets) {
+        const ticket = await tickets.getByChannel(interaction.channel.id);
+        if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+
+        const content = interaction.options.getString("content");
+        try {
+            await tickets.addNote(ticket.id, interaction.user.id, content);
+            await interaction.reply({ embeds: [success("Note Added", "Internal note recorded. Staff-only.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            await interaction.reply({ embeds: [error("Error", e.message)], flags: MessageFlags.Ephemeral });
+        }
+    },
+
+    async handleHistory(interaction, tickets) {
+        const ticket = await tickets.getByChannel(interaction.channel.id);
+        if (!ticket) return interaction.reply({ embeds: [error("No Ticket", "No open ticket in this channel.")], flags: MessageFlags.Ephemeral });
+
+        const history = await tickets.getHistory(ticket.id);
+        if (!history.length) return interaction.reply({ embeds: [panel("History", "No events recorded yet.")] });
+
+        const lines = history.map(h => {
+            const time = `<t:${Math.floor(h.createdAt.getTime() / 1000)}:R>`;
+            const actor = h.actorId ? `<@${h.actorId}>` : "System";
+            return `${time} **${h.event}** by ${actor}${h.details ? ` — ${h.details}` : ""}`;
+        });
+
+        await interaction.reply({ embeds: [panel("Ticket History", lines.join("\n"))], flags: MessageFlags.Ephemeral });
     },
 
     async handleList(interaction, tickets) {
         const list = await tickets.listOpen(interaction.guild.id);
         if (!list.length) return interaction.reply({ embeds: [panel("Open Tickets", "No open tickets.")] });
 
-        const lines = list.map(t => `<#${t.channelId}> — <@${t.openerId}> — <t:${Math.floor(t.createdAt.getTime() / 1000)}:R>`);
+        const lines = list.map(t => {
+            const priority = t.priority !== "NORMAL" ? ` [${t.priority}]` : "";
+            return `<#${t.channelId}> — <@${t.openerId}> — **${t.status}**${priority} — <t:${Math.floor(t.createdAt.getTime() / 1000)}:R>`;
+        });
+
         await interaction.reply({ embeds: [panel("Open Tickets", lines.join("\n"))] });
     },
 
@@ -179,11 +286,11 @@ export default {
         const avgText = stats.avgRating ? `${stats.avgRating.toFixed(1)}/5 (${stats.ratedCount} ratings)` : "No ratings yet";
         await interaction.reply({
             embeds: [panel("Ticket Stats", [
-                stat("Open", stats.open),
-                stat("Closed", stats.closed),
-                stat("Total", stats.total),
-                stat("Avg Rating", avgText),
-            ].map(f => `${f.name}: **${f.value}**`).join("\n"))],
+                `**Open:** ${stats.open}`,
+                `**Closed:** ${stats.closed}`,
+                `**Total:** ${stats.total}`,
+                `**Avg Rating:** ${avgText}`,
+            ].join("\n"))],
             flags: MessageFlags.Ephemeral,
         });
     },
@@ -193,7 +300,6 @@ export default {
         const text = interaction.options.getString("text");
 
         if (text) {
-            // Test analysis mode
             const result = triage.analyze(text, { guildId: interaction.guild.id });
             const urgencyEmoji = { critical: "🔴", high: "🟠", medium: "🟡", low: "🟢" };
 
@@ -209,27 +315,14 @@ export default {
 
             if (result.suggestions.length > 0) {
                 lines.push("**Suggestions:**");
-                for (const s of result.suggestions) {
-                    lines.push(`• ${s.text}`);
-                }
+                for (const s of result.suggestions) lines.push(`• ${s.text}`);
             }
 
-            await interaction.reply({
-                embeds: [panel("Triage Analysis", lines.join("\n"))],
-                flags: MessageFlags.Ephemeral,
-            });
+            await interaction.reply({ embeds: [panel("Triage Analysis", lines.join("\n"))], flags: MessageFlags.Ephemeral });
         } else {
-            // Stats mode
             const stats = triage.getGuildStats(interaction.guild.id);
-            const catLines = Object.entries(stats.categories)
-                .sort(([,a], [,b]) => b - a)
-                .map(([cat, count]) => `**${cat}:** ${count}`)
-                .join("\n") || "No data yet";
-
-            const urgLines = Object.entries(stats.urgencies)
-                .sort(([,a], [,b]) => b - a)
-                .map(([urg, count]) => `**${urg}:** ${count}`)
-                .join("\n") || "No data yet";
+            const catLines = Object.entries(stats.categories).sort(([,a], [,b]) => b - a).map(([cat, count]) => `**${cat}:** ${count}`).join("\n") || "No data yet";
+            const urgLines = Object.entries(stats.urgencies).sort(([,a], [,b]) => b - a).map(([urg, count]) => `**${urg}:** ${count}`).join("\n") || "No data yet";
 
             await interaction.reply({
                 embeds: [panel("Triage Stats", [

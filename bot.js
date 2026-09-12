@@ -65,6 +65,13 @@ async function main() {
     // Restore persistent panels
     const restored = await client.services.panelService?.restoreAll().catch(() => 0);
     if (restored) logger.info("bootstrap", `restored ${restored} persistent panel(s)`);
+
+    // Auto-close ticket checker — polls every 60s
+    setInterval(() => {
+        client.services.tickets?.checkAutoClose().catch(e => {
+            logger.error("tickets", `auto-close check failed: ${e.message}`);
+        });
+    }, 60_000);
 }
 
 main().catch(e => { logger.error("bootstrap", "fatal", e); process.exit(1); });

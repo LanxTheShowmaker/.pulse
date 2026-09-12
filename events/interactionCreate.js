@@ -24,18 +24,25 @@ export default {
             if (interaction.isMessageComponent() || interaction.isModalSubmit()) {
                 const id = interaction.customId;
 
-                // Exact match
+                // 1. Exact match
                 if (client.components.has(id)) {
                     await client.components.get(id)(interaction, client);
                     return;
                 }
 
-                // Prefix match (e.g. "ticket:close:123" matches "ticket:close:")
+                // 2. Prefix match — longest prefix first to avoid conflicts
+                let bestMatch = null;
+                let bestLen = 0;
                 for (const [key, handler] of client.components) {
-                    if (key.endsWith(":") && id.startsWith(key)) {
-                        await handler(interaction, client);
-                        return;
+                    if (key.endsWith(":") && id.startsWith(key) && key.length > bestLen) {
+                        bestMatch = handler;
+                        bestLen = key.length;
                     }
+                }
+
+                if (bestMatch) {
+                    await bestMatch(interaction, client);
+                    return;
                 }
 
                 logger.warn("interaction", `no handler for component: ${id}`);

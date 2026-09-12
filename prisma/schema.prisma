@@ -158,6 +158,8 @@ model TicketType {
   maxOpen          Int     @default(1)
   allowClaim       Boolean @default(true)
   questions        String  @default("[]")
+  formQuestions    String  @default("[]")
+  autoCloseMinutes Int     @default(30)
 
   @@unique([guildId, key])
   @@index([guildId, panelType])
@@ -173,6 +175,8 @@ model Ticket {
   status        String    @default("OPEN")
   priority      String    @default("NORMAL")
   claimedById   String?
+  assignedById  String?
+  assignedAt    DateTime?
   closedById    String?
   lastMessageAt DateTime?
   createdAt     DateTime  @default(now())
@@ -477,6 +481,43 @@ model TicketRating {
   createdAt DateTime @default(now())
 
   @@unique([guildId, channelId, raterId])
+  @@index([guildId])
+}
+
+model TicketNote {
+  id        String   @id @default(uuid())
+  guildId   String
+  ticketId  String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([guildId, ticketId])
+  @@index([guildId])
+}
+
+model TicketHistory {
+  id        String   @id @default(uuid())
+  guildId   String
+  ticketId  String
+  event     String
+  actorId   String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  @@index([guildId, ticketId])
+  @@index([guildId, event])
+}
+
+model TicketFormResponse {
+  id        String   @id @default(uuid())
+  guildId   String
+  ticketId  String
+  questions String
+  answers   String
+  createdAt DateTime @default(now())
+
+  @@unique([guildId, ticketId])
   @@index([guildId])
 }
 

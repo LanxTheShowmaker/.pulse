@@ -31,16 +31,15 @@ export function confirmRow(yesId, noId) {
 export function modal(title, customId, inputs) {
     const m = new ModalBuilder().setTitle(title).setCustomId(customId);
     for (const inp of inputs) {
-        m.addComponents(row(
-            new TextInputBuilder()
-                .setLabel(inp.label)
-                .setCustomId(inp.id)
-                .setStyle(inp.style ?? TextInputStyle.Short)
-                .setRequired(inp.required ?? true)
-                .setPlaceholder(inp.placeholder ?? "")
-                .setValue(inp.value ?? "")
-                .setMaxLength(inp.maxLength ?? 1000),
-        ));
+        const textInput = new TextInputBuilder()
+            .setLabel(inp.label)
+            .setCustomId(inp.id)
+            .setStyle(inp.style ?? TextInputStyle.Short)
+            .setRequired(inp.required ?? true)
+            .setPlaceholder(inp.placeholder ?? "")
+            .setMaxLength(inp.maxLength ?? 1000);
+        if (inp.value != null) textInput.setValue(String(inp.value));
+        m.addComponents(row(textInput));
     }
     return m;
 }
