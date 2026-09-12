@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { GatewayIntentBits, Partials } from "discord.js";
 import { PulseClient } from "./client.js";
-import { loadCommands, loadEvents } from "./registry.js";
+import { loadCommands, loadEvents, loadHandlers } from "./registry.js";
 import { createServices, initDatabase, shutdownServices } from "./services.js";
 import { logger } from "./logger.js";
 
@@ -32,16 +32,9 @@ async function main() {
 
     client.commands = await loadCommands();
 
-    for (const [name, cmd] of client.commands) {
-        if (cmd.components) {
-            for (const [id, handler] of Object.entries(cmd.components)) {
-                if (client.components.has(id)) {
-                    logger.warn("bootstrap", `duplicate component: ${id} (from ${name})`);
-                    continue;
-                }
-                client.components.set(id, handler);
-            }
-        }
+    const handlers = await loadHandlers();
+    for (const [id, handler] of handlers) {
+        client.components.set(id, handler);
     }
 
     const events = await loadEvents();

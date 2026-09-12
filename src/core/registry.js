@@ -65,3 +65,38 @@ export async function loadEvents() {
     logger.info("registry", `events loaded: ${events.length}, failed: ${failed}`);
     return events;
 }
+
+export async function loadHandlers() {
+    const handlers = new Map();
+    const dir = join(import.meta.dirname, "..", "handlers");
+    let failed = 0;
+
+    let files;
+    try { files = await walk(dir); } catch { return handlers; }
+
+    for (const file of files) {
+        try {
+            const mod = await import(pathToFileURL(file).href);
+            const exported = mod.default ?? mod;
+
+            // Support both: default export is a Map, or export { handlers: [...] }
+            if (exported instanceof Map) {
+                for (const [key, val] of exported) handlers.set(key, val);
+            } else if (Array.isArray(exported)) {
+                for (const h of exported) {
+                    if (h.id && h.execute) handlers.set(h.id, h.execute);
+                }
+            } else if (typeof exported === "object") {
+                for (const [key, val] of Object.entries(exported)) {
+                    if (typeof val === "function") handlers.set(key, val);
+                }
+            }
+        } catch (e) {
+            logger.error("registry", `handler failed: ${file}`, e.message);
+            failed++;
+        }
+    }
+
+    logger.info("registry", `handlers loaded: ${handlers.size}, failed: ${failed}`);
+    return handlers;
+}

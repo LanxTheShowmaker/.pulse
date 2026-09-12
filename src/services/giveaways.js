@@ -27,7 +27,6 @@ export class GiveawayService {
         this._dirty = false;
         this._saveInterval = null;
         this.load();
-        this.registerHandlers();
         this._tickInterval = setInterval(() => this.tick().catch(e => logger.error("giveaway", "tick failed", e)), 15_000);
         this._saveInterval = setInterval(() => this.save().catch(() => {}), 30_000);
         if (this._tickInterval.unref) this._tickInterval.unref();
@@ -64,36 +63,6 @@ export class GiveawayService {
 
     markDirty() {
         this._dirty = true;
-    }
-
-    registerHandlers() {
-        const c = this.client.components;
-
-        c.set("giveaway:enter:", async (i) => {
-            const giveawayId = i.customId.split(":")[2];
-            if (!giveawayId) return i.reply({ embeds: [this.errorEmbed("Invalid giveaway")], flags: MessageFlags.Ephemeral }).catch(() => {});
-
-            const g = this.giveaways[giveawayId];
-            if (!g) return i.reply({ embeds: [this.errorEmbed("Giveaway not found")], flags: MessageFlags.Ephemeral }).catch(() => {});
-            if (g.status !== "ACTIVE") return i.reply({ embeds: [this.errorEmbed("This giveaway has ended")], flags: MessageFlags.Ephemeral }).catch(() => {});
-
-            if (!g.entries) g.entries = [];
-            const idx = g.entries.indexOf(i.user.id);
-
-            if (idx >= 0) {
-                g.entries.splice(idx, 1);
-                g.entryCount = g.entries.length;
-                this.markDirty();
-                await i.reply({ embeds: [this.infoEmbed("Left", `Removed from **${g.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
-            } else {
-                g.entries.push(i.user.id);
-                g.entryCount = g.entries.length;
-                this.markDirty();
-                await i.reply({ embeds: [this.successEmbed("Entered", `You're entered to win **${g.prize}**.`)], flags: MessageFlags.Ephemeral }).catch(() => {});
-            }
-
-            await this.refreshMessage(g).catch(() => {});
-        });
     }
 
     async create(guild, channel, host, prize, winners, endsAt) {
