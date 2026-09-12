@@ -17,6 +17,7 @@ import { ReactionRoleService } from "../services/reactionRoles.js";
 import { BrandingService } from "../services/branding.js";
 import { DiagnosticsService } from "../services/diagnostics.js";
 import { AchievementService } from "../services/achievements.js";
+import { AppealService } from "../services/appeals.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
@@ -40,9 +41,10 @@ export function createServices(client) {
     const branding = new BrandingService(prisma, client);
     const diagnostics = new DiagnosticsService(prisma, client);
     const achievements = new AchievementService(prisma, client);
+    const appeals = new AppealService(prisma, client, logging);
 
     client.prisma = prisma;
-    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements, appeals };
 }
 
 export async function shutdownServices(services) {
