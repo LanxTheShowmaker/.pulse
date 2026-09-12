@@ -20,6 +20,7 @@ import { AchievementService } from "../services/achievements.js";
 import { AppealService } from "../services/appeals.js";
 import { PanelService } from "../services/panels.js";
 import { BackupService } from "../services/backups.js";
+import { TriageEngine } from "../services/triage.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
@@ -46,9 +47,10 @@ export function createServices(client) {
     const appeals = new AppealService(prisma, client, logging);
     const panelService = new PanelService(prisma, client);
     const backups = new BackupService(prisma, client, settings);
+    const triage = new TriageEngine();
 
     client.prisma = prisma;
-    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements, appeals, panelService, backups };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements, appeals, panelService, backups, triage };
 }
 
 export async function shutdownServices(services) {
