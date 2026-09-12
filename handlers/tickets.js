@@ -423,7 +423,7 @@ export default {
         await client.services.prisma.ticketType.update({
             where: { id: typeId },
             data: {
-                maxOpen: maxOpen || null,
+                maxOpen: maxOpen || undefined,
                 cooldown: cooldownMin ? cooldownMin * 60_000 : 0,
                 autoCloseMinutes: autoCloseMin || 30,
             },
