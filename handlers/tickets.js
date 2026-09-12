@@ -89,26 +89,22 @@ function buildWorkspaceButtons(ticket) {
     const canStatus = !["CLOSED"].includes(ticket.status);
     const canClose = !["CLOSED"].includes(ticket.status);
 
-    const rows = [];
-
-    rows.push(row(
-        button("Claim", `ticket:ws:claim:${ticket.id}`, ButtonStyle.Success, !canClaim),
-        button("Close", `ticket:ws:close:${ticket.id}`, ButtonStyle.Danger, !canClose),
-    ));
-
-    rows.push(row(
-        button("Status", `ticket:ws:status:${ticket.id}`, ButtonStyle.Primary, !canStatus),
-        button("Priority", `ticket:ws:priority:${ticket.id}`, ButtonStyle.Primary),
-        button("Note", `ticket:ws:note:${ticket.id}`, ButtonStyle.Secondary),
-    ));
-
-    rows.push(row(
-        button("Add User", `ticket:ws:adduser:${ticket.id}`, ButtonStyle.Secondary),
-        button("Remove User", `ticket:ws:rmuser:${ticket.id}`, ButtonStyle.Secondary),
-        button("Transcript", `ticket:ws:transcript:${ticket.id}`, ButtonStyle.Secondary),
-    ));
-
-    return rows;
+    return [
+        row(
+            button("Claim", `ticket:ws:claim:${ticket.id}`, ButtonStyle.Success, !canClaim),
+            button("Close", `ticket:ws:close:${ticket.id}`, ButtonStyle.Danger, !canClose),
+        ),
+        row(
+            button("Status", `ticket:ws:status:${ticket.id}`, ButtonStyle.Primary, !canStatus),
+            button("Priority", `ticket:ws:priority:${ticket.id}`, ButtonStyle.Primary),
+            button("Note", `ticket:ws:note:${ticket.id}`, ButtonStyle.Secondary),
+        ),
+        row(
+            button("Add User", `ticket:ws:adduser:${ticket.id}`, ButtonStyle.Secondary),
+            button("Remove User", `ticket:ws:rmuser:${ticket.id}`, ButtonStyle.Secondary),
+            button("Transcript", `ticket:ws:transcript:${ticket.id}`, ButtonStyle.Secondary),
+        ),
+    ];
 }
 
 function buildPanelEmbed(types) {
@@ -141,15 +137,9 @@ function buildPanelEmbed(types) {
     return { embed, components };
 }
 
-async function hasStaffPermission(interaction) {
-    const settings = await interaction.client.services.settings.get(interaction.guild.id);
-    const staffRoleIds = JSON.parse(settings?.staffRoleIds || "[]");
-    const modRoleIds = JSON.parse(settings?.moderatorRoleIds || "[]");
-    const allStaff = [...new Set([...staffRoleIds, ...modRoleIds])];
-
-    if (allStaff.some(r => interaction.member.roles.cache.has(r))) return true;
-    if (interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) return true;
-    return false;
+function safeInt(val, fallback) {
+    const n = parseInt(val);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
 // ─── HANDLERS ─────────────────────────────────────────────
@@ -178,7 +168,7 @@ export default {
     "ticket:cfg:category:sel": async (i, client) => {
         const cat = i.guild.channels.cache.get(i.values[0]);
         await client.services.settings.patch(i.guild.id, { ticketCategoryId: i.values[0] });
-        await i.update({ embeds: [success("Category Set", `Tickets will now be created in **${cat.name}**`)], components: [] });
+        await i.update({ embeds: [success("Category Set", `Tickets will now be created in **${cat?.name ?? "unknown"}**`)], components: [] });
     },
 
     // ═══════════════════════════════════════
@@ -253,33 +243,49 @@ export default {
     },
 
     "ticket:cfg:types:add:submit": async (i, client) => {
-        const name = i.components.getTextInputValue("name");
-        const emoji = i.components.getTextInputValue("emoji") || null;
-        const description = i.components.getTextInputValue("description") || null;
-        const channelPrefix = i.components.getTextInputValue("channel_prefix") || "ticket";
-        const welcomeMessage = i.components.getTextInputValue("welcome") || null;
+        try {
+            const name = (i.components.getTextInputValue("name") || "").trim();
+            if (!name) {
+                return i.reply({ embeds: [error("Invalid", "Display name is required.")], flags: MessageFlags.Ephemeral });
+            }
 
-        const existing = await client.services.prisma.ticketType.findFirst({
-            where: { guildId: i.guild.id, key: name.toLowerCase().replace(/\s+/g, "-") },
-        });
-        if (existing) {
-            return i.reply({ embeds: [error("Duplicate", "A type with this name already exists.")], flags: MessageFlags.Ephemeral });
+            const emoji = (i.components.getTextInputValue("emoji") || "").trim() || null;
+            const description = (i.components.getTextInputValue("description") || "").trim() || null;
+            const channelPrefix = (i.components.getTextInputValue("channel_prefix") || "").trim() || "ticket";
+            const welcomeMessage = (i.components.getTextInputValue("welcome") || "").trim() || null;
+
+            const key = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+            if (!key) {
+                return i.reply({ embeds: [error("Invalid", "Name must contain at least one letter or number.")], flags: MessageFlags.Ephemeral });
+            }
+
+            const existing = await client.services.prisma.ticketType.findFirst({
+                where: { guildId: i.guild.id, key },
+            });
+            if (existing) {
+                return i.reply({ embeds: [error("Duplicate", "A type with this name already exists.")], flags: MessageFlags.Ephemeral });
+            }
+
+            await client.services.prisma.ticketType.create({
+                data: {
+                    guildId: i.guild.id,
+                    key,
+                    displayName: name,
+                    emoji,
+                    description,
+                    channelPrefix,
+                    panelType: "default",
+                    welcomeMessage,
+                },
+            });
+
+            await i.reply({ embeds: [success("Type Added", `**${name}** created. Click it to edit advanced settings.`)], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            const msg = e.message || "Unknown error";
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", `Could not create type: ${msg}`)], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
-
-        await client.services.prisma.ticketType.create({
-            data: {
-                guildId: i.guild.id,
-                key: name.toLowerCase().replace(/\s+/g, "-"),
-                displayName: name,
-                emoji,
-                description,
-                channelPrefix,
-                panelType: "default",
-                welcomeMessage,
-            },
-        });
-
-        await i.reply({ embeds: [success("Type Added", `**${name}** created. Click it to edit advanced settings.`)], flags: MessageFlags.Ephemeral });
     },
 
     // ═══════════════════════════════════════
@@ -303,9 +309,9 @@ export default {
                 stat("Category", type.categoryId ? `<#${type.categoryId}>` : "Default"),
                 stat("Channel Prefix", type.channelPrefix || "ticket"),
                 stat("Cooldown", type.cooldown ? `${type.cooldown / 60_000}m` : "None"),
-                stat("Max Open", type.maxOpen || "Unlimited"),
+                stat("Max Open", type.maxOpen === 0 ? "Unlimited" : String(type.maxOpen)),
                 stat("Staff Roles", staffRoles.length ? staffRoles.map(r => `<@&${r}>`).join(", ") : "None"),
-                stat("Form Questions", formQuestions.length || "None"),
+                stat("Form Questions", formQuestions.length ? String(formQuestions.length) : "None"),
                 stat("Auto-Close", `${type.autoCloseMinutes || 30}m`),
                 stat("Claim", type.allowClaim ? "On" : "Off"),
             )
@@ -350,18 +356,32 @@ export default {
     },
 
     "ticket:cfg:types:sub:info:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: {
-                displayName: i.components.getTextInputValue("name"),
-                emoji: i.components.getTextInputValue("emoji") || null,
-                description: i.components.getTextInputValue("description") || null,
-                channelPrefix: i.components.getTextInputValue("channel_prefix") || "ticket",
-                categoryId: i.components.getTextInputValue("category") || null,
-            },
-        });
-        await i.reply({ embeds: [success("Updated", "Type info updated.")], flags: MessageFlags.Ephemeral });
+        try {
+            const typeId = i.customId.split(":")[5];
+            const name = (i.components.getTextInputValue("name") || "").trim();
+            if (!name) {
+                return i.reply({ embeds: [error("Invalid", "Display name is required.")], flags: MessageFlags.Ephemeral });
+            }
+
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
+
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: {
+                    displayName: name,
+                    emoji: (i.components.getTextInputValue("emoji") || "").trim() || null,
+                    description: (i.components.getTextInputValue("description") || "").trim() || null,
+                    channelPrefix: (i.components.getTextInputValue("channel_prefix") || "").trim() || "ticket",
+                    categoryId: (i.components.getTextInputValue("category") || "").trim() || null,
+                },
+            });
+            await i.reply({ embeds: [success("Updated", "Type info updated.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ─── EDIT: ROLES ─────────────────────────
@@ -382,21 +402,30 @@ export default {
     },
 
     "ticket:cfg:types:sub:roles:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        const staffRaw = i.components.getTextInputValue("staff_roles") || "";
-        const modRaw = i.components.getTextInputValue("mod_roles") || "";
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-        const staffRoles = staffRaw.split(",").map(s => s.trim()).filter(Boolean);
-        const modRoles = modRaw.split(",").map(s => s.trim()).filter(Boolean);
+            const staffRaw = i.components.getTextInputValue("staff_roles") || "";
+            const modRaw = i.components.getTextInputValue("mod_roles") || "";
 
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: {
-                staffRoleIds: JSON.stringify(staffRoles),
-                moderatorRoleIds: JSON.stringify(modRoles),
-            },
-        });
-        await i.reply({ embeds: [success("Updated", "Roles updated.")], flags: MessageFlags.Ephemeral });
+            const staffRoles = staffRaw.split(",").map(s => s.trim()).filter(Boolean);
+            const modRoles = modRaw.split(",").map(s => s.trim()).filter(Boolean);
+
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: {
+                    staffRoleIds: JSON.stringify(staffRoles),
+                    moderatorRoleIds: JSON.stringify(modRoles),
+                },
+            });
+            await i.reply({ embeds: [success("Updated", "Roles updated.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ─── EDIT: LIMITS ────────────────────────
@@ -407,28 +436,37 @@ export default {
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const m = modal("Edit Limits", `ticket:cfg:types:sub:limits:${typeId}`, [
-            { id: "max_open", label: "Max Open (0=unlimited)", required: false, value: String(type.maxOpen || 0) },
-            { id: "cooldown", label: "Cooldown (minutes, 0=none)", required: false, value: String((type.cooldown || 0) / 60_000) },
+            { id: "max_open", label: "Max Open (0=unlimited)", required: false, value: String(type.maxOpen) },
+            { id: "cooldown", label: "Cooldown (minutes, 0=none)", required: false, value: String(Math.round((type.cooldown || 0) / 60_000)) },
             { id: "auto_close", label: "Auto-close (minutes, 0=off)", required: false, value: String(type.autoCloseMinutes || 30) },
         ]);
         await i.showModal(m);
     },
 
     "ticket:cfg:types:sub:limits:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        const maxOpen = parseInt(i.components.getTextInputValue("max_open")) || 0;
-        const cooldownMin = parseInt(i.components.getTextInputValue("cooldown")) || 0;
-        const autoCloseMin = parseInt(i.components.getTextInputValue("auto_close")) || 0;
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: {
-                maxOpen: maxOpen || undefined,
-                cooldown: cooldownMin ? cooldownMin * 60_000 : 0,
-                autoCloseMinutes: autoCloseMin || 30,
-            },
-        });
-        await i.reply({ embeds: [success("Updated", "Limits updated.")], flags: MessageFlags.Ephemeral });
+            const maxOpen = safeInt(i.components.getTextInputValue("max_open"), 0);
+            const cooldownMin = safeInt(i.components.getTextInputValue("cooldown"), 0);
+            const autoCloseMin = safeInt(i.components.getTextInputValue("auto_close"), 30);
+
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: {
+                    maxOpen,
+                    cooldown: cooldownMin * 60_000,
+                    autoCloseMinutes: autoCloseMin,
+                },
+            });
+            await i.reply({ embeds: [success("Updated", "Limits updated.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ─── EDIT: MESSAGES ──────────────────────
@@ -446,15 +484,24 @@ export default {
     },
 
     "ticket:cfg:types:sub:msgs:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: {
-                welcomeMessage: i.components.getTextInputValue("welcome") || null,
-                instructions: i.components.getTextInputValue("instructions") || null,
-            },
-        });
-        await i.reply({ embeds: [success("Updated", "Messages updated.")], flags: MessageFlags.Ephemeral });
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
+
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: {
+                    welcomeMessage: (i.components.getTextInputValue("welcome") || "").trim() || null,
+                    instructions: (i.components.getTextInputValue("instructions") || "").trim() || null,
+                },
+            });
+            await i.reply({ embeds: [success("Updated", "Messages updated.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ─── EDIT: FORM ──────────────────────────
@@ -498,8 +545,6 @@ export default {
         const q1 = questions[0];
         const q2 = questions[1];
         const q3 = questions[2];
-        const q4 = questions[3];
-        const q5 = questions[4];
 
         const m = modal("Edit Form Questions", `ticket:cfg:types:sub:form:${typeId}`, [
             { id: "q1", label: "Question 1 (blank to remove)", required: false, value: q1?.label || "", placeholder: "e.g. What do you need?", style: TextInputStyle.Paragraph },
@@ -512,51 +557,74 @@ export default {
     },
 
     "ticket:cfg:types:sub:form:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-        const questions = [];
-        const q1Label = i.components.getTextInputValue("q1");
-        const q2Label = i.components.getTextInputValue("q2");
-        const q3Label = i.components.getTextInputValue("q3");
-        const q1Req = i.components.getTextInputValue("q1_req").toLowerCase() === "yes";
-        const q2Req = i.components.getTextInputValue("q2_req").toLowerCase() === "yes";
+            const questions = [];
+            const q1Label = (i.components.getTextInputValue("q1") || "").trim();
+            const q2Label = (i.components.getTextInputValue("q2") || "").trim();
+            const q3Label = (i.components.getTextInputValue("q3") || "").trim();
+            const q1Req = (i.components.getTextInputValue("q1_req") || "").toLowerCase() === "yes";
+            const q2Req = (i.components.getTextInputValue("q2_req") || "").toLowerCase() === "yes";
 
-        if (q1Label) questions.push({ id: "q1", label: q1Label, style: "paragraph", required: q1Req });
-        if (q2Label) questions.push({ id: "q2", label: q2Label, style: "short", required: q2Req });
-        if (q3Label) questions.push({ id: "q3", label: q3Label, style: "short", required: false });
+            if (q1Label) questions.push({ id: "q1", label: q1Label, style: "paragraph", required: q1Req });
+            if (q2Label) questions.push({ id: "q2", label: q2Label, style: "short", required: q2Req });
+            if (q3Label) questions.push({ id: "q3", label: q3Label, style: "short", required: false });
 
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: { formQuestions: JSON.stringify(questions) },
-        });
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: { formQuestions: JSON.stringify(questions) },
+            });
 
-        const count = questions.length;
-        await i.reply({ embeds: [success("Form Updated", `${count} question${count !== 1 ? "s" : ""} configured.`)], flags: MessageFlags.Ephemeral });
+            const count = questions.length;
+            await i.reply({ embeds: [success("Form Updated", `${count} question${count !== 1 ? "s" : ""} configured.`)], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     "ticket:cfg:types:form:clear:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: { formQuestions: "[]" },
-        });
-        await i.reply({ embeds: [success("Form Cleared", "All form questions removed.")], flags: MessageFlags.Ephemeral });
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
+
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: { formQuestions: "[]" },
+            });
+            await i.reply({ embeds: [success("Form Cleared", "All form questions removed.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Update failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ─── TOGGLE / DELETE ─────────────────────
 
     "ticket:cfg:types:toggle:": async (i, client) => {
-        const typeId = i.customId.split(":")[4];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
-        if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
+        try {
+            const typeId = i.customId.split(":")[4];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-        await client.services.prisma.ticketType.update({
-            where: { id: typeId },
-            data: { enabled: !type.enabled },
-        });
+            await client.services.prisma.ticketType.update({
+                where: { id: typeId },
+                data: { enabled: !type.enabled },
+            });
 
-        const status = type.enabled ? "disabled" : "enabled";
-        await i.reply({ embeds: [success("Toggled", `**${type.displayName}** is now ${status}.`)], flags: MessageFlags.Ephemeral });
+            const status = type.enabled ? "disabled" : "enabled";
+            await i.reply({ embeds: [success("Toggled", `**${type.displayName}** is now ${status}.`)], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Toggle failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     "ticket:cfg:types:rm:": async (i, client) => {
@@ -575,10 +643,16 @@ export default {
     },
 
     "ticket:cfg:types:rm:confirm:": async (i, client) => {
-        const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
-        await client.services.prisma.ticketType.delete({ where: { id: typeId } });
-        await i.update({ embeds: [success("Removed", `**${type.displayName}** deleted.`)], components: [] });
+        try {
+            const typeId = i.customId.split(":")[5];
+            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            if (!type) return i.update({ embeds: [error("Not Found", "Type not found.")], components: [] });
+
+            await client.services.prisma.ticketType.delete({ where: { id: typeId } });
+            await i.update({ embeds: [success("Removed", `**${type.displayName}** deleted.`)], components: [] });
+        } catch (e) {
+            await i.update({ embeds: [error("Failed", e.message || "Delete failed")], components: [] }).catch(() => {});
+        }
     },
 
     "ticket:cfg:types:cancel": async (i) => {
@@ -621,21 +695,25 @@ export default {
     },
 
     "ticket:cfg:panel:ch": async (i, client) => {
-        const channelId = i.values[0];
-        const channel = i.guild.channels.cache.get(channelId);
+        try {
+            const channelId = i.values[0];
+            const channel = i.guild.channels.cache.get(channelId);
 
-        const types = await client.services.prisma.ticketType.findMany({
-            where: { guildId: i.guild.id, enabled: true },
-        });
+            const types = await client.services.prisma.ticketType.findMany({
+                where: { guildId: i.guild.id, enabled: true },
+            });
 
-        if (!types.length) {
-            return i.update({ embeds: [error("No Types", "Create and enable at least one ticket type first.")], components: [] });
+            if (!types.length) {
+                return i.update({ embeds: [error("No Types", "Create and enable at least one ticket type first.")], components: [] });
+            }
+
+            const { embed, components } = buildPanelEmbed(types);
+
+            await channel.send({ embeds: [embed], components }).catch(() => {});
+            await i.update({ embeds: [success("Panel Deployed", `Ticket panel sent to <#${channelId}>`)], components: [] });
+        } catch (e) {
+            await i.update({ embeds: [error("Failed", e.message || "Deploy failed")], components: [] }).catch(() => {});
         }
-
-        const { embed, components } = buildPanelEmbed(types);
-
-        await channel.send({ embeds: [embed], components }).catch(() => {});
-        await i.update({ embeds: [success("Panel Deployed", `Ticket panel sent to <#${channelId}>`)], components: [] });
     },
 
     // ═══════════════════════════════════════
@@ -678,109 +756,117 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:open:": async (i, client) => {
-        const typeId = i.customId.split(":")[2];
-        const prisma = client.services.prisma;
-        const tickets = client.services.tickets;
+        try {
+            const typeId = i.customId.split(":")[2];
+            const prisma = client.services.prisma;
+            const tickets = client.services.tickets;
 
-        let type = null;
-        if (typeId !== "default") {
-            type = await prisma.ticketType.findUnique({ where: { id: typeId } });
-        }
-
-        // Limits check
-        if (type?.maxOpen) {
-            const openCount = await tickets.countOpenByType(i.guild.id, type.id);
-            if (openCount >= type.maxOpen) {
-                return i.reply({ embeds: [error("Limit Reached", `Max **${type.maxOpen}** open tickets for this type.`)], flags: MessageFlags.Ephemeral });
+            let type = null;
+            if (typeId !== "default") {
+                type = await prisma.ticketType.findUnique({ where: { id: typeId } });
             }
-        }
 
-        // Cooldown check
-        if (type?.cooldown) {
-            const lastClosed = await prisma.ticket.findFirst({
-                where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
-                orderBy: { closedAt: "desc" },
-            });
-            if (lastClosed?.closedAt) {
-                const elapsed = Date.now() - lastClosed.closedAt.getTime();
-                if (elapsed < type.cooldown) {
-                    const remaining = Math.ceil((type.cooldown - elapsed) / 60_000);
-                    return i.reply({ embeds: [error("Cooldown", `Wait **${remaining}m** before opening another ticket of this type.`)], flags: MessageFlags.Ephemeral });
+            // Limits check
+            if (type?.maxOpen && type.maxOpen > 0) {
+                const openCount = await tickets.countOpenByType(i.guild.id, type.id);
+                if (openCount >= type.maxOpen) {
+                    return i.reply({ embeds: [error("Limit Reached", `Max **${type.maxOpen}** open tickets for this type.`)], flags: MessageFlags.Ephemeral });
                 }
             }
-        }
 
-        // Existing ticket check
-        const existing = await tickets.getOpenByUser(i.guild.id, i.user.id);
-        if (existing) {
-            return i.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
-        }
+            // Cooldown check
+            if (type?.cooldown && type.cooldown > 0) {
+                const lastClosed = await prisma.ticket.findFirst({
+                    where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
+                    orderBy: { closedAt: "desc" },
+                });
+                if (lastClosed?.closedAt) {
+                    const elapsed = Date.now() - lastClosed.closedAt.getTime();
+                    if (elapsed < type.cooldown) {
+                        const remaining = Math.ceil((type.cooldown - elapsed) / 60_000);
+                        return i.reply({ embeds: [error("Cooldown", `Wait **${remaining}m** before opening another ticket of this type.`)], flags: MessageFlags.Ephemeral });
+                    }
+                }
+            }
 
-        // Check if type has form questions
-        const formQuestions = type ? JSON.parse(type.formQuestions || "[]") : [];
-        if (formQuestions.length > 0) {
-            const inputs = formQuestions.slice(0, 5).map(q => ({
-                id: q.id,
-                label: q.label,
-                required: q.required ?? true,
-                style: q.style === "paragraph" ? TextInputStyle.Paragraph : TextInputStyle.Short,
-                placeholder: q.placeholder || "",
-            }));
-            const m = modal(`${type.displayName} — Form`, `ticket:open:form:${typeId}`, inputs);
-            return i.showModal(m);
-        }
+            // Existing ticket check
+            const existing = await tickets.getOpenByUser(i.guild.id, i.user.id);
+            if (existing) {
+                return i.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
+            }
 
-        // No form — create ticket directly
-        await i.deferReply({ flags: MessageFlags.Ephemeral });
+            // Check if type has form questions
+            const formQuestions = type ? JSON.parse(type.formQuestions || "[]") : [];
+            if (formQuestions.length > 0) {
+                const inputs = formQuestions.slice(0, 5).map(q => ({
+                    id: q.id,
+                    label: q.label.slice(0, 45),
+                    required: q.required ?? true,
+                    style: q.style === "paragraph" ? TextInputStyle.Paragraph : TextInputStyle.Short,
+                    placeholder: (q.placeholder || "").slice(0, 100),
+                }));
+                const m = modal(`${type.displayName} — Form`, `ticket:open:form:${typeId}`, inputs);
+                return i.showModal(m);
+            }
 
-        const config = await client.services.settings.get(i.guild.id);
-        const parentId = type?.categoryId || config.ticketCategoryId || null;
+            // No form — create ticket directly
+            await i.deferReply({ flags: MessageFlags.Ephemeral });
 
-        const channel = await i.guild.channels.create({
-            name: `${type?.channelPrefix || "ticket"}-${i.user.username}`,
-            type: ChannelType.GuildText,
-            parent: parentId,
-        });
+            const config = await client.services.settings.get(i.guild.id);
+            const parentId = type?.categoryId || config?.ticketCategoryId || null;
 
-        await tickets.applyPermissions(channel, i.guild, i.user, type);
-        const ticket = await tickets.create(i.guild, channel, i.user, type);
+            const channel = await i.guild.channels.create({
+                name: `${type?.channelPrefix || "ticket"}-${i.user.username}`.slice(0, 100),
+                type: ChannelType.GuildText,
+                parent: parentId,
+            }).catch(e => {
+                throw new Error(`Could not create channel: ${e.message}`);
+            });
 
-        const welcome = type?.welcomeMessage || "A staff member will be with you shortly.";
+            await tickets.applyPermissions(channel, i.guild, i.user, type);
+            const ticket = await tickets.create(i.guild, channel, i.user, type);
 
-        const embed = new EmbedBuilder()
-            .setColor(Theme.ticket)
-            .setTitle(type?.displayName || "Support Ticket")
-            .setDescription(welcome)
-            .addFields(stat("Ticket", `\#${ticket.id.slice(0, 8)}`))
-            .setFooter({ text: Brand.footer })
-            .setTimestamp();
+            const welcome = type?.welcomeMessage || "A staff member will be with you shortly.";
 
-        if (type?.instructions) {
-            embed.addFields({ name: "Staff Instructions", value: type.instructions, inline: false });
-        }
+            const embed = new EmbedBuilder()
+                .setColor(Theme.ticket)
+                .setTitle(type?.displayName || "Support Ticket")
+                .setDescription(welcome)
+                .addFields(stat("Ticket", `#${ticket.id.slice(0, 8)}`))
+                .setFooter({ text: Brand.footer })
+                .setTimestamp();
 
-        // Send workspace embed for staff
-        const workspaceEmbed = buildWorkspaceEmbed(ticket, type);
-        const workspaceButtons = buildWorkspaceButtons(ticket);
+            if (type?.instructions) {
+                embed.addFields({ name: "Staff Instructions", value: type.instructions, inline: false });
+            }
 
-        await channel.send({ embeds: [embed] }).catch(() => {});
-        await channel.send({ embeds: [workspaceEmbed], components: workspaceButtons }).catch(() => {});
+            const workspaceEmbed = buildWorkspaceEmbed(ticket, type);
+            const workspaceButtons = buildWorkspaceButtons(ticket);
 
-        // Log to log channel
-        if (config?.ticketLogChannelId) {
-            const logCh = i.guild.channels.cache.get(config.ticketLogChannelId);
-            if (logCh?.isTextBased()) {
-                const logEmbed = new EmbedBuilder()
-                    .setColor(Theme.info)
-                    .setTitle("Ticket Opened")
-                    .setDescription(`<@${i.user.id}> opened **${type?.displayName || "General"}** in <#${channel.id}>`)
-                    .setFooter({ text: Brand.footer })
-                    .setTimestamp();
-                await logCh.send({ embeds: [logEmbed] }).catch(() => {});
+            await channel.send({ embeds: [embed] }).catch(() => {});
+            await channel.send({ embeds: [workspaceEmbed], components: workspaceButtons }).catch(() => {});
+
+            if (config?.ticketLogChannelId) {
+                const logCh = i.guild.channels.cache.get(config.ticketLogChannelId);
+                if (logCh?.isTextBased()) {
+                    const logEmbed = new EmbedBuilder()
+                        .setColor(Theme.info)
+                        .setTitle("Ticket Opened")
+                        .setDescription(`<@${i.user.id}> opened **${type?.displayName || "General"}** in <#${channel.id}>`)
+                        .setFooter({ text: Brand.footer })
+                        .setTimestamp();
+                    await logCh.send({ embeds: [logEmbed] }).catch(() => {});
+                }
+            }
+
+            await i.editReply({ embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)] });
+        } catch (e) {
+            if (i.deferred) {
+                await i.editReply({ embeds: [error("Failed", e.message || "Could not create ticket")] }).catch(() => {});
+            } else if (!i.replied) {
+                await i.reply({ embeds: [error("Failed", e.message || "Could not create ticket")], flags: MessageFlags.Ephemeral }).catch(() => {});
             }
         }
-
-        await i.editReply({ embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)] });
     },
 
     // ═══════════════════════════════════════
@@ -788,90 +874,99 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:open:form:": async (i, client) => {
-        const typeId = i.customId.split(":")[3];
-        const prisma = client.services.prisma;
-        const tickets = client.services.tickets;
+        try {
+            const typeId = i.customId.split(":")[3];
+            const prisma = client.services.prisma;
+            const tickets = client.services.tickets;
 
-        let type = null;
-        if (typeId !== "default") {
-            type = await prisma.ticketType.findUnique({ where: { id: typeId } });
-        }
+            let type = null;
+            if (typeId !== "default") {
+                type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+            }
 
-        // Collect form answers
-        const formQuestions = type ? JSON.parse(type.formQuestions || "[]") : [];
-        const answers = {};
-        for (const q of formQuestions.slice(0, 5)) {
-            try {
-                answers[q.id] = i.components.getTextInputValue(q.id);
-            } catch {
-                answers[q.id] = "";
+            // Collect form answers
+            const formQuestions = type ? JSON.parse(type.formQuestions || "[]") : [];
+            const answers = {};
+            for (const q of formQuestions.slice(0, 5)) {
+                try {
+                    answers[q.id] = i.components.getTextInputValue(q.id);
+                } catch {
+                    answers[q.id] = "";
+                }
+            }
+
+            // Duplicate check
+            const existing = await tickets.getOpenByUser(i.guild.id, i.user.id);
+            if (existing) {
+                return i.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
+            }
+
+            await i.deferReply({ flags: MessageFlags.Ephemeral });
+
+            const config = await client.services.settings.get(i.guild.id);
+            const parentId = type?.categoryId || config?.ticketCategoryId || null;
+
+            const channel = await i.guild.channels.create({
+                name: `${type?.channelPrefix || "ticket"}-${i.user.username}`.slice(0, 100),
+                type: ChannelType.GuildText,
+                parent: parentId,
+            }).catch(e => {
+                throw new Error(`Could not create channel: ${e.message}`);
+            });
+
+            await tickets.applyPermissions(channel, i.guild, i.user, type);
+            const ticket = await tickets.create(i.guild, channel, i.user, type, answers);
+
+            const summaryLines = formQuestions.slice(0, 5).map(q => {
+                const answer = answers[q.id] || "*No answer*";
+                return `**${q.label}:** ${answer}`;
+            });
+
+            const welcome = type?.welcomeMessage || "A staff member will be with you shortly.";
+
+            const embed = new EmbedBuilder()
+                .setColor(Theme.ticket)
+                .setTitle(type?.displayName || "Support Ticket")
+                .setDescription(welcome)
+                .addFields(stat("Ticket", `#${ticket.id.slice(0, 8)}`))
+                .setFooter({ text: Brand.footer })
+                .setTimestamp();
+
+            if (summaryLines.length > 0) {
+                embed.addFields({ name: "Request Summary", value: summaryLines.join("\n"), inline: false });
+            }
+
+            if (type?.instructions) {
+                embed.addFields({ name: "Staff Instructions", value: type.instructions, inline: false });
+            }
+
+            const workspaceEmbed = buildWorkspaceEmbed(ticket, type);
+            const workspaceButtons = buildWorkspaceButtons(ticket);
+
+            await channel.send({ embeds: [embed] }).catch(() => {});
+            await channel.send({ embeds: [workspaceEmbed], components: workspaceButtons }).catch(() => {});
+
+            if (config?.ticketLogChannelId) {
+                const logCh = i.guild.channels.cache.get(config.ticketLogChannelId);
+                if (logCh?.isTextBased()) {
+                    const logEmbed = new EmbedBuilder()
+                        .setColor(Theme.info)
+                        .setTitle("Ticket Opened")
+                        .setDescription(`<@${i.user.id}> opened **${type?.displayName || "General"}** in <#${channel.id}>`)
+                        .setFooter({ text: Brand.footer })
+                        .setTimestamp();
+                    await logCh.send({ embeds: [logEmbed] }).catch(() => {});
+                }
+            }
+
+            await i.editReply({ embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)] });
+        } catch (e) {
+            if (i.deferred) {
+                await i.editReply({ embeds: [error("Failed", e.message || "Could not create ticket")] }).catch(() => {});
+            } else if (!i.replied) {
+                await i.reply({ embeds: [error("Failed", e.message || "Could not create ticket")], flags: MessageFlags.Ephemeral }).catch(() => {});
             }
         }
-
-        // Duplicate check (again, in case of race condition)
-        const existing = await tickets.getOpenByUser(i.guild.id, i.user.id);
-        if (existing) {
-            return i.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
-        }
-
-        await i.deferReply({ flags: MessageFlags.Ephemeral });
-
-        const config = await client.services.settings.get(i.guild.id);
-        const parentId = type?.categoryId || config.ticketCategoryId || null;
-
-        const channel = await i.guild.channels.create({
-            name: `${type?.channelPrefix || "ticket"}-${i.user.username}`,
-            type: ChannelType.GuildText,
-            parent: parentId,
-        });
-
-        await tickets.applyPermissions(channel, i.guild, i.user, type);
-        const ticket = await tickets.create(i.guild, channel, i.user, type, answers);
-
-        // Build request summary from form answers
-        const summaryLines = formQuestions.slice(0, 5).map(q => {
-            const answer = answers[q.id] || "*No answer*";
-            return `**${q.label}:** ${answer}`;
-        });
-
-        const welcome = type?.welcomeMessage || "A staff member will be with you shortly.";
-
-        const embed = new EmbedBuilder()
-            .setColor(Theme.ticket)
-            .setTitle(type?.displayName || "Support Ticket")
-            .setDescription(welcome)
-            .addFields(stat("Ticket", `\#${ticket.id.slice(0, 8)}`))
-            .setFooter({ text: Brand.footer })
-            .setTimestamp();
-
-        if (summaryLines.length > 0) {
-            embed.addFields({ name: "Request Summary", value: summaryLines.join("\n"), inline: false });
-        }
-
-        if (type?.instructions) {
-            embed.addFields({ name: "Staff Instructions", value: type.instructions, inline: false });
-        }
-
-        const workspaceEmbed = buildWorkspaceEmbed(ticket, type);
-        const workspaceButtons = buildWorkspaceButtons(ticket);
-
-        await channel.send({ embeds: [embed] }).catch(() => {});
-        await channel.send({ embeds: [workspaceEmbed], components: workspaceButtons }).catch(() => {});
-
-        if (config?.ticketLogChannelId) {
-            const logCh = i.guild.channels.cache.get(config.ticketLogChannelId);
-            if (logCh?.isTextBased()) {
-                const logEmbed = new EmbedBuilder()
-                    .setColor(Theme.info)
-                    .setTitle("Ticket Opened")
-                    .setDescription(`<@${i.user.id}> opened **${type?.displayName || "General"}** in <#${channel.id}>`)
-                    .setFooter({ text: Brand.footer })
-                    .setTimestamp();
-                await logCh.send({ embeds: [logEmbed] }).catch(() => {});
-            }
-        }
-
-        await i.editReply({ embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)] });
     },
 
     // ═══════════════════════════════════════
@@ -879,13 +974,114 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:open:select": async (i, client) => {
-        const typeId = i.values[0];
-        const prisma = client.services.prisma;
-        const type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+        try {
+            const typeId = i.values[0];
+            const prisma = client.services.prisma;
+            const tickets = client.services.tickets;
 
-        // Reuse the button handler logic
-        const fakeInteraction = { ...i, customId: `ticket:open:${typeId}` };
-        await this["ticket:open:"](fakeInteraction, client);
+            const type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+
+            // Limits check
+            if (type?.maxOpen && type.maxOpen > 0) {
+                const openCount = await tickets.countOpenByType(i.guild.id, type.id);
+                if (openCount >= type.maxOpen) {
+                    return i.reply({ embeds: [error("Limit Reached", `Max **${type.maxOpen}** open tickets for this type.`)], flags: MessageFlags.Ephemeral });
+                }
+            }
+
+            // Cooldown check
+            if (type?.cooldown && type.cooldown > 0) {
+                const lastClosed = await prisma.ticket.findFirst({
+                    where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
+                    orderBy: { closedAt: "desc" },
+                });
+                if (lastClosed?.closedAt) {
+                    const elapsed = Date.now() - lastClosed.closedAt.getTime();
+                    if (elapsed < type.cooldown) {
+                        const remaining = Math.ceil((type.cooldown - elapsed) / 60_000);
+                        return i.reply({ embeds: [error("Cooldown", `Wait **${remaining}m** before opening another ticket of this type.`)], flags: MessageFlags.Ephemeral });
+                    }
+                }
+            }
+
+            // Existing ticket check
+            const existing = await tickets.getOpenByUser(i.guild.id, i.user.id);
+            if (existing) {
+                return i.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
+            }
+
+            // Check if type has form questions
+            const formQuestions = type ? JSON.parse(type.formQuestions || "[]") : [];
+            if (formQuestions.length > 0) {
+                const inputs = formQuestions.slice(0, 5).map(q => ({
+                    id: q.id,
+                    label: q.label.slice(0, 45),
+                    required: q.required ?? true,
+                    style: q.style === "paragraph" ? TextInputStyle.Paragraph : TextInputStyle.Short,
+                    placeholder: (q.placeholder || "").slice(0, 100),
+                }));
+                const m = modal(`${type.displayName} — Form`, `ticket:open:form:${typeId}`, inputs);
+                return i.showModal(m);
+            }
+
+            // No form — create ticket directly
+            await i.deferReply({ flags: MessageFlags.Ephemeral });
+
+            const config = await client.services.settings.get(i.guild.id);
+            const parentId = type?.categoryId || config?.ticketCategoryId || null;
+
+            const channel = await i.guild.channels.create({
+                name: `${type?.channelPrefix || "ticket"}-${i.user.username}`.slice(0, 100),
+                type: ChannelType.GuildText,
+                parent: parentId,
+            }).catch(e => {
+                throw new Error(`Could not create channel: ${e.message}`);
+            });
+
+            await tickets.applyPermissions(channel, i.guild, i.user, type);
+            const ticket = await tickets.create(i.guild, channel, i.user, type);
+
+            const welcome = type?.welcomeMessage || "A staff member will be with you shortly.";
+
+            const embed = new EmbedBuilder()
+                .setColor(Theme.ticket)
+                .setTitle(type?.displayName || "Support Ticket")
+                .setDescription(welcome)
+                .addFields(stat("Ticket", `#${ticket.id.slice(0, 8)}`))
+                .setFooter({ text: Brand.footer })
+                .setTimestamp();
+
+            if (type?.instructions) {
+                embed.addFields({ name: "Staff Instructions", value: type.instructions, inline: false });
+            }
+
+            const workspaceEmbed = buildWorkspaceEmbed(ticket, type);
+            const workspaceButtons = buildWorkspaceButtons(ticket);
+
+            await channel.send({ embeds: [embed] }).catch(() => {});
+            await channel.send({ embeds: [workspaceEmbed], components: workspaceButtons }).catch(() => {});
+
+            if (config?.ticketLogChannelId) {
+                const logCh = i.guild.channels.cache.get(config.ticketLogChannelId);
+                if (logCh?.isTextBased()) {
+                    const logEmbed = new EmbedBuilder()
+                        .setColor(Theme.info)
+                        .setTitle("Ticket Opened")
+                        .setDescription(`<@${i.user.id}> opened **${type?.displayName || "General"}** in <#${channel.id}>`)
+                        .setFooter({ text: Brand.footer })
+                        .setTimestamp();
+                    await logCh.send({ embeds: [logEmbed] }).catch(() => {});
+                }
+            }
+
+            await i.editReply({ embeds: [success("Ticket Created", `<#${channel.id}> — ${type?.displayName || "Support"}`)] });
+        } catch (e) {
+            if (i.deferred) {
+                await i.editReply({ embeds: [error("Failed", e.message || "Could not create ticket")] }).catch(() => {});
+            } else if (!i.replied) {
+                await i.reply({ embeds: [error("Failed", e.message || "Could not create ticket")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ═══════════════════════════════════════
@@ -893,24 +1089,25 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:ws:claim:": async (i, client) => {
-        const ticketId = i.customId.split(":")[3];
-        const tickets = client.services.tickets;
-
         try {
+            const ticketId = i.customId.split(":")[3];
+            const tickets = client.services.tickets;
+
             await tickets.claim(ticketId, i.user.id);
             const ticket = await tickets.getById(ticketId);
             const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
 
             await i.reply({ embeds: [success("Claimed", `<@${i.user.id}> is now handling this ticket.`)] });
 
-            // Update workspace embed
             if (ticket) {
                 const embed = buildWorkspaceEmbed(ticket, type);
                 const buttons = buildWorkspaceButtons(ticket);
                 await i.channel.send({ embeds: [embed], components: buttons }).catch(() => {});
             }
         } catch (e) {
-            await i.reply({ embeds: [error("Cannot Claim", e.message)], flags: MessageFlags.Ephemeral });
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Cannot Claim", e.message || "Claim failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     },
 
@@ -919,15 +1116,21 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:ws:close:": async (i, client) => {
-        const ticketId = i.customId.split(":")[3];
-        const tickets = client.services.tickets;
+        try {
+            const ticketId = i.customId.split(":")[3];
+            const tickets = client.services.tickets;
 
-        const ticket = await tickets.getById(ticketId);
-        if (!ticket) return i.reply({ embeds: [error("Not Found", "Ticket not found.")], flags: MessageFlags.Ephemeral });
-        if (ticket.status === "CLOSED") return i.reply({ embeds: [error("Already Closed", "Ticket is already closed.")], flags: MessageFlags.Ephemeral });
+            const ticket = await tickets.getById(ticketId);
+            if (!ticket) return i.reply({ embeds: [error("Not Found", "Ticket not found.")], flags: MessageFlags.Ephemeral });
+            if (ticket.status === "CLOSED") return i.reply({ embeds: [error("Already Closed", "Ticket is already closed.")], flags: MessageFlags.Ephemeral });
 
-        await tickets.close(i.channel.id, i.user.id);
-        await i.reply({ embeds: [success("Closed", "Channel will be deleted shortly.")] });
+            await tickets.close(i.channel.id, i.user.id);
+            await i.reply({ embeds: [success("Closed", "Channel will be deleted shortly.")] });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Close failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
+        }
     },
 
     // ═══════════════════════════════════════
@@ -950,17 +1153,17 @@ export default {
     },
 
     "ticket:ws:status:set:": async (i, client) => {
-        const ticketId = i.customId.split(":")[4];
-        const tickets = client.services.tickets;
-        const newStatus = i.values[0];
-
         try {
+            const ticketId = i.customId.split(":")[4];
+            const tickets = client.services.tickets;
+            const newStatus = i.values[0];
+
             await tickets.setStatus(ticketId, newStatus, i.user.id);
-            await i.update({ components: [] });
 
             const ticket = await tickets.getById(ticketId);
             const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
 
+            await i.update({ components: [] });
             await i.channel.send({ embeds: [success("Status Updated", `Ticket status set to **${newStatus}** by <@${i.user.id}>.`)] }).catch(() => {});
 
             if (ticket) {
@@ -969,8 +1172,8 @@ export default {
                 await i.channel.send({ embeds: [embed], components: buttons }).catch(() => {});
             }
         } catch (e) {
-            await i.update({ components: [] });
-            await i.channel.send({ embeds: [error("Cannot Update", e.message)] }).catch(() => {});
+            await i.update({ components: [] }).catch(() => {});
+            await i.channel.send({ embeds: [error("Cannot Update", e.message || "Status update failed")] }).catch(() => {});
         }
     },
 
@@ -994,17 +1197,17 @@ export default {
     },
 
     "ticket:ws:priority:set:": async (i, client) => {
-        const ticketId = i.customId.split(":")[4];
-        const tickets = client.services.tickets;
-        const newPriority = i.values[0];
-
         try {
+            const ticketId = i.customId.split(":")[4];
+            const tickets = client.services.tickets;
+            const newPriority = i.values[0];
+
             await tickets.setPriority(ticketId, newPriority, i.user.id);
-            await i.update({ components: [] });
 
             const ticket = await tickets.getById(ticketId);
             const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
 
+            await i.update({ components: [] });
             await i.channel.send({ embeds: [success("Priority Updated", `Ticket priority set to **${newPriority}** by <@${i.user.id}>.`)] }).catch(() => {});
 
             if (ticket) {
@@ -1013,8 +1216,8 @@ export default {
                 await i.channel.send({ embeds: [embed], components: buttons }).catch(() => {});
             }
         } catch (e) {
-            await i.update({ components: [] });
-            await i.channel.send({ embeds: [error("Cannot Update", e.message)] }).catch(() => {});
+            await i.update({ components: [] }).catch(() => {});
+            await i.channel.send({ embeds: [error("Cannot Update", e.message || "Priority update failed")] }).catch(() => {});
         }
     },
 
@@ -1031,15 +1234,21 @@ export default {
     },
 
     "ticket:ws:note:submit:": async (i, client) => {
-        const ticketId = i.customId.split(":")[4];
-        const tickets = client.services.tickets;
-        const content = i.components.getTextInputValue("content");
-
         try {
+            const ticketId = i.customId.split(":")[4];
+            const tickets = client.services.tickets;
+            const content = (i.components.getTextInputValue("content") || "").trim();
+
+            if (!content) {
+                return i.reply({ embeds: [error("Invalid", "Note content is required.")], flags: MessageFlags.Ephemeral });
+            }
+
             await tickets.addNote(ticketId, i.user.id, content);
             await i.reply({ embeds: [success("Note Added", "Internal note recorded. Staff-only.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
-            await i.reply({ embeds: [error("Error", e.message)], flags: MessageFlags.Ephemeral });
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Note failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     },
 
@@ -1056,17 +1265,25 @@ export default {
     },
 
     "ticket:ws:adduser:submit:": async (i, client) => {
-        const ticketId = i.customId.split(":")[4];
-        const userId = i.components.getTextInputValue("userid").trim();
-
         try {
-            const member = await i.guild.members.fetch(userId);
+            const userId = (i.components.getTextInputValue("userid") || "").trim();
+            if (!userId || !/^\d{17,20}$/.test(userId)) {
+                return i.reply({ embeds: [error("Invalid", "Provide a valid Discord user ID (17-20 digits).")], flags: MessageFlags.Ephemeral });
+            }
+
+            const member = await i.guild.members.fetch(userId).catch(() => null);
+            if (!member) {
+                return i.reply({ embeds: [error("Not Found", "Could not find that member in this server.")], flags: MessageFlags.Ephemeral });
+            }
+
             await i.channel.permissionOverwrites.edit(userId, {
                 ViewChannel: true, SendMessages: true, ReadMessageHistory: true,
             });
             await i.reply({ embeds: [success("User Added", `<@${userId}> can now access this ticket.`)] });
-        } catch {
-            await i.reply({ embeds: [error("Invalid User", "Could not find that member.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Add user failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     },
 
@@ -1083,14 +1300,18 @@ export default {
     },
 
     "ticket:ws:rmuser:submit:": async (i, client) => {
-        const ticketId = i.customId.split(":")[4];
-        const userId = i.components.getTextInputValue("userid").trim();
-
         try {
+            const userId = (i.components.getTextInputValue("userid") || "").trim();
+            if (!userId || !/^\d{17,20}$/.test(userId)) {
+                return i.reply({ embeds: [error("Invalid", "Provide a valid Discord user ID (17-20 digits).")], flags: MessageFlags.Ephemeral });
+            }
+
             await i.channel.permissionOverwrites.edit(userId, { ViewChannel: false });
             await i.reply({ embeds: [success("User Removed", `<@${userId}> can no longer access this ticket.`)] });
-        } catch {
-            await i.reply({ embeds: [error("Error", "Could not remove that user.")], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Remove user failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
     },
 
@@ -1099,22 +1320,28 @@ export default {
     // ═══════════════════════════════════════
 
     "ticket:ws:transcript:": async (i, client) => {
-        const ticketId = i.customId.split(":")[3];
-        const tickets = client.services.tickets;
+        try {
+            const ticketId = i.customId.split(":")[3];
+            const tickets = client.services.tickets;
 
-        const ticket = await tickets.getById(ticketId);
-        if (!ticket) return i.reply({ embeds: [error("Not Found", "Ticket not found.")], flags: MessageFlags.Ephemeral });
+            const ticket = await tickets.getById(ticketId);
+            if (!ticket) return i.reply({ embeds: [error("Not Found", "Ticket not found.")], flags: MessageFlags.Ephemeral });
 
-        const transcript = await tickets.buildTranscript(i.channel);
-        if (!transcript) {
-            return i.reply({ embeds: [error("Failed", "Could not generate transcript.")], flags: MessageFlags.Ephemeral });
+            const transcript = await tickets.buildTranscript(i.channel);
+            if (!transcript) {
+                return i.reply({ embeds: [error("Failed", "Could not generate transcript.")], flags: MessageFlags.Ephemeral });
+            }
+
+            const { AttachmentBuilder } = await import("discord.js");
+            const buffer = Buffer.from(transcript, "utf-8");
+            const attachment = new AttachmentBuilder(buffer, { name: `transcript-${ticket.id.slice(0, 8)}.json` });
+
+            await i.reply({ files: [attachment], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Transcript failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
-
-        const { AttachmentBuilder } = await import("discord.js");
-        const buffer = Buffer.from(transcript, "utf-8");
-        const attachment = new AttachmentBuilder(buffer, { name: `transcript-${ticket.id.slice(0, 8)}.json` });
-
-        await i.reply({ files: [attachment], flags: MessageFlags.Ephemeral });
     },
 
     // ═══════════════════════════════════════
@@ -1122,21 +1349,27 @@ export default {
     // ═══════════════════════════════════════
 
     "ticketrate:": async (i, client) => {
-        const parts = i.customId.split(":");
-        const ticketId = parts[1];
-        const rating = parseInt(parts[2]);
-        if (!ticketId || isNaN(rating)) {
-            return i.reply({ embeds: [error("Error", "Invalid rating.")], flags: MessageFlags.Ephemeral }).catch(() => {});
+        try {
+            const parts = i.customId.split(":");
+            const ticketId = parts[1];
+            const rating = parseInt(parts[2]);
+            if (!ticketId || isNaN(rating) || rating < 1 || rating > 5) {
+                return i.reply({ embeds: [error("Error", "Invalid rating.")], flags: MessageFlags.Ephemeral });
+            }
+
+            const ticket = await client.services.tickets.getById(ticketId);
+            if (!ticket) {
+                return i.reply({ embeds: [error("Error", "Ticket not found.")], flags: MessageFlags.Ephemeral });
+            }
+
+            await client.services.tickets.rate(ticketId, ticket.channelId, ticket.guildId, i.user.id, rating);
+
+            const stars = "⭐".repeat(rating);
+            await i.reply({ embeds: [success("Thanks!", `You rated this ticket **${stars}** (${rating}/5)`)], flags: MessageFlags.Ephemeral });
+        } catch (e) {
+            if (!i.replied && !i.deferred) {
+                await i.reply({ embeds: [error("Failed", e.message || "Rating failed")], flags: MessageFlags.Ephemeral }).catch(() => {});
+            }
         }
-
-        const ticket = await client.services.tickets.getById(ticketId);
-        if (!ticket) {
-            return i.reply({ embeds: [error("Error", "Ticket not found.")], flags: MessageFlags.Ephemeral }).catch(() => {});
-        }
-
-        await client.services.tickets.rate(ticketId, ticket.channelId, ticket.guildId, i.user.id, rating);
-
-        const stars = "⭐".repeat(rating);
-        await i.reply({ embeds: [success("Thanks!", `You rated this ticket **${stars}** (${rating}/5)`)], flags: MessageFlags.Ephemeral }).catch(() => {});
     },
 };
