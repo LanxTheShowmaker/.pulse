@@ -59,6 +59,13 @@ export class SettingsService {
         return modules[module] !== false;
     }
 
+    isIgnored(config, { userId, channelId, roleIds = [] } = {}) {
+        if (userId && config.ignoredUserIds.includes(userId)) return true;
+        if (channelId && config.ignoredChannelIds.includes(channelId)) return true;
+        if (roleIds.length && config.ignoredRoleIds.some(id => roleIds.includes(id))) return true;
+        return false;
+    }
+
     parse(config) {
         return {
             ...config,

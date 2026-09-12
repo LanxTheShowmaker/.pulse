@@ -18,6 +18,14 @@ export class LevelingService {
         if (this._cooldown.has(key) && now - this._cooldown.get(key) < 60_000) return;
         this._cooldown.set(key, now);
 
+        // Check ignored lists
+        const config = await this.client.services.settings?.get(message.guild.id);
+        if (config && this.client.services.settings.isIgnored(config, {
+            userId: message.author.id,
+            channelId: message.channel.id,
+            roleIds: [...message.member.roles.cache.keys()],
+        })) return;
+
         const xpGain = Math.floor(Math.random() * 15) + 5;
         const xp = await this.prisma.xp.upsert({
             where: { guildId_userId: { guildId: message.guild.id, userId: message.author.id } },
@@ -32,12 +40,9 @@ export class LevelingService {
                 data: { level: { increment: 1 }, xp: xp.xp - needed },
             });
 
-            const config = await this.client.services.settings?.get(message.guild.id);
-            if (config?.welcomeChannelId) {
-                const ch = message.guild.channels.cache.get(config.welcomeChannelId);
-                if (ch?.isTextBased()) {
-                    await ch.send({ content: `${message.author} reached level **${xp.level + 1}**!` }).catch(() => {});
-                }
+            const ch = message.guild.channels.cache.get(config?.welcomeChannelId);
+            if (ch?.isTextBased()) {
+                await ch.send({ content: `${message.author} reached level **${xp.level + 1}**!` }).catch(() => {});
             }
         }
     }

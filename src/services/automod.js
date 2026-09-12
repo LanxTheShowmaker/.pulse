@@ -29,6 +29,13 @@ export class AutoModService {
         const ac = config.automod;
         if (!ac || Object.keys(ac).length === 0) return;
 
+        // Global ignored lists
+        if (this.settings.isIgnored(config, {
+            userId: message.author.id,
+            channelId: message.channel.id,
+            roleIds: [...message.member.roles.cache.keys()],
+        })) return;
+
         // Exemptions
         if (this.isExempt(message.member, message.channel, ac)) return;
 

@@ -61,13 +61,25 @@ export default {
             .addIntegerOption(o => o.setName("amount").setDescription("New bank balance").setRequired(true))),
 
     async execute(interaction) {
-        const { economy } = interaction.client.services;
+        const { economy, settings } = interaction.client.services;
         const sub = interaction.options.getSubcommand();
         const isAdmin = sub.startsWith("admin-");
 
         if (isAdmin) {
             const isMod = await interaction.member.permissions.has(PermissionFlagsBits.ManageGuild);
             if (!isMod) return interaction.reply({ embeds: [error("Denied", "You need Manage Server permission.")], flags: MessageFlags.Ephemeral });
+        }
+
+        // Check ignored lists for economy actions
+        if (["work", "crime", "rob", "slots"].includes(sub)) {
+            const config = await settings.get(interaction.guild.id);
+            if (settings.isIgnored(config, {
+                userId: interaction.user.id,
+                channelId: interaction.channel.id,
+                roleIds: [...interaction.member.roles.cache.keys()],
+            })) {
+                return interaction.reply({ embeds: [error("Denied", "You cannot use economy commands.")], flags: MessageFlags.Ephemeral });
+            }
         }
 
         switch (sub) {
@@ -109,6 +121,9 @@ export default {
                 { name: "Daily Streak", value: `${profile.dailyStreak} 🔥`, inline: true },
                 { name: "Weekly Streak", value: `${profile.weeklyStreak} 🔥`, inline: true },
                 { name: "Total Earned", value: profile.totalEarned.toLocaleString(), inline: true },
+                { name: "Total Spent", value: profile.totalSpent.toLocaleString(), inline: true },
+                { name: "Crimes", value: `${profile.crimesCommitted} (${profile.crimesFailed} failed)`, inline: true },
+                { name: "Slots", value: `${profile.slotsPlayed} played (${profile.slotsWon} won)`, inline: true },
             );
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });

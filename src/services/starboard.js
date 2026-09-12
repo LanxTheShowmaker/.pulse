@@ -10,14 +10,13 @@ export class StarboardService {
 
     async handleReactionAdd(reaction, user) {
         if (user.bot) return;
-        if (reaction.emoji.name !== "⭐") return;
+        if (!reaction.message.guild) return;
+
+        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: reaction.message.guild.id } });
+        if (!config) return;
+        if (reaction.emoji.name !== config.emoji) return;
 
         const message = reaction.message;
-        if (!message.guild) return;
-
-        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: message.guild.id } });
-        if (!config) return;
-
         const stars = reaction.count ?? 0;
         if (stars < config.threshold) return;
 
@@ -62,13 +61,13 @@ export class StarboardService {
 
     async handleReactionRemove(reaction, user) {
         if (user.bot) return;
-        if (reaction.emoji.name !== "⭐") return;
+        if (!reaction.message.guild) return;
+
+        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: reaction.message.guild.id } });
+        if (!config) return;
+        if (reaction.emoji.name !== config.emoji) return;
 
         const message = reaction.message;
-        if (!message.guild) return;
-
-        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: message.guild.id } });
-        if (!config) return;
 
         const entry = await this.prisma.starboardEntry.findUnique({
             where: { guildId_originalId: { guildId: message.guild.id, originalId: message.id } },

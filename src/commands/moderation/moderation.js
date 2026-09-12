@@ -248,13 +248,11 @@ export default {
         const case_ = await cases.get(interaction.guild.id, number);
         if (!case_) return ephemeral(interaction, `Case #${number} not found.`);
 
-        const statusIcon = case_.resolved ? "✅" : "⏳";
-
         const embed = panel(`Case #${case_.caseNumber}`, "")
             .addFields(
                 stat("Case", `#${case_.caseNumber}`),
-                stat("Target", `<@${case_.targetId}>`),
-                stat("Moderator", `<@${case_.moderatorId}>`),
+                stat("Target", `<@${case_.targetId}> (${case_.targetTag ?? "unknown"})`),
+                stat("Moderator", `<@${case_.moderatorId}> (${case_.moderatorTag ?? "unknown"})`),
                 stat("Action", case_.action),
                 stat("Reason", case_.reason ?? "No reason"),
                 stat("Status", case_.resolved ? `✅ Resolved by <@${case_.resolvedById}>` : "⏳ Open"),
@@ -263,6 +261,7 @@ export default {
             .setTimestamp(case_.createdAt);
 
         if (case_.duration) embed.addFields(stat("Duration", case_.duration));
+        if (case_.resolvedAt) embed.addFields(stat("Resolved At", `<t:${Math.floor(case_.resolvedAt.getTime() / 1000)}:R>`));
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

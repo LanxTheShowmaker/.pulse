@@ -31,7 +31,20 @@ export default {
                 const entries = await audit.timeline(interaction.guild.id, count);
                 if (!entries.length) return interaction.reply({ embeds: [panel("Audit Log", "No entries found.")], flags: MessageFlags.Ephemeral });
 
-                const lines = entries.map(e => `\`${e.action}\` by <@${e.actorId ?? "system"}> → <@${e.targetId ?? "?"}> — ${e.category} — <t:${Math.floor(e.createdAt.getTime() / 1000)}:R>`);
+                const lines = entries.map(e => {
+                    let line = `\`${e.action}\` by <@${e.actorId ?? "system"}> → <@${e.targetId ?? "?"}> — ${e.category} — <t:${Math.floor(e.createdAt.getTime() / 1000)}:R>`;
+                    if (e.details) {
+                        try {
+                            const d = JSON.parse(e.details);
+                            const parts = [];
+                            if (d.caseNumber) parts.push(`Case #${d.caseNumber}`);
+                            if (d.reason) parts.push(d.reason);
+                            if (d.duration) parts.push(d.duration);
+                            if (parts.length) line += `\n> ${parts.join(" · ")}`;
+                        } catch {}
+                    }
+                    return line;
+                });
                 await interaction.reply({ embeds: [panel("Audit Timeline", lines.join("\n"))], flags: MessageFlags.Ephemeral });
                 break;
             }
@@ -41,7 +54,20 @@ export default {
                 const entries = await audit.byUser(interaction.guild.id, target.id, 15);
                 if (!entries.length) return interaction.reply({ embeds: [panel("User Audit", `No entries for ${target.tag}.`)], flags: MessageFlags.Ephemeral });
 
-                const lines = entries.map(e => `\`${e.action}\` → <@${e.targetId ?? "?"}> — ${e.category} — <t:${Math.floor(e.createdAt.getTime() / 1000)}:R>`);
+                const lines = entries.map(e => {
+                    let line = `\`${e.action}\` → <@${e.targetId ?? "?"}> — ${e.category} — <t:${Math.floor(e.createdAt.getTime() / 1000)}:R>`;
+                    if (e.details) {
+                        try {
+                            const d = JSON.parse(e.details);
+                            const parts = [];
+                            if (d.caseNumber) parts.push(`Case #${d.caseNumber}`);
+                            if (d.reason) parts.push(d.reason);
+                            if (d.duration) parts.push(d.duration);
+                            if (parts.length) line += `\n> ${parts.join(" · ")}`;
+                        } catch {}
+                    }
+                    return line;
+                });
                 await interaction.reply({ embeds: [panel(`${target.tag} — Audit`, lines.join("\n"))], flags: MessageFlags.Ephemeral });
                 break;
             }

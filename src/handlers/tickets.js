@@ -88,6 +88,9 @@ export default {
             { id: "description", label: "Description", required: false },
             { id: "emoji", label: "Emoji", required: false },
             { id: "channel_prefix", label: "Channel Prefix", required: false, value: "ticket" },
+            { id: "max_open", label: "Max Open Tickets (0=unlimited)", required: false, value: "0" },
+            { id: "cooldown", label: "Cooldown in minutes (0=none)", required: false, value: "0" },
+            { id: "instructions", label: "Instructions for staff", required: false },
         ]);
         await i.showModal(m);
     },
@@ -97,6 +100,9 @@ export default {
         const description = i.fields.getTextInputValue("description") || null;
         const emoji = i.fields.getTextInputValue("emoji") || null;
         const channelPrefix = i.fields.getTextInputValue("channel_prefix") || "ticket";
+        const maxOpen = parseInt(i.fields.getTextInputValue("max_open")) || 0;
+        const cooldownMin = parseInt(i.fields.getTextInputValue("cooldown")) || 0;
+        const instructions = i.fields.getTextInputValue("instructions") || null;
 
         await client.services.prisma.ticketType.create({
             data: {
@@ -107,6 +113,9 @@ export default {
                 emoji,
                 channelPrefix,
                 panelType: "default",
+                maxOpen: maxOpen || null,
+                cooldown: cooldownMin ? cooldownMin * 60_000 : null,
+                instructions,
             },
         });
 
@@ -261,6 +270,37 @@ export default {
         const typeId = i.customId.split(":")[2];
         const prisma = client.services.prisma;
 
+        let type = null;
+        if (typeId !== "default") {
+            type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+        }
+
+        // Check maxOpen per type
+        if (type?.maxOpen) {
+            const openCount = await prisma.ticket.count({
+                where: { guildId: i.guild.id, typeId: type.id, status: { in: ["OPEN", "CLAIMED"] } },
+            });
+            if (openCount >= type.maxOpen) {
+                return i.reply({ embeds: [error("Limit Reached", `Max **${type.maxOpen}** open tickets for this type.`)], flags: MessageFlags.Ephemeral });
+            }
+        }
+
+        // Check cooldown per type
+        if (type?.cooldown) {
+            const lastClosed = await prisma.ticket.findFirst({
+                where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
+                orderBy: { closedAt: "desc" },
+            });
+            if (lastClosed?.closedAt) {
+                const elapsed = Date.now() - lastClosed.closedAt.getTime();
+                if (elapsed < type.cooldown) {
+                    const remaining = Math.ceil((type.cooldown - elapsed) / 60_000);
+                    return i.reply({ embeds: [error("Cooldown", `Wait **${remaining}m** before opening another ticket of this type.`)], flags: MessageFlags.Ephemeral });
+                }
+            }
+        }
+
+        // Check if user already has an open ticket
         const existing = await prisma.ticket.findFirst({
             where: { guildId: i.guild.id, openerId: i.user.id, status: { in: ["OPEN", "CLAIMED"] } },
         });
@@ -269,11 +309,6 @@ export default {
         }
 
         await i.deferReply({ flags: MessageFlags.Ephemeral });
-
-        let type = null;
-        if (typeId !== "default") {
-            type = await prisma.ticketType.findUnique({ where: { id: typeId } });
-        }
 
         // Use type category > saved config category > null
         const config = await client.services.settings.get(i.guild.id);
@@ -313,6 +348,10 @@ export default {
             .setDescription(welcome)
             .setFooter({ text: Brand.footer })
             .setTimestamp();
+
+        if (type?.instructions) {
+            embed.addFields({ name: "Staff Instructions", value: type.instructions });
+        }
 
         await channel.send({ embeds: [embed] }).catch(() => {});
         await i.editReply({
