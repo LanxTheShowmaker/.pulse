@@ -1,184 +1,107 @@
 # .pulse
 
-A professional, universal Discord moderation and management bot. Built as a single coherent product from accumulated useful functionality across historical variants.
+A free, open-source Discord bot for moderation, tickets, economy, leveling, and more.
 
-## Overview
+Invite the bot: `https://discord.com/oauth2/authorize?client_id=1491757416977534986`
 
-.pulse provides a complete suite of server management tools:
+## Features
 
-- **Moderation** — warn, ban, kick, timeout, cases, history, auto-escalation
-- **Tickets** — configurable types, forms, panels, transcripts, claims
-- **AutoMod** — spam, links, invites, caps, words, regex, raid protection
-- **Leveling** — XP, levels, rewards, leaderboards, prestige
-- **Economy** — balance, shop, daily/weekly, trading, inventory
-- **Configuration** — modules, logs, roles, prefix, branding
-- **Starboard** — reaction-based highlights with modern UI
-- **Welcome/Goodbye** — custom messages, autoroles
-- **Reaction Roles** — panel-based assignment
-- **Giveaways** — creation, management, rerolls
-- **Suggestions** — community workflow
-- **Orders** — design commission workflow
-- **Utilities** — polls, reminders, AFK, diagnostics, analytics
+| Module | What it does |
+|--------|-------------|
+| **Moderation** | Warn, ban, kick, timeout, case history |
+| **Tickets** | Configurable types, panels, transcripts, ratings |
+| **AutoMod** | Spam, links, invites, caps, raids |
+| **Leveling** | XP, levels, role rewards, leaderboards |
+| **Economy** | Balance, daily/weekly, work, crime, slots, shop |
+| **Giveaways** | Create, manage, reroll |
+| **Starboard** | Reaction-based highlights |
+| **Welcome** | Join/leave messages, autoroles |
+| **Reaction Roles** | Panel-based role assignment |
+| **Suggestions** | Community workflow with approve/deny |
+| **Appeals** | Ban appeal system |
+| **Achievements** | 25+ unlockable achievements |
+| **Utilities** | Polls, reminders, AFK, server info, and more |
 
-## Architecture
+## Setup
 
-```
-src/
-  core/          bootstrap, client, registry, services, logger, permissions
-  design/        theme, embeds, Components V2 containers (UI system)
-  store/         Prisma client
-  services/      business logic (23 services)
-  commands/      slash commands by module (auto-loaded)
-  events/        Discord event handlers (auto-loaded)
-  automod/       detector pipeline
-prisma/          schema + migrations
-docs/            documentation
-```
-
-**Single Runtime**: One entry point, one command system, one event system, one service container.
-
-## Stack
-
-- **Runtime**: Node.js 20+ (ESM)
-- **Discord**: discord.js v14
-- **Database**: SQLite via Prisma ORM (WAL mode, zero-config)
-- **Linting**: ESLint (flat config)
-
-## Quick Start
+**Requirements:** Node.js 20+
 
 ```bash
-# Clone and install
 git clone https://github.com/LanxTheShowmaker/.pulse.git
 cd .pulse
 npm install
+```
 
-# Configure
+### 1. Create a Discord Bot
+
+1. Go to [Discord Developer Portal](https://discord.com/developers)
+2. Create a new application → Bot → copy the token
+3. Under OAuth2, copy the Application ID
+4. Enable these **Privileged Gateway Intents**:
+   - Server Members
+   - Message Content
+   - Server Bans
+
+### 2. Configure
+
+```bash
 cp .env.example .env
-# Edit .env: set DISCORD_TOKEN, DATABASE_URL (default: file:./data.db)
+```
 
-# Database
-npm run prisma:generate
-npm run prisma:migrate
+Open `.env` and fill in:
+- `DISCORD_TOKEN` — your bot token
+- `CLIENT_ID` — your application ID
 
-# Deploy commands (global)
-npm run deploy
+### 3. Set Up Database
 
-# Run
-npm run start
-# Or development with hot reload
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### 4. Deploy Commands & Run
+
+```bash
+npm run deploy    # registers slash commands
+npm run start     # starts the bot
+```
+
+For development with auto-reload:
+```bash
 npm run dev
 ```
 
-## Environment Variables
+## File Structure
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `DISCORD_TOKEN` | Yes | — | Bot token from Discord Developer Portal |
-| `DATABASE_URL` | Yes | `file:./data.db` | SQLite database path |
-| `LOG_LEVEL` | No | `info` | `debug`, `info`, `warn`, `error` |
-
-## Discord Intents & Permissions
-
-**Required Intents**:
-- Guilds
-- GuildMembers
-- GuildMessages
-- GuildBans
-- MessageContent
-- GuildVoiceStates
-- GuildMessageReactions
-
-**Required Bot Permissions**:
-- Ban Members, Kick Members, Moderate Members
-- Manage Channels, Manage Messages, Manage Roles
-- Send Messages, Embed Links, Attach Files
-- Read Message History, Use Application Commands
+```
+bot.js              → entry point (run this)
+core/               → engine (client, logger, services, deploy)
+ui/                 → theme, embeds, components
+commands/           → slash commands by category
+events/             → discord event handlers
+handlers/           → button/menu click handlers
+services/           → business logic
+prisma/             → database schema
+```
 
 ## Configuration
 
-Run `/config` in any server to access the unified configuration center:
+Run `/config` in your server to access the settings panel:
 
-- **Modules** — toggle features on/off
-- **AutoMod** — rules, thresholds, exemptions
-- **Logs** — mod log, general log, welcome, goodbye
-- **Staff** — staff roles, moderator roles, ignored channels/roles/users
-- **Prefix** — custom command prefix per server
+- **Modules** — turn features on/off
+- **Logs** — set mod log, welcome, goodbye channels
+- **Staff** — assign staff roles, set ignored channels
+- **Prefix** — custom command prefix
+- **Branding** — bot name, avatar, banner per server
 
-## Design System
+## Self-Host
 
-.pulse uses Discord's **Components V2** (Containers, Sections, Text Displays, Separators, Media Galleries) as the primary presentation layer. Traditional embeds are used only where they genuinely make more sense.
-
-The design language is:
-- **Minimalist** — clean, uncluttered
-- **Discord-native** — blurple, green, red, yellow palette
-- **Consistent** — shared primitives across all commands
-- **Readable** — clear hierarchy, muted secondary text
-- **Professional** — no cringe, no excessive emojis, no walls of text
-
-## Command Structure
-
-Commands are organized in intuitive hierarchies:
-
-- `/moderation` — all moderation actions and case management
-- `/tickets` — ticket creation, management, configuration
-- `/automod` — AutoMod status, rules, thresholds
-- `/config` — server settings (alias: `/settings`)
-- `/starboard` — starboard configuration
-- `/leveling` — rank, leaderboard, configuration
-- `/economy` — balance, shop, daily, trading
-- `/giveaways` — giveaway management
-- `/suggestions` — suggestion workflow
-- `/reactionroles` — reaction role panels
-- `/welcome` — welcome/goodbye setup
-- `/utility` — info, polls, reminders, diagnostics
-- `/fun` — games and entertainment
-- `/orders` — design order workflow
-
-## Development
-
-```bash
-# Syntax check all files
-node --check src/core/bootstrap.js
-node --check src/core/registry.js
-# ... etc
-
-# Lint
-npm run lint
-
-# Test (when available)
-npm run test
-
-# Auto-reload during development
-npm run dev
-```
-
-## Deployment
-
-### Production
-```bash
-npm ci
-npm run prisma:deploy
-npm run start
-```
-
-### Process Management
-Recommended: PM2, systemd, or Docker
-```bash
-pm2 start src/core/bootstrap.js --name pulse
-```
-
-### Graceful Shutdown
-Handles SIGINT/SIGTERM — disconnects Prisma, destroys Discord client, exits cleanly.
-
-## Documentation
-
-- [Universal Specification](docs/UNIVERSAL_SPEC.md) — canonical product contract
-- [Architecture Notes](docs/ARCHITECTURE.md) — technical deep-dive
+1. Create a bot at [Discord Developer Portal](https://discord.com/developers)
+2. Clone this repo and install dependencies
+3. Copy `.env.example` to `.env` and fill in your token + app ID
+4. Run `npx prisma generate && npx prisma db push`
+5. Run `npm run deploy && npm run start`
 
 ## License
 
-MIT — see LICENSE file.
-
----
-
-**.pulse** — Professional Discord Management.
+MIT
