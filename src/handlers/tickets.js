@@ -88,9 +88,7 @@ export default {
             { id: "description", label: "Description", required: false },
             { id: "emoji", label: "Emoji", required: false },
             { id: "channel_prefix", label: "Channel Prefix", required: false, value: "ticket" },
-            { id: "max_open", label: "Max Open Tickets (0=unlimited)", required: false, value: "0" },
-            { id: "cooldown", label: "Cooldown in minutes (0=none)", required: false, value: "0" },
-            { id: "instructions", label: "Instructions for staff", required: false },
+            { id: "max_open", label: "Max Open (0=unlimited)", required: false, value: "0" },
         ]);
         await i.showModal(m);
     },
@@ -101,8 +99,6 @@ export default {
         const emoji = i.fields.getTextInputValue("emoji") || null;
         const channelPrefix = i.fields.getTextInputValue("channel_prefix") || "ticket";
         const maxOpen = parseInt(i.fields.getTextInputValue("max_open")) || 0;
-        const cooldownMin = parseInt(i.fields.getTextInputValue("cooldown")) || 0;
-        const instructions = i.fields.getTextInputValue("instructions") || null;
 
         await client.services.prisma.ticketType.create({
             data: {
@@ -114,13 +110,11 @@ export default {
                 channelPrefix,
                 panelType: "default",
                 maxOpen: maxOpen || null,
-                cooldown: cooldownMin ? cooldownMin * 60_000 : null,
-                instructions,
             },
         });
 
         await i.reply({
-            embeds: [success("Type Added", `**${name}** created successfully.`)],
+            embeds: [success("Type Added", `**${name}** created successfully. Use edit to set cooldown and instructions.`)],
             flags: MessageFlags.Ephemeral,
         });
     },
@@ -134,7 +128,8 @@ export default {
             { id: "name", label: "Display Name", required: true, value: type.displayName },
             { id: "description", label: "Description", required: false, value: type.description || "" },
             { id: "emoji", label: "Emoji", required: false, value: type.emoji || "" },
-            { id: "channel_prefix", label: "Channel Prefix", required: false, value: type.channelPrefix || "ticket" },
+            { id: "cooldown", label: "Cooldown minutes (0=none)", required: false, value: String((type.cooldown || 0) / 60_000) },
+            { id: "instructions", label: "Staff instructions", required: false, value: type.instructions || "" },
         ]);
         await i.showModal(m);
     },
@@ -144,11 +139,12 @@ export default {
         const name = i.fields.getTextInputValue("name");
         const description = i.fields.getTextInputValue("description") || null;
         const emoji = i.fields.getTextInputValue("emoji") || null;
-        const channelPrefix = i.fields.getTextInputValue("channel_prefix") || "ticket";
+        const cooldownMin = parseInt(i.fields.getTextInputValue("cooldown")) || 0;
+        const instructions = i.fields.getTextInputValue("instructions") || null;
 
         await client.services.prisma.ticketType.update({
             where: { id: typeId },
-            data: { displayName: name, description, emoji, channelPrefix },
+            data: { displayName: name, description, emoji, cooldown: cooldownMin ? cooldownMin * 60_000 : null, instructions },
         });
 
         await i.reply({
