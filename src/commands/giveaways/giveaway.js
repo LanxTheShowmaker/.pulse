@@ -16,6 +16,7 @@ function parseDuration(input) {
 }
 
 export default {
+    category: "giveaway",
     data: new SlashCommandBuilder()
         .setName("giveaway")
         .setDescription("Giveaway management")

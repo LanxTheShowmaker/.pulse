@@ -24,11 +24,85 @@ export class StarboardService {
         const ch = message.guild.channels.cache.get(config.channelId);
         if (!ch?.isTextBased()) return;
 
-        // Check if already starred
-        const existing = await this.prisma.$queryRaw`
-            SELECT "id" FROM "StarboardConfig" WHERE "guildId" = ${message.guild.id}
-        `;
+        const existing = await this.prisma.starboardEntry.findUnique({
+            where: { guildId_originalId: { guildId: message.guild.id, originalId: message.id } },
+        });
 
+        if (existing) {
+            // Update existing starboard post
+            const starMsg = await ch.messages.fetch(existing.starboardId).catch(() => null);
+            if (starMsg) {
+                const embed = this.buildEmbed(message, stars);
+                await starMsg.edit({ embeds: [embed] }).catch(() => {});
+            }
+            await this.prisma.starboardEntry.update({
+                where: { id: existing.id },
+                data: { starCount: stars },
+            }).catch(() => {});
+            return;
+        }
+
+        // Create new starboard post
+        const embed = this.buildEmbed(message, stars);
+        const sent = await ch.send({ embeds: [embed] }).catch(e => {
+            logger.warn("starboard", "send failed", e.message);
+            return null;
+        });
+        if (!sent) return;
+
+        await this.prisma.starboardEntry.create({
+            data: {
+                guildId: message.guild.id,
+                originalId: message.id,
+                starboardId: sent.id,
+                starCount: stars,
+            },
+        });
+    }
+
+    async handleReactionRemove(reaction, user) {
+        if (user.bot) return;
+        if (reaction.emoji.name !== "⭐") return;
+
+        const message = reaction.message;
+        if (!message.guild) return;
+
+        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: message.guild.id } });
+        if (!config) return;
+
+        const entry = await this.prisma.starboardEntry.findUnique({
+            where: { guildId_originalId: { guildId: message.guild.id, originalId: message.id } },
+        });
+        if (!entry) return;
+
+        const newCount = reaction.count ?? 0;
+
+        if (newCount < config.threshold) {
+            // Below threshold — delete starboard post
+            const ch = message.guild.channels.cache.get(config.channelId);
+            if (ch) {
+                await ch.messages.delete(entry.starboardId).catch(() => {});
+            }
+            await this.prisma.starboardEntry.delete({ where: { id: entry.id } }).catch(() => {});
+            return;
+        }
+
+        // Update count
+        const ch = message.guild.channels.cache.get(config.channelId);
+        if (ch) {
+            const starMsg = await ch.messages.fetch(entry.starboardId).catch(() => null);
+            if (starMsg) {
+                const embed = this.buildEmbed(message, newCount);
+                await starMsg.edit({ embeds: [embed] }).catch(() => {});
+            }
+        }
+        await this.prisma.starboardEntry.update({
+            where: { id: entry.id },
+            data: { starCount: newCount },
+        }).catch(() => {});
+    }
+
+    buildEmbed(message, stars) {
         const embed = new EmbedBuilder()
             .setColor(Theme.gold)
             .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
@@ -45,6 +119,6 @@ export class StarboardService {
             if (first?.contentType?.startsWith("image/")) embed.setImage(first.url);
         }
 
-        await ch.send({ embeds: [embed] }).catch(e => logger.warn("starboard", "send failed", e.message));
+        return embed;
     }
 }

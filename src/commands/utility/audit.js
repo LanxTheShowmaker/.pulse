@@ -4,6 +4,7 @@ import { panel } from "../../design/embeds.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("audit")
         .setDescription("Audit log viewer")

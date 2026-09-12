@@ -13,6 +13,7 @@ const RESPONSES = [
 ];
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder()
         .setName("8ball")
         .setDescription("Ask the magic 8-ball")

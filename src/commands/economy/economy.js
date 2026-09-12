@@ -21,6 +21,7 @@ function cooldownBar(remaining, total) {
 }
 
 export default {
+    category: "economy",
     data: new SlashCommandBuilder()
         .setName("economy")
         .setDescription("Economy system")

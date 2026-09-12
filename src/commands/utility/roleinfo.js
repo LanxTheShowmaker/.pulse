@@ -3,6 +3,7 @@ import { MessageFlags, PermissionFlagsBits } from "discord.js";
 import { panel, stat } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("roleinfo")
         .setDescription("View role information")

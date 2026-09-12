@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel, profile, stat } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("info")
         .setDescription("Information commands")

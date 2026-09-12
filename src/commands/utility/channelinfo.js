@@ -8,6 +8,7 @@ const CHANNEL_TYPES = {
 };
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("channelinfo")
         .setDescription("View channel information")

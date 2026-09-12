@@ -22,6 +22,7 @@ const ACTION_LIST = [
 ];
 
 export default {
+    category: "config",
     data: new SlashCommandBuilder()
         .setName("automod")
         .setDescription("Automated moderation configuration")

@@ -3,6 +3,7 @@ import { ButtonStyle } from "discord.js";
 import { row, button } from "../../design/components.js";
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder().setName("rps").setDescription("Rock Paper Scissors"),
     async execute(interaction) {
         await interaction.reply({

@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("timestamp")
         .setDescription("Generate Discord timestamp codes")

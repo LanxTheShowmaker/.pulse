@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel, stat, progressBar } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("level")
         .setDescription("View your or someone's level")

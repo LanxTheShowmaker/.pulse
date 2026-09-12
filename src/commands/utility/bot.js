@@ -4,6 +4,7 @@ import { panel } from "../../design/embeds.js";
 import { linkButton, row } from "../../design/components.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("bot")
         .setDescription("Bot information")

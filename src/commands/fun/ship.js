@@ -4,6 +4,7 @@ import { panel, progressBar } from "../../design/embeds.js";
 import { Theme } from "../../design/theme.js";
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder()
         .setName("ship")
         .setDescription("Check compatibility between two users")

@@ -3,6 +3,7 @@ import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { success } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("slowmode")
         .setDescription("Set channel slowmode")

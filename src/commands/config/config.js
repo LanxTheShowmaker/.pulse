@@ -17,6 +17,7 @@ const MODULE_LIST = [
 ];
 
 export default {
+    category: "config",
     data: new SlashCommandBuilder()
         .setName("config")
         .setDescription("Server configuration")

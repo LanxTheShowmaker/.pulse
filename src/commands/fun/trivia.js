@@ -17,6 +17,7 @@ const QUESTIONS = [
 ];
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder().setName("trivia").setDescription("Answer a trivia question"),
     async execute(interaction) {
         const q = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];

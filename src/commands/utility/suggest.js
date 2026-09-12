@@ -1,8 +1,10 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
+import { MessageFlags, ButtonStyle, PermissionFlagsBits } from "discord.js";
 import { panel } from "../../design/embeds.js";
+import { row, button } from "../../design/components.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("suggest")
         .setDescription("Submit a suggestion")
@@ -21,6 +23,14 @@ export default {
                 { name: "Author", value: `${interaction.user}`, inline: true },
             );
 
-        await interaction.reply({ embeds: [embed] });
+        const components = [];
+        if (interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+            components.push(row(
+                button("Approve", `suggest:approve:${result.suggestion.id}`, ButtonStyle.Success),
+                button("Deny", `suggest:deny:${result.suggestion.id}`, ButtonStyle.Danger),
+            ));
+        }
+
+        await interaction.reply({ embeds: [embed], components });
     },
 };

@@ -5,6 +5,7 @@ import { success, error } from "../../design/embeds.js";
 const OWNER_ID = process.env.OWNER_ID;
 
 export default {
+    category: "owner",
     data: new SlashCommandBuilder()
         .setName("eval")
         .setDescription("Evaluate JavaScript code (owner only)")

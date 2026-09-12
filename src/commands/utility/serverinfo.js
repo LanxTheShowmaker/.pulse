@@ -3,6 +3,7 @@ import { MessageFlags, ChannelType } from "discord.js";
 import { panel, stat } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("serverinfo")
         .setDescription("Detailed server information"),

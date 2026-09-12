@@ -291,14 +291,16 @@ model GiveawayEntry {
 }
 
 model Suggestion {
-  id        String   @id @default(uuid())
-  guildId   String
-  channelId String
-  messageId String   @unique
-  authorId  String
-  content   String
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  guildId     String
+  channelId   String
+  messageId   String   @unique
+  authorId    String
+  content     String
+  status      String   @default("PENDING")
+  reviewerId  String?
+  reviewNote  String?
+  createdAt   DateTime @default(now())
 
   @@index([guildId, status])
 }
@@ -308,6 +310,18 @@ model StarboardConfig {
   channelId String
   threshold Int    @default(3)
   emoji     String @default("⭐")
+}
+
+model StarboardEntry {
+  id              Int      @id @default(autoincrement())
+  guildId         String
+  originalId      String
+  starboardId     String
+  starCount       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([guildId, originalId])
 }
 
 model Afk {

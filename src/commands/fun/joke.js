@@ -16,6 +16,7 @@ const JOKES = [
 ];
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder().setName("joke").setDescription("Hear a random joke"),
     async execute(interaction) {
         const joke = JOKES[Math.floor(Math.random() * JOKES.length)];

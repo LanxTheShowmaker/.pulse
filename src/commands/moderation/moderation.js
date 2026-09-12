@@ -1,11 +1,12 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, canModerate, ephemeral, confirmAction, parseDuration } from "./shared.js";
-import { success, error, info, panel, stat, cooldownDisplay } from "../../design/embeds.js";
+import { success, info, panel, stat } from "../../design/embeds.js";
 import { row, button } from "../../design/components.js";
 import { Theme, Brand } from "../../design/theme.js";
 
 export default {
+    category: "moderation",
     data: new SlashCommandBuilder()
         .setName("moderation")
         .setDescription("Moderation tools")

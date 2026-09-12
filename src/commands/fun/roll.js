@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel } from "../../design/embeds.js";
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder()
         .setName("roll")
         .setDescription("Roll a dice")

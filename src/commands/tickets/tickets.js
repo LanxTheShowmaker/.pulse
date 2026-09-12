@@ -6,6 +6,7 @@ import { button, row } from "../../design/components.js";
 import { Theme } from "../../design/theme.js";
 
 export default {
+    category: "tickets",
     data: new SlashCommandBuilder()
         .setName("tickets")
         .setDescription("Ticket system management")

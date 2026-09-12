@@ -15,6 +15,7 @@ const KEY_PERMS = [
 ];
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("permissions")
         .setDescription("Check your or someone's permissions")

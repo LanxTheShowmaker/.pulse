@@ -3,6 +3,7 @@ import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { success, error, panel } from "../../design/embeds.js";
 
 export default {
+    category: "shop",
     data: new SlashCommandBuilder()
         .setName("shop")
         .setDescription("Shop system")

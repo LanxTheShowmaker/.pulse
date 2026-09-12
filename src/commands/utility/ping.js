@@ -8,6 +8,7 @@ function latencyBar(ms) {
 }
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder().setName("ping").setDescription("Check bot latency"),
     async execute(interaction) {
         const sent = await interaction.reply({ content: "Pinging...", fetchReply: true });

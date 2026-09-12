@@ -30,9 +30,9 @@ export class ShopService {
         if (item.stock !== null && item.stock <= 0) return { ok: false, error: "Out of stock" };
 
         const balance = await this.economy.getBalance(guildId, userId);
-        if (balance < item.price) return { ok: false, error: `Need ${item.price} coins (have ${balance})` };
+        if (balance.total < item.price) return { ok: false, error: `Need ${item.price} coins (have ${balance.total})` };
 
-        await this.economy.add(guildId, userId, -item.price, "shop_buy", { item: item.name });
+        await this.economy.addCoins(guildId, userId, -item.price, "shop_buy", { item: item.name });
 
         if (item.stock !== null) {
             await this.prisma.shopItem.update({ where: { id: item.id }, data: { stock: { decrement: 1 } } });

@@ -5,6 +5,7 @@ import { panel } from "../../design/embeds.js";
 const MEDALS = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49"];
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("leaderboard")
         .setDescription("View the level leaderboard"),

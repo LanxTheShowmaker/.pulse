@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { success } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("afk")
         .setDescription("Set your AFK status")

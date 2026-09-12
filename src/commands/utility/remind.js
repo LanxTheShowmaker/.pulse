@@ -13,6 +13,7 @@ function parseDuration(input) {
 }
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder()
         .setName("remind")
         .setDescription("Set a reminder")

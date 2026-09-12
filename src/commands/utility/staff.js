@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel, stat } from "../../design/embeds.js";
 
 export default {
+    category: "utility",
     data: new SlashCommandBuilder().setName("staff").setDescription("List server staff"),
     async execute(interaction) {
         const config = await interaction.client.services.settings.get(interaction.guild.id);

@@ -3,6 +3,7 @@ import { MessageFlags } from "discord.js";
 import { panel } from "../../design/embeds.js";
 
 export default {
+    category: "fun",
     data: new SlashCommandBuilder().setName("coinflip").setDescription("Flip a coin"),
     async execute(interaction) {
         const result = Math.random() < 0.5 ? "Heads" : "Tails";
