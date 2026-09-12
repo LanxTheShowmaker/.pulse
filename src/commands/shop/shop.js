@@ -109,7 +109,17 @@ export default {
         const inv = await shop.getInventory(interaction.guild.id, interaction.user.id);
         if (!inv.length) return interaction.reply({ embeds: [panel("Inventory", "Nothing here yet. Buy something from the shop!")], flags: MessageFlags.Ephemeral });
 
-        const lines = inv.map(i => `• **${i.itemId}** x${i.quantity}`);
+        // Fetch item names
+        const itemIds = inv.map(i => i.itemId);
+        const items = await shop.prisma.shopItem.findMany({ where: { id: { in: itemIds } } });
+        const itemMap = Object.fromEntries(items.map(i => [i.id, i]));
+
+        const lines = inv.map(i => {
+            const item = itemMap[i.itemId];
+            const name = item?.name ?? "Unknown Item";
+            const emoji = item?.emoji ?? "";
+            return `• ${emoji} **${name}** x${i.quantity}`;
+        });
         await interaction.reply({ embeds: [panel(`${interaction.user.username}'s Inventory`, lines.join("\n"))], flags: MessageFlags.Ephemeral });
     },
 

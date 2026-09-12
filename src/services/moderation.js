@@ -3,10 +3,11 @@ import { Theme, Brand } from "../design/theme.js";
 import { logger } from "../core/logger.js";
 
 export class ModerationService {
-    constructor(prisma, cases, logging, client) {
+    constructor(prisma, cases, logging, audit, client) {
         this.prisma = prisma;
         this.cases = cases;
         this.logging = logging;
+        this.audit = audit;
         this.client = client;
     }
 
@@ -16,6 +17,8 @@ export class ModerationService {
             moderatorId: moderator.id, moderatorTag: moderator.tag ?? moderator.user?.tag ?? "unknown",
             action: "warn", reason,
         });
+
+        await this.audit.log(guildId, moderator.id, target.id, "warn", "moderation", { caseNumber: case_.caseNumber, reason });
 
         const embed = this.buildModEmbed("Warned", target, moderator, reason, case_.caseNumber);
         await this.logging.logMod(guildId, embed);
@@ -34,6 +37,8 @@ export class ModerationService {
             durationMs: duration?.ms ?? null,
         });
 
+        await this.audit.log(guildId, moderator.id, target.id, "ban", "moderation", { caseNumber: case_.caseNumber, reason, duration: duration?.text });
+
         if (member) {
             await member.ban({ deleteMessageSeconds: 0, reason: `Case #${case_.caseNumber}: ${reason ?? "No reason provided"}` }).catch(e => {
                 logger.error("moderation", "ban failed", e.message);
@@ -44,7 +49,6 @@ export class ModerationService {
         const embed = this.buildModEmbed("Banned", target, moderator, reason, case_.caseNumber, duration?.text);
         await this.logging.logMod(guildId, embed);
 
-        // DM the target
         if (member) {
             await member.send({ content: `You have been banned from **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}${duration?.text ? `\nDuration: ${duration.text}` : ""}` }).catch(() => {});
         }
@@ -61,7 +65,8 @@ export class ModerationService {
             action: "kick", reason,
         });
 
-        // DM before kick
+        await this.audit.log(guildId, moderator.id, target.id, "kick", "moderation", { caseNumber: case_.caseNumber, reason });
+
         if (member) {
             await member.send({ content: `You have been kicked from **${member.guild.name}**.\nReason: ${reason ?? "No reason provided"}` }).catch(() => {});
             await member.kick(`Case #${case_.caseNumber}: ${reason ?? "No reason provided"}`).catch(e => {
@@ -86,6 +91,8 @@ export class ModerationService {
             duration: duration?.text ?? null,
             durationMs: duration?.ms ?? null,
         });
+
+        await this.audit.log(guildId, moderator.id, target.id, "timeout", "moderation", { caseNumber: case_.caseNumber, reason, duration: duration?.text });
 
         if (member) {
             const until = duration?.ms ? new Date(Date.now() + duration.ms) : null;

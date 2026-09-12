@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
+import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { success, error, panel, info } from "../../design/embeds.js";
 import { EconomyService, COOLDOWNS, WORK_JOBS, CRIME_OPTIONS, SLOT_SYMBOLS, formatMs } from "../../services/economy.js";
 

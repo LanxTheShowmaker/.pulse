@@ -24,7 +24,8 @@ export function createServices(client) {
     const settings = new SettingsService(prisma, client);
     const cases = new CasesService(prisma);
     const logging = new LoggingService(prisma, client);
-    const moderation = new ModerationService(prisma, cases, logging, client);
+    const audit = new AuditService(prisma, client);
+    const moderation = new ModerationService(prisma, cases, logging, audit, client);
     const automod = new AutoModService(prisma, client, settings, logging);
     const leveling = new LevelingService(prisma, client);
     const economy = new EconomyService(prisma, client);
@@ -34,7 +35,6 @@ export function createServices(client) {
     const suggestions = new SuggestionService(prisma, client);
     const starboard = new StarboardService(prisma, client);
     const afk = new AfkService(prisma, client);
-    const audit = new AuditService(prisma, client);
     const reactionRoles = new ReactionRoleService(prisma, client);
     const branding = new BrandingService(prisma, client);
     const diagnostics = new DiagnosticsService(prisma, client);

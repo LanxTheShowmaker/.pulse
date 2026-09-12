@@ -6,6 +6,7 @@ export default {
     async execute(member, client) {
         try {
             const config = await client.services.settings.get(member.guild.id);
+            if (!client.services.settings.isModuleEnabled(config, "welcome")) return;
             if (!config.goodbyeChannelId) return;
             const ch = member.guild.channels.cache.get(config.goodbyeChannelId);
             if (!ch?.isTextBased()) return;

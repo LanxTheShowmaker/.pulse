@@ -44,10 +44,11 @@ export default {
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+        const config = await interaction.client.services.settings.get(interaction.guild.id);
         const channel = await interaction.guild.channels.create({
             name: `ticket-${interaction.user.username}`,
             type: ChannelType.GuildText,
-            parent: null,
+            parent: config.ticketCategoryId || null,
         });
 
         await tickets.open(interaction.guild, channel, interaction.user, null, null);
