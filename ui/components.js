@@ -28,7 +28,7 @@ export function confirmRow(yesId, noId) {
     );
 }
 
-export function modal(title, customId, ...inputs) {
+export function modal(title, customId, inputs) {
     const m = new ModalBuilder().setTitle(title).setCustomId(customId);
     for (const inp of inputs) {
         m.addComponents(row(
