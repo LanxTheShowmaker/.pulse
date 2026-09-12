@@ -77,12 +77,14 @@ export default {
         .addSubcommand(sub => sub
             .setName("botavatar")
             .setDescription("Set bot avatar for this server")
-            .addAttachmentOption(o => o.setName("avatar").setDescription("Avatar image").setRequired(true))
+            .addAttachmentOption(o => o.setName("avatar").setDescription("Avatar image file").setRequired(false))
+            .addStringOption(o => o.setName("url").setDescription("Avatar image URL").setRequired(false))
         )
         .addSubcommand(sub => sub
             .setName("botbanner")
             .setDescription("Set bot banner for this server")
-            .addAttachmentOption(o => o.setName("banner").setDescription("Banner image").setRequired(true))
+            .addAttachmentOption(o => o.setName("banner").setDescription("Banner image file").setRequired(false))
+            .addStringOption(o => o.setName("url").setDescription("Banner image URL").setRequired(false))
         ),
 
     async execute(interaction) {
@@ -242,18 +244,38 @@ export default {
     async handleBotAvatar(interaction) {
         const { branding } = interaction.client.services;
         const attachment = interaction.options.getAttachment("avatar");
+        const urlOption = interaction.options.getString("url");
 
-        if (!attachment.contentType?.startsWith("image/")) {
-            return ephemeral(interaction, "File must be an image.");
+        const imageUrl = attachment?.url || urlOption;
+        if (!imageUrl) {
+            return ephemeral(interaction, "Provide an image file or a URL.");
+        }
+
+        // Validate URL format
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(imageUrl);
+            if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+        } catch {
+            return ephemeral(interaction, "Invalid URL. Must start with `http://` or `https://`.");
         }
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
             // Fetch image and convert to base64 data URI for Discord API
-            const resp = await fetch(attachment.url);
+            const resp = await fetch(imageUrl);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            const contentType = resp.headers.get("content-type") || "";
             const buf = Buffer.from(await resp.arrayBuffer());
-            const ext = attachment.contentType.split("/")[1] || "png";
+
+            // Guess extension from content-type or URL
+            let ext = "png";
+            if (contentType.includes("jpeg") || contentType.includes("jpg") || imageUrl.match(/\.jpe?g/i)) ext = "jpeg";
+            else if (contentType.includes("gif") || imageUrl.match(/\.gif/i)) ext = "gif";
+            else if (contentType.includes("webp") || imageUrl.match(/\.webp/i)) ext = "webp";
+
             const b64 = `data:image/${ext};base64,${buf.toString("base64")}`;
 
             const { REST } = await import("discord.js");
@@ -262,10 +284,10 @@ export default {
                 body: { avatar: b64 },
             });
 
-            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+            await branding.set(interaction.guild.id, { avatarUrl: imageUrl });
             await interaction.editReply({ embeds: [success("Bot Avatar Set", `Avatar updated for **${interaction.guild.name}**.`)] });
         } catch (e) {
-            await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
+            await branding.set(interaction.guild.id, { avatarUrl: imageUrl });
             await interaction.editReply({ embeds: [error("Failed", `Saved to DB but could not apply: ${e.message}`)] });
         }
     },
@@ -273,18 +295,35 @@ export default {
     async handleBotBanner(interaction) {
         const { branding } = interaction.client.services;
         const attachment = interaction.options.getAttachment("banner");
+        const urlOption = interaction.options.getString("url");
 
-        if (!attachment.contentType?.startsWith("image/")) {
-            return ephemeral(interaction, "File must be an image.");
+        const imageUrl = attachment?.url || urlOption;
+        if (!imageUrl) {
+            return ephemeral(interaction, "Provide an image file or a URL.");
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(imageUrl);
+            if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error();
+        } catch {
+            return ephemeral(interaction, "Invalid URL. Must start with `http://` or `https://`.");
         }
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            // Fetch image and convert to base64 data URI for Discord API
-            const resp = await fetch(attachment.url);
+            const resp = await fetch(imageUrl);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            const contentType = resp.headers.get("content-type") || "";
             const buf = Buffer.from(await resp.arrayBuffer());
-            const ext = attachment.contentType.split("/")[1] || "png";
+
+            let ext = "png";
+            if (contentType.includes("jpeg") || contentType.includes("jpg") || imageUrl.match(/\.jpe?g/i)) ext = "jpeg";
+            else if (contentType.includes("gif") || imageUrl.match(/\.gif/i)) ext = "gif";
+            else if (contentType.includes("webp") || imageUrl.match(/\.webp/i)) ext = "webp";
+
             const b64 = `data:image/${ext};base64,${buf.toString("base64")}`;
 
             const { REST } = await import("discord.js");
@@ -293,10 +332,10 @@ export default {
                 body: { banner: b64 },
             });
 
-            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+            await branding.set(interaction.guild.id, { bannerUrl: imageUrl });
             await interaction.editReply({ embeds: [success("Bot Banner Set", `Banner updated for **${interaction.guild.name}**.`)] });
         } catch (e) {
-            await branding.set(interaction.guild.id, { bannerUrl: attachment.url });
+            await branding.set(interaction.guild.id, { bannerUrl: imageUrl });
             await interaction.editReply({ embeds: [error("Failed", `Saved to DB but could not apply: ${e.message}`)] });
         }
     },
