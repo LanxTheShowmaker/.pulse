@@ -3,7 +3,16 @@ const current = LEVELS[process.env.LOG_LEVEL ?? "info"] ?? 1;
 
 function fmt(level, scope, msg, data) {
     const ts = new Date().toISOString();
-    const extra = data !== undefined ? ` ${typeof data === "string" ? data : JSON.stringify(data)}` : "";
+    let extra = "";
+    if (data !== undefined) {
+        if (data instanceof Error) {
+            extra = ` ${data.stack || data.message || String(data)}`;
+        } else if (typeof data === "string") {
+            extra = ` ${data}`;
+        } else {
+            extra = ` ${JSON.stringify(data)}`;
+        }
+    }
     return `[${ts}] ${level.toUpperCase().padEnd(5)} ${scope.padEnd(12)} ${msg}${extra}`;
 }
 
