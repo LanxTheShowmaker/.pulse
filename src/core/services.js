@@ -18,6 +18,8 @@ import { BrandingService } from "../services/branding.js";
 import { DiagnosticsService } from "../services/diagnostics.js";
 import { AchievementService } from "../services/achievements.js";
 import { AppealService } from "../services/appeals.js";
+import { PanelService } from "../services/panels.js";
+import { BackupService } from "../services/backups.js";
 import { logger } from "./logger.js";
 
 export function createServices(client) {
@@ -42,9 +44,11 @@ export function createServices(client) {
     const diagnostics = new DiagnosticsService(prisma, client);
     const achievements = new AchievementService(prisma, client);
     const appeals = new AppealService(prisma, client, logging);
+    const panelService = new PanelService(prisma, client);
+    const backups = new BackupService(prisma, client, settings);
 
     client.prisma = prisma;
-    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements, appeals };
+    return { prisma, settings, cases, logging, moderation, automod, leveling, economy, giveaways, tickets, shop, suggestions, starboard, afk, audit, reactionRoles, branding, diagnostics, achievements, appeals, panelService, backups };
 }
 
 export async function shutdownServices(services) {

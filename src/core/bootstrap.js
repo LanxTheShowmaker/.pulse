@@ -61,6 +61,10 @@ async function main() {
 
     await client.login(token);
     logger.info("bootstrap", `.pulse online as ${client.user?.tag ?? "unknown"}`);
+
+    // Restore persistent panels
+    const restored = await client.services.panelService?.restoreAll().catch(() => 0);
+    if (restored) logger.info("bootstrap", `restored ${restored} persistent panel(s)`);
 }
 
 main().catch(e => { logger.error("bootstrap", "fatal", e); process.exit(1); });
