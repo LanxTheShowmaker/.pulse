@@ -61,6 +61,20 @@ export class EconomyService {
         this.client = client;
     }
 
+    async getEconomyConfig(guildId) {
+        let cfg = await this.prisma.economyConfig.findUnique({ where: { guildId } });
+        if (!cfg) cfg = await this.prisma.economyConfig.create({ data: { guildId } });
+        return cfg;
+    }
+
+    async setEconomyConfig(guildId, data) {
+        return this.prisma.economyConfig.upsert({
+            where: { guildId },
+            create: { guildId, ...data },
+            update: data,
+        });
+    }
+
     // ── Core ──
 
     async getProfile(guildId, userId) {
@@ -134,9 +148,10 @@ export class EconomyService {
         const check = this.canDo(eco, "lastDaily", COOLDOWNS.daily);
         if (!check.ok) return { ok: false, remaining: check.remaining };
 
+        const cfg = await this.getEconomyConfig(guildId);
         const streak = eco.lastDaily && (Date.now() - new Date(eco.lastDaily).getTime() < 172_800_000)
             ? eco.dailyStreak + 1 : 1;
-        const base = 100;
+        const base = cfg.dailyAmount;
         const bonus = Math.min(streak, 30) * 10;
         const amount = base + bonus;
 
@@ -153,9 +168,10 @@ export class EconomyService {
         const check = this.canDo(eco, "lastWeekly", COOLDOWNS.weekly);
         if (!check.ok) return { ok: false, remaining: check.remaining };
 
+        const cfg = await this.getEconomyConfig(guildId);
         const streak = eco.lastWeekly && (Date.now() - new Date(eco.lastWeekly).getTime() < 1_209_600_000)
             ? eco.weeklyStreak + 1 : 1;
-        const base = 500;
+        const base = cfg.weeklyAmount;
         const bonus = Math.min(streak, 12) * 50;
         const amount = base + bonus;
 

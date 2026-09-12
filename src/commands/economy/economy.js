@@ -82,6 +82,17 @@ export default {
             }
         }
 
+        // Check economy config toggles
+        if (!isAdmin) {
+            const ecoConfig = await economy.getEconomyConfig(interaction.guild.id);
+            if (sub === "work" && !ecoConfig.jobsEnabled) {
+                return interaction.reply({ embeds: [error("Disabled", "Jobs are disabled in this server.")], flags: MessageFlags.Ephemeral });
+            }
+            if (["rob", "gift"].includes(sub) && !ecoConfig.tradingEnabled) {
+                return interaction.reply({ embeds: [error("Disabled", "Trading is disabled in this server.")], flags: MessageFlags.Ephemeral });
+            }
+        }
+
         switch (sub) {
             case "balance":      return this.handleBalance(interaction, economy);
             case "daily":        return this.handleDaily(interaction, economy);
