@@ -1,10 +1,16 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, ChannelType } from "discord.js";
+
+const PERMISSION_OVERWRITE_ROLE = 0;
 import { panel, stat } from "../../design/embeds.js";
 
 const CHANNEL_TYPES = {
-    0: "Text", 2: "Voice", 4: "Category", 5: "Announcement",
-    13: "Stage", 15: "Forum",
+    [ChannelType.GuildText]: "Text",
+    [ChannelType.GuildVoice]: "Voice",
+    [ChannelType.GuildCategory]: "Category",
+    [ChannelType.AnnouncementChannel]: "Announcement",
+    [ChannelType.GuildStageVoice]: "Stage",
+    [ChannelType.GuildForum]: "Forum",
 };
 
 export default {
@@ -29,7 +35,7 @@ export default {
 
         if (ch.topic) embed.addFields({ name: "Topic", value: ch.topic.slice(0, 1024) });
 
-        const perms = ch.permissionOverwrites.cache.filter(p => p.type === 0);
+        const perms = ch.permissionOverwrites.cache.filter(p => p.type === PERMISSION_OVERWRITE_ROLE);
         if (perms.size > 0) {
             const rolePerms = perms.filter(p => p.id !== ch.guild?.roles?.everyone?.id);
             embed.addFields({ name: `Permissions (${rolePerms.size} roles)`, value: rolePerms.size > 5 ? `${rolePerms.size} role overrides` : "Default" });

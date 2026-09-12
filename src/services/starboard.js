@@ -103,9 +103,10 @@ export class StarboardService {
     }
 
     buildEmbed(message, stars) {
+        const author = message.author;
         const embed = new EmbedBuilder()
             .setColor(Theme.gold)
-            .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL() })
+            .setAuthor({ name: author?.tag ?? "Unknown", iconURL: author?.displayAvatarURL() })
             .setDescription(message.content?.slice(0, 4000) || "*No content*")
             .addFields(
                 { name: "Channel", value: `<#${message.channel.id}>`, inline: true },

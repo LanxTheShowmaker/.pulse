@@ -78,11 +78,7 @@ export default {
                 const messageId = interaction.options.getString("message-id");
                 await interaction.deferReply();
 
-                // Find giveaway by messageId
-                const giveaway = await interaction.client.services.prisma.giveaway.findUnique({
-                    where: { messageId },
-                }).catch(() => null);
-
+                const giveaway = giveaways.findByMessageId(messageId);
                 if (!giveaway) return interaction.editReply({ embeds: [error("Not Found", "Giveaway not found with that message ID.")] });
 
                 const result = await giveaways.end(giveaway.id);
@@ -103,10 +99,7 @@ export default {
                 const count = interaction.options.getInteger("count") ?? 1;
                 await interaction.deferReply();
 
-                const giveaway = await interaction.client.services.prisma.giveaway.findUnique({
-                    where: { messageId },
-                }).catch(() => null);
-
+                const giveaway = giveaways.findByMessageId(messageId);
                 if (!giveaway) return interaction.editReply({ embeds: [error("Not Found", "Giveaway not found with that message ID.")] });
 
                 const result = await giveaways.reroll(giveaway.id, count);
@@ -123,11 +116,7 @@ export default {
             }
 
             case "list": {
-                const list = await interaction.client.services.prisma.giveaway.findMany({
-                    where: { guildId: interaction.guild.id, status: "ACTIVE" },
-                    orderBy: { endsAt: "asc" },
-                    take: 10,
-                });
+                const list = giveaways.listByGuild(interaction.guild.id, "ACTIVE");
 
                 if (!list.length) return ephemeral(interaction, "No active giveaways.");
 

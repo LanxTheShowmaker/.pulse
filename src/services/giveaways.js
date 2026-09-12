@@ -95,6 +95,17 @@ export class GiveawayService {
         return { giveaway: g, message: msg };
     }
 
+    findByMessageId(messageId) {
+        return Object.values(this.giveaways).find(g => g.messageId === messageId) || null;
+    }
+
+    listByGuild(guildId, status, limit = 10) {
+        return Object.values(this.giveaways)
+            .filter(g => g.guildId === guildId && (!status || g.status === status))
+            .sort((a, b) => new Date(a.endsAt) - new Date(b.endsAt))
+            .slice(0, limit);
+    }
+
     async end(giveawayId) {
         const g = this.giveaways[giveawayId];
         if (!g) return { ok: false, error: "Giveaway not found" };

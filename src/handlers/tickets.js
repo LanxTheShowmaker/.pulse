@@ -197,7 +197,7 @@ export default {
         });
 
         const embed = new EmbedBuilder()
-            .setColor(Theme.primary)
+            .setColor(Theme.panel)
             .setTitle("🎫 Support Tickets")
             .setDescription("Need help? Click a button below to open a support ticket.")
             .setTimestamp();

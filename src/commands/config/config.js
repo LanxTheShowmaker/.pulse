@@ -112,6 +112,8 @@ export default {
         const mods = JSON.parse(config.modules);
         const enabledCount = MODULE_LIST.filter(m => mods[m.name] !== false).length;
 
+        const branding = await interaction.client.services.branding.get(interaction.guild.id);
+
         const embed = panel("Server Configuration", null)
             .addFields(
                 stat("Modules", `${enabledCount}/${MODULE_LIST.length} enabled`),
@@ -124,8 +126,8 @@ export default {
                 stat("Prefix", `\`${config.prefix}\``),
             );
 
-        if (config.botName) {
-            embed.addFields(stat("Bot Name", `**${config.botName}**`));
+        if (branding?.nickname) {
+            embed.addFields(stat("Bot Name", `**${branding.nickname}**`));
         }
 
         await interaction.reply({ embeds: [embed] });
@@ -224,9 +226,13 @@ export default {
         const oldDisplay = currentName || "Default";
 
         await branding.set(interaction.guild.id, { nickname: name });
-        await interaction.guild.members.me.setNickname(name).catch(e => {
-            return interaction.reply({ embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${e.message}`)] });
-        });
+
+        const nicknameErr = await interaction.guild.members.me.setNickname(name).catch(e => e);
+        if (nicknameErr) {
+            return interaction.reply({
+                embeds: [success("Name Saved", `Saved as **${name}** but could not apply: ${nicknameErr.message}`)],
+            });
+        }
 
         await interaction.reply({
             embeds: [success("Bot Name Set", `Bot name: **${oldDisplay}** → **${name}**`)],
@@ -244,11 +250,16 @@ export default {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            // Use REST API for per-server avatar (PATCH /guilds/{id}/members/@me)
+            // Fetch image and convert to base64 data URI for Discord API
+            const resp = await fetch(attachment.url);
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const ext = attachment.contentType.split("/")[1] || "png";
+            const b64 = `data:image/${ext};base64,${buf.toString("base64")}`;
+
             const { REST } = await import("discord.js");
             const rest = new REST().setToken(interaction.client.token);
             await rest.patch(`/guilds/${interaction.guild.id}/members/@me`, {
-                body: { avatar: attachment.url },
+                body: { avatar: b64 },
             });
 
             await branding.set(interaction.guild.id, { avatarUrl: attachment.url });
@@ -270,11 +281,16 @@ export default {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            // Use REST API for per-server banner (PATCH /guilds/{id}/members/@me)
+            // Fetch image and convert to base64 data URI for Discord API
+            const resp = await fetch(attachment.url);
+            const buf = Buffer.from(await resp.arrayBuffer());
+            const ext = attachment.contentType.split("/")[1] || "png";
+            const b64 = `data:image/${ext};base64,${buf.toString("base64")}`;
+
             const { REST } = await import("discord.js");
             const rest = new REST().setToken(interaction.client.token);
             await rest.patch(`/guilds/${interaction.guild.id}/members/@me`, {
-                body: { banner: attachment.url },
+                body: { banner: b64 },
             });
 
             await branding.set(interaction.guild.id, { bannerUrl: attachment.url });

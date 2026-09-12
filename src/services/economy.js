@@ -107,6 +107,7 @@ export class EconomyService {
     }
 
     async resetUser(guildId, userId) {
+        await this.prisma.economyTransaction.deleteMany({ where: { guildId, userId } });
         return this.prisma.economy.deleteMany({ where: { guildId, userId } });
     }
 

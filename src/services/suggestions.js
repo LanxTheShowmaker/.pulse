@@ -1,7 +1,6 @@
 import { EmbedBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
 import { Theme, Brand } from "../design/theme.js";
-import { stat } from "../design/embeds.js";
 import { logger } from "../core/logger.js";
 
 const STATUS = {
@@ -15,7 +14,7 @@ const STATUS = {
 const STATUS_COLOR = {
     PENDING: Theme.accent,
     APPROVED: Theme.success,
-    DENIED: Theme.error,
+    DENIED: Theme.danger,
     IMPLEMENTED: Theme.gold,
     CLOSED: Theme.muted,
 };

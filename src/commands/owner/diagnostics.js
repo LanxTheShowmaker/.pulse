@@ -19,7 +19,7 @@ export default {
         const embed = panel("Diagnostics", lines.join("\n"));
 
         const allOk = results.every(r => r.status === "OK");
-        embed.setColor(allOk ? Theme.success : Theme.error);
+        embed.setColor(allOk ? Theme.success : Theme.danger);
 
         await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
     },

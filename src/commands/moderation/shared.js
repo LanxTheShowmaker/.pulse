@@ -1,4 +1,5 @@
-import { MessageFlags } from "discord.js";
+import { MessageFlags, ButtonStyle } from "discord.js";
+import { row, button } from "../../design/components.js";
 
 export function parseDuration(input) {
     if (!input) return null;
@@ -55,9 +56,6 @@ export async function ephemeral(interaction, content) {
 }
 
 export async function confirmAction(interaction, question) {
-    const { row, button } = await import("../../design/components.js");
-    const { ButtonStyle } = await import("discord.js");
-
     await interaction.reply({
         content: question,
         components: [row(
