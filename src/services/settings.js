@@ -5,6 +5,8 @@ const DEFAULTS = {
     modLogChannelId: null,
     welcomeChannelId: null,
     goodbyeChannelId: null,
+    ticketCategoryId: null,
+    ticketLogChannelId: null,
     staffRoleIds: "[]",
     moderatorRoleIds: "[]",
     ignoredChannelIds: "[]",

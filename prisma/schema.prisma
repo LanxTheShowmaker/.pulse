@@ -8,22 +8,24 @@ datasource db {
 }
 
 model GuildConfig {
-  guildId           String   @id
-  logChannelId      String?
-  modLogChannelId   String?
-  welcomeChannelId  String?
-  goodbyeChannelId  String?
-  staffRoleIds      String   @default("[]")
-  moderatorRoleIds  String   @default("[]")
-  ignoredChannelIds String   @default("[]")
-  ignoredRoleIds    String   @default("[]")
-  ignoredUserIds    String   @default("[]")
-  modules           String   @default("{}")
-  automod           String   @default("{}")
-  orders            String   @default("{}")
-  prefix            String   @default("!")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  guildId             String   @id
+  logChannelId        String?
+  modLogChannelId     String?
+  welcomeChannelId    String?
+  goodbyeChannelId    String?
+  ticketCategoryId    String?
+  ticketLogChannelId  String?
+  staffRoleIds        String   @default("[]")
+  moderatorRoleIds    String   @default("[]")
+  ignoredChannelIds   String   @default("[]")
+  ignoredRoleIds      String   @default("[]")
+  ignoredUserIds      String   @default("[]")
+  modules             String   @default("{}")
+  automod             String   @default("{}")
+  orders              String   @default("{}")
+  prefix              String   @default("!")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model GuildBranding {

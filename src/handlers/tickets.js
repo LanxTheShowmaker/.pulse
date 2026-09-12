@@ -275,10 +275,14 @@ export default {
             type = await prisma.ticketType.findUnique({ where: { id: typeId } });
         }
 
+        // Use type category > saved config category > null
+        const config = await client.services.settings.get(i.guild.id);
+        const parentId = type?.categoryId || config.ticketCategoryId || null;
+
         const channel = await i.guild.channels.create({
             name: `${type?.channelPrefix || "ticket"}-${i.user.username}`,
             type: ChannelType.GuildText,
-            parent: type?.categoryId || null,
+            parent: parentId,
         });
 
         await channel.permissionOverwrites.edit(i.guild.id, { ViewChannel: false });
