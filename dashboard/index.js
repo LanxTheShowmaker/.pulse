@@ -105,6 +105,36 @@ app.get("/api/guild/:guildId/moderation/cases/:caseNumber", authenticateDiscord,
     }
 });
 
+app.get("/api/guild/:guildId/moderation/cases/target/:targetId", authenticateDiscord, async (req, res) => {
+    try {
+        const casesList = await moderation.getCasesByTargetApi(req.params.guildId, req.params.targetId, 25);
+        res.json(casesList);
+    } catch (e) {
+        logger.error("api", `get cases by target error for ${req.params.guildId}`, e);
+        res.status(500).json({ error: "Failed to fetch cases by target." });
+    }
+});
+
+app.get("/api/guild/:guildId/moderation/cases/:caseId/notes", authenticateDiscord, async (req, res) => {
+    try {
+        const notesList = await moderation.getCaseNotesApi(req.params.guildId, req.params.caseId, 25);
+        res.json(notesList);
+    } catch (e) {
+        logger.error("api", `get case notes error for ${req.params.guildId}`, e);
+        res.status(500).json({ error: "Failed to fetch case notes." });
+    }
+});
+
+app.get("/api/guild/:guildId/moderation/stats", authenticateDiscord, async (req, res) => {
+    try {
+        const modStats = await moderation.getCaseStatsApi(req.params.guildId);
+        res.json({ moderation: modStats });
+    } catch (e) {
+        logger.error("api", `get moderation stats error for ${req.params.guildId}`, e);
+        res.status(500).json({ error: "Failed to fetch moderation stats." });
+    }
+});
+
 // ── API: Mod log history ────────────────────────────────
 app.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) => {
     try {
