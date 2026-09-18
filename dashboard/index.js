@@ -117,25 +117,105 @@ app.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) =>
 });
 
 // ── API: Stats ──────────────────────────────────────────
-app.get("/api/guild/:guildId/statistics", authenticateDiscord, async (req, res) => {
+app.get("/api/guild/:guildId/tickets", authenticateDiscord, async (req, res) => {
     try {
-        const [ticketStats, modStats, recentTickets, recentCases, modLog] = await Promise.all([
+        const [openTickets, recentTickets, ticketTypes, stats] = await Promise.all([
+            tickets.getOpenTicketsSummary(req.params.guildId, 50),
+            tickets.getTicketHistorySummary(req.params.guildId, 20),
+            prisma.ticketType.findMany({ where: { guildId: req.params.guildId } }),
             tickets.getStats(req.params.guildId),
-            moderation.getCaseStatsApi(req.params.guildId),
-            tickets.getOpenTicketsSummary(req.params.guildId, 5),
-            moderation.getRecentCasesApi(req.params.guildId, 5),
-            logging.getModLogHistory(req.params.guildId, 5),
         ]);
         res.json({
-            tickets: ticketStats,
-            moderation: modStats,
+            openTickets,
             recentTickets,
-            recentCases,
-            modLog,
+            ticketTypes,
+            stats,
         });
     } catch (e) {
-        logger.error("api", `get statistics error for ${req.params.guildId}`, e);
-        res.status(500).json({ error: "Failed to fetch statistics." });
+        logger.error("api", `get tickets error for ${req.params.guildId}`, e);
+        res.status(500).json({ error: "Failed to fetch tickets." });
+    }
+});
+
+app.get("/api/guild/:guildId/tickets/:ticketId", authenticateDiscord, async (req, res) => {
+    try {
+        const summary = await tickets.getTicketSummary(req.params.ticketId);
+        res.json(summary);
+    } catch (e) {
+        logger.error("api", `get ticket error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to fetch ticket." });
+    }
+});
+
+app.get("/api/guild/:guildId/tickets/type/:typeId", authenticateDiscord, async (req, res) => {
+    try {
+        const type = await prisma.ticketType.findUnique({ where: { id: req.params.typeId } });
+        res.json(type);
+    } catch (e) {
+        logger.error("api", `get type error for ${req.params.typeId}`, e);
+        res.status(500).json({ error: "Failed to fetch ticket type." });
+    }
+});
+
+// ── API: Ticket actions ─────────────────────────────────
+
+app.post("/api/guild/:guildId/tickets/:ticketId/close", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.close(req.params.ticketId, req.user.id, req.body.closeReason);
+        res.json({ success: true, ticketId: req.params.ticketId });
+    } catch (e) {
+        logger.error("api", `close ticket error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to close ticket." });
+    }
+});
+
+app.post("/api/guild/:guildId/tickets/:ticketId/reopen", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.reopen(req.params.ticketId, req.user.id);
+        res.json({ success: true, ticketId: req.params.ticketId });
+    } catch (e) {
+        logger.error("api", `reopen ticket error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to reopen ticket." });
+    }
+});
+
+app.post("/api/guild/:guildId/tickets/:ticketId/rename", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.rename(req.params.ticketId, req.body.newName, req.user.id);
+        res.json({ success: true, ticketId: req.params.ticketId, newName: req.body.newName });
+    } catch (e) {
+        logger.error("api", `rename ticket error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to rename ticket." });
+    }
+});
+
+app.post("/api/guild/:guildId/tickets/:ticketId/assign", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.assign(req.params.ticketId, req.body.userId, req.user.id);
+        res.json({ success: true, ticketId: req.params.ticketId });
+    } catch (e) {
+        logger.error("api", `assign ticket error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to assign ticket." });
+    }
+});
+
+app.post("/api/guild/:guildId/tickets/:ticketId/priority", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.setPriority(req.params.ticketId, req.body.newPriority, req.user.id);
+        res.json({ success: true, ticketId: req.params.ticketId, newPriority: req.body.newPriority });
+    } catch (e) {
+        logger.error("api", `set priority error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to set priority." });
+    }
+});
+
+app.post("/api/guild/:guildId/tickets/:ticketId/status", authenticateDiscord, async (req, res) => {
+    try {
+        const result = await tickets.setStatus(req.params.ticketId, req.body.newStatus, req.user.id);
+        res.json({ success: true, ticketId: req.params.ticketId, newStatus: req.body.newStatus });
+    } catch (e) {
+        logger.error("api", `set status error for ${req.params.ticketId}`, e);
+        res.status(500).json({ error: "Failed to set status." });
     }
 });
 
