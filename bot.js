@@ -5,6 +5,9 @@ import { loadCommands, loadEvents, loadHandlers } from "./core/registry.js";
 import { createServices, initDatabase, shutdownServices } from "./core/services.js";
 import { logger } from "./core/logger.js";
 
+// Dashboard import (Phase 4: shared platform)
+let dashboardServer = null;
+
 process.on("unhandledRejection", e => logger.error("process", "unhandledRejection", e));
 process.on("uncaughtException", e => logger.error("process", "uncaughtException", e));
 
@@ -55,6 +58,7 @@ async function main() {
         logger.info("bootstrap", `${signal}, shutting down`);
         try {
             await shutdownServices(client.services);
+            if (dashboardServer) await dashboardServer.close();
             await client.services.prisma.$disconnect();
         } catch {}
         client.destroy();
@@ -80,6 +84,15 @@ async function main() {
             logger.error("tickets", `auto-close check failed: ${e.message}`);
         });
     }, 60_000);
+
+    // Start dashboard server
+    try {
+        const { startServer } = await import("./dashboard/index.js");
+        dashboardServer = await startServer();
+        logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
+    } catch (e) {
+        logger.error("bootstrap", "Failed to start dashboard server", e);
+    }
 }
 
 main().catch(e => { logger.error("bootstrap", "fatal", e); process.exit(1); });
