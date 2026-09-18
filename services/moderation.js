@@ -130,4 +130,101 @@ export class ModerationService {
             .setFooter({ text: Brand.footer })
             .setTimestamp();
     }
+
+    // ─── API BOUNDARY: Moderation API ────────────────────────
+
+    async getRecentCasesApi(guildId, limit = 25) {
+        return this.prisma.case.findMany({
+            where: { guildId },
+            orderBy: { caseNumber: "desc" },
+            take: limit,
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                resolvedById: true,
+                resolvedByTag: true,
+                resolvedAt: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCaseApi(guildId, caseNumber) {
+        return this.prisma.case.findUnique({
+            where: { guildId_caseNumber: { guildId, caseNumber } },
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                moderatorId: true,
+                moderatorTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                resolvedById: true,
+                resolvedByTag: true,
+                resolvedAt: true,
+                metadata: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCasesByTargetApi(guildId, targetId, limit = 25) {
+        return this.prisma.case.findMany({
+            where: { guildId, targetId },
+            orderBy: { caseNumber: "desc" },
+            take: limit,
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCaseNotesApi(guildId, targetId, limit = 25) {
+        return this.prisma.caseNote.findMany({
+            where: { guildId, targetId },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            select: { id: true, authorId: true, authorTag: true, content: true, createdAt: true },
+        });
+    }
+
+    async getCaseStatsApi(guildId) {
+        const total = await this.prisma.case.count({ where: { guildId } });
+        const byAction = await this.prisma.case.groupBy({
+            by: ["action"],
+            where: { guildId },
+            _count: true,
+        });
+        const byTarget = await this.prisma.case.groupBy({
+            by: ["targetId"],
+            where: { guildId, action: { in: ["warn", "ban", "kick", "timeout"] } },
+            _count: true,
+        });
+        return {
+            total,
+            byAction: Object.fromEntries(byAction.map(r => [r.action, r._count])),
+            byTargetCount: Object.fromEntries(byTarget.map(r => [r.targetId, r._count])),
+        };
+    }
 }

@@ -26,4 +26,14 @@ export class LoggingService {
         const ch = await this.channel(guildId, "mod");
         if (ch?.isTextBased()) await ch.send({ embeds: [embed] }).catch(e => logger.warn("logging", "mod log failed", e.message));
     }
+
+    async getModLogHistory(guildId, limit = 50) {
+        // Return audit log entries for moderation
+        return this.prisma.auditLog.findMany({
+            where: { guildId },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            select: { id: true, actorId: true, targetId: true, action: true, category: true, details: true, createdAt: true },
+        });
+    }
 }

@@ -1,0 +1,35 @@
+{
+  "name": "@pulse/dashboard",
+  "version": "2.0.0",
+  "description": ".pulse — Dashboard interface for Discord management platform",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@discordjs/builders": "^0.16.0",
+    "@discordjs/collection": "3.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/formatters": "1.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/rest": "3.0.0-pr-11602.1789066132-275cd4b42",
+    "@discordjs/util": "2.0.0-pr-11602.1789066132-275cd4b42",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "discord.js": "15.0.0-pr-11602.1789066132-275cd4b42",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "prisma": "^5.22.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0"
+  }
+}

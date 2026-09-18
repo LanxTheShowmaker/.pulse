@@ -84,4 +84,36 @@ export class SettingsService {
         if (guildId) this._cache.delete(guildId);
         else this._cache.clear();
     }
+
+    // ─── API BOUNDARY: Settings API ──────────────────────────
+
+    async getAllSettings(guildId) {
+        const config = await this.prisma.guildConfig.findUnique({ where: { guildId } });
+        if (!config) return this._cache.get(guildId) || this.parse(await this.prisma.guildConfig.create({ data: { guildId } }));
+        return this.parse(config);
+    }
+
+    async getModuleState(guildId, module) {
+        const config = await this.get(guildId);
+        return this.isModuleEnabled(config, module);
+    }
+
+    async setModuleState(guildId, module, enabled) {
+        return this.setModule(guildId, module, enabled);
+    }
+
+    async getIgnoredUsers(guildId, limit = 50) {
+        const config = await this.get(guildId);
+        return JSON.parse(config.ignoredUserIds || "[]").slice(0, limit);
+    }
+
+    async getIgnoredChannels(guildId, limit = 50) {
+        const config = await this.get(guildId);
+        return JSON.parse(config.ignoredChannelIds || "[]").slice(0, limit);
+    }
+
+    async getIgnoredRoles(guildId, limit = 50) {
+        const config = await this.get(guildId);
+        return JSON.parse(config.ignoredRoleIds || "[]").slice(0, limit);
+    }
 }

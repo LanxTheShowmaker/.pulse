@@ -166,26 +166,61 @@ model TicketType {
 }
 
 model Ticket {
-  id            String    @id @default(uuid())
-  guildId       String
-  channelId     String    @unique
-  openerId      String
-  typeId        String?
-  panelType     String?
-  status        String    @default("OPEN")
-  priority      String    @default("NORMAL")
-  claimedById   String?
-  assignedById  String?
-  assignedAt    DateTime?
-  closedById    String?
-  lastMessageAt DateTime?
-  createdAt     DateTime  @default(now())
-  closedAt      DateTime?
-  transcript    String?
+  id                 String    @id @default(uuid())
+  guildId            String
+  channelId          String    @unique
+  openerId           String
+  typeId             String?
+  panelType          String?
+  status             String    @default("OPEN")
+  priority           String    @default("NORMAL")
+  customName         String?
+  claimedById        String?
+  assignedById       String?
+  assignedAt         DateTime?
+  closedById         String?
+  closeReason        String?
+  lastMessageAt      DateTime?
+  workspaceMessageId String?
+  createdAt          DateTime  @default(now())
+  closedAt           DateTime?
+  transcript         String?
 
   @@index([guildId, openerId])
   @@index([guildId, status])
   @@index([guildId, closedAt])
+}
+
+// API boundary types for dashboard access
+model TicketSummary {
+  id        String   @id @default(uuid())
+  guildId   String
+  channelId String
+  type      String?
+  status    String
+  priority  String
+  openedBy  String
+  createdAt DateTime
+  closedAt  DateTime?
+}
+
+model TicketDetail {
+  id            String   @id @default(uuid())
+  guildId       String
+  channelId     String
+  typeId        String?
+  openerId      String
+  claimedById   String?
+  assignedById  String?
+  status        String
+  priority      String
+  closeReason   String?
+  createdAt     DateTime
+  closedAt      DateTime?
+  transcript    String?
+  formAnswers   String?  // JSON
+  notes         String?  // JSON
+  history       String?  // JSON
 }
 
 model Xp {

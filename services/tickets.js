@@ -209,9 +209,44 @@ export class TicketService {
         });
     }
 
+    // ─── RENAME ────────────────────────────────────────────
+
+    async rename(ticketId, newName, renamedBy) {
+        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+        if (!ticket) throw new Error("Ticket not found");
+
+        const updated = await this.prisma.ticket.update({
+            where: { id: ticketId },
+            data: { customName: newName || null },
+        });
+
+        await this.log(ticket.guildId, ticketId, "RENAMED", renamedBy, newName ? `Renamed to "${newName}"` : "Name cleared");
+
+        const guild = this.client.guilds.cache.get(ticket.guildId);
+        if (guild) {
+            const ch = guild.channels.cache.get(ticket.channelId);
+            if (ch) {
+                const displayName = newName || ch.name.replace(/^ticket-/, "");
+                const prefix = displayName.startsWith("ticket-") ? "" : "ticket-";
+                await ch.setName(`${prefix}${displayName}`.slice(0, 100)).catch(() => {});
+            }
+        }
+
+        return updated;
+    }
+
+    // ─── WORKSPACE MESSAGE ─────────────────────────────────
+
+    async setWorkspaceMessage(channelId, messageId) {
+        await this.prisma.ticket.update({
+            where: { channelId },
+            data: { workspaceMessageId: messageId },
+        }).catch(() => {});
+    }
+
     // ─── CLOSE ─────────────────────────────────────────────
 
-    async close(channelId, closedById) {
+    async close(channelId, closedById, closeReason) {
         const ticket = await this.prisma.ticket.findUnique({ where: { channelId } });
         if (!ticket) return null;
 
@@ -239,10 +274,10 @@ export class TicketService {
 
         await this.prisma.ticket.update({
             where: { channelId },
-            data: { status: "CLOSED", closedById, closedAt: new Date(), transcript },
+            data: { status: "CLOSED", closedById, closedAt: new Date(), transcript, closeReason: closeReason || null },
         });
 
-        await this.log(ticket.guildId, ticket.id, "CLOSED", closedById);
+        await this.log(ticket.guildId, ticket.id, "CLOSED", closedById, closeReason || null);
 
         if (guild) {
             const ch = guild.channels.cache.get(channelId);
@@ -263,7 +298,7 @@ export class TicketService {
                 const closeEmbed = new EmbedBuilder()
                     .setColor(Theme.muted)
                     .setTitle("Ticket Closed")
-                    .setDescription(`Closed by <@${closedById}>. Channel will be deleted in 60 seconds.`)
+                    .setDescription(`Closed by <@${closedById}>${closeReason ? `\n**Reason:** ${closeReason}` : ""}\nChannel will be deleted in 60 seconds.`)
                     .setFooter({ text: Brand.footer })
                     .setTimestamp();
 
@@ -459,7 +494,164 @@ export class TicketService {
         }
     }
 
-    // ─── VALIDATORS ────────────────────────────────────────
+    // ─── API BOUNDARY: Ticket Summaries ─────────────────────
+
+    async getTicketSummary(ticketId) {
+        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
+        if (!ticket) return null;
+        return {
+            id: ticket.id,
+            guildId: ticket.guildId,
+            channelId: ticket.channelId,
+            typeId: ticket.typeId,
+            status: ticket.status,
+            priority: ticket.priority,
+            openerId: ticket.openerId,
+            claimedById: ticket.claimedById,
+            assignedById: ticket.assignedById,
+            closedById: ticket.closedById,
+            closeReason: ticket.closeReason,
+            createdAt: ticket.createdAt,
+            closedAt: ticket.closedAt,
+        };
+    }
+
+    async getOpenTicketsSummary(guildId, limit = 50) {
+        const tickets = await this.prisma.ticket.findMany({
+            where: { guildId, status: { notIn: ["CLOSED"] } },
+            orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
+            take: limit,
+        });
+        return tickets.map(t => ({
+            id: t.id,
+            guildId: t.guildId,
+            channelId: t.channelId,
+            typeId: t.typeId,
+            status: t.status,
+            priority: t.priority,
+            openerId: t.openerId,
+            claimedById: t.claimedById,
+            assignedById: t.assignedById,
+            closeReason: t.closeReason,
+            createdAt: t.createdAt,
+        }));
+    }
+
+    async getTicketHistorySummary(guildId, limit = 50) {
+        const tickets = await this.prisma.ticket.findMany({
+            where: { guildId },
+            orderBy: [{ closedAt: "desc" }],
+            take: limit,
+            include: { TicketType: true },
+        });
+        return tickets.map(t => ({
+            id: t.id,
+            guildId: t.guildId,
+            type: t.typeId ? { displayName: t.TicketType.displayName, key: t.TicketType.key } : null,
+            status: t.status,
+            closedAt: t.closedAt,
+            closeReason: t.closeReason,
+            openedAt: t.createdAt,
+        }));
+    }
+
+    // ─── API BOUNDARY: Moderation Cases ──────────────────────
+
+    async getRecentCases(guildId, limit = 25) {
+        return this.prisma.case.findMany({
+            where: { guildId },
+            orderBy: { caseNumber: "desc" },
+            take: limit,
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                resolvedById: true,
+                resolvedByTag: true,
+                resolvedAt: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCase(guildId, caseNumber) {
+        return this.prisma.case.findUnique({
+            where: { guildId_caseNumber: { guildId, caseNumber } },
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                moderatorId: true,
+                moderatorTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                resolvedById: true,
+                resolvedByTag: true,
+                resolvedAt: true,
+                metadata: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCasesByTarget(guildId, targetId, limit = 25) {
+        return this.prisma.case.findMany({
+            where: { guildId, targetId },
+            orderBy: { caseNumber: "desc" },
+            take: limit,
+            select: {
+                id: true,
+                caseNumber: true,
+                targetId: true,
+                targetTag: true,
+                action: true,
+                reason: true,
+                duration: true,
+                durationMs: true,
+                resolved: true,
+                createdAt: true,
+            },
+        });
+    }
+
+    async getCaseNotes(guildId, targetId, limit = 25) {
+        return this.prisma.caseNote.findMany({
+            where: { guildId, targetId },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+            select: { id: true, authorId: true, authorTag: true, content: true, createdAt: true },
+        });
+    }
+
+    // ─── API BOUNDARY: General Guild Info ────────────────────
+
+    async getGuildConfig(guildId) {
+        return this.prisma.guildConfig.findUnique({ where: { guildId } });
+    }
+
+    async getGuildSettings(guildId) {
+        return this.prisma.guildConfig.findUnique({ where: { guildId } });
+    }
+
+    // ─── API BOUNDARY: Panel System ──────────────────────────
+
+    async getPanels(guildId) {
+        return this.prisma.panel.findMany({ where: { guildId }, orderBy: { panelType: "asc" } });
+    }
+
+    async getPanel(guildId, panelType) {
+        return this.prisma.panel.findUnique({ where: { guildId_panelType: { guildId, panelType } } });
+    }
 
     canTransition(from, to) {
         return VALID_TRANSITIONS[from]?.includes(to) ?? false;
