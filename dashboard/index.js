@@ -135,6 +135,23 @@ app.get("/api/guild/:guildId/moderation/stats", authenticateDiscord, async (req,
     }
 });
 
+app.get("/api/guild/:guildId/members/recent", authenticateDiscord, async (req, res) => {
+    try {
+        // Get recent activity from tickets and mod cases
+        const [recentTickets, recentCases] = await Promise.all([
+            tickets.getOpenTicketsSummary(req.params.guildId, 5),
+            moderation.getRecentCasesApi(req.params.guildId, 5),
+        ]);
+        res.json({
+            recentTickets,
+            recentCases,
+        });
+    } catch (e) {
+        logger.error("api", `get activity error for ${req.params.guildId}`, e);
+        res.status(500).json({ error: "Failed to fetch recent activity." });
+    }
+});
+
 // ── API: Mod log history ────────────────────────────────
 app.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) => {
     try {
@@ -329,7 +346,7 @@ app.get("/dashboard", authenticateDiscord, (req, res) => {
 });
 
 // ── Start server ────────────────────────────────────────
-const PORT = process.env.DASHBOARD_PORT || 3000;
+const PORT = process.env.DASHBOARD_PORT || 9875;
 
 app.listen(PORT, async () => {
     logger.info("dashboard", `.pulse dashboard listening on port ${PORT}`);
