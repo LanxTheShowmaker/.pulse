@@ -7,7 +7,7 @@ import cookieParser from "cookie-parser";
 import { createServices } from "../core/services.js";
 import { logger } from "../core/logger.js";
 
-const app = express();
+const expressApp = express();
 const prisma = new PrismaClient();
 
 // ── Rate limiting ───────────────────────────────────────
@@ -20,14 +20,14 @@ const globalLimiter = rateLimit({
 });
 
 // ── Helmet security headers ─────────────────────────────
-app.use(helmet());
+expressApp.use(helmet());
 
 // ── Body parsing ────────────────────────────────────────
-app.use(express.json({ limit: "10kb" }));
-app.use(express.urlencoded({ extended: true, limit: "10kb" }));
-app.use(cookieParser());
+expressApp.use(express.json({ limit: "10kb" }));
+expressApp.use(express.urlencoded({ extended: true, limit: "10kb" }));
+expressApp.use(cookieParser());
 
-app.use(globalLimiter);
+expressApp.use(globalLimiter);
 
 // ── Prisma services ─────────────────────────────────────
 const prismaServices = createServices(prisma);
@@ -41,7 +41,7 @@ function authenticateDiscord(req, res, next) {
 }
 
 // ── API: Guild configuration ────────────────────────────
-app.get("/api/guild/:guildId/config", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/config", authenticateDiscord, async (req, res) => {
     try {
         const config = await settings.getGuildConfig(req.params.guildId);
         res.json(config);
@@ -51,7 +51,7 @@ app.get("/api/guild/:guildId/config", authenticateDiscord, async (req, res) => {
     }
 });
 
-app.patch("/api/guild/:guildId/config", authenticateDiscord, async (req, res) => {
+expressApp.patch("/api/guild/:guildId/config", authenticateDiscord, async (req, res) => {
     try {
         const data = req.body;
         await settings.patch(req.params.guildId, data);
@@ -64,7 +64,7 @@ app.patch("/api/guild/:guildId/config", authenticateDiscord, async (req, res) =>
 });
 
 // ── API: Ticket summaries ───────────────────────────────
-app.get("/api/guild/:guildId/tickets/open", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/tickets/open", authenticateDiscord, async (req, res) => {
     try {
         const summaries = await tickets.getOpenTicketsSummary(req.params.guildId, 50);
         res.json(summaries);
@@ -74,7 +74,7 @@ app.get("/api/guild/:guildId/tickets/open", authenticateDiscord, async (req, res
     }
 });
 
-app.get("/api/guild/:guildId/tickets/recent", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/tickets/recent", authenticateDiscord, async (req, res) => {
     try {
         const summaries = await tickets.getTicketHistorySummary(req.params.guildId, 50);
         res.json(summaries);
@@ -85,7 +85,7 @@ app.get("/api/guild/:guildId/tickets/recent", authenticateDiscord, async (req, r
 });
 
 // ── API: Moderation cases ───────────────────────────────
-app.get("/api/guild/:guildId/moderation/cases/recent", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/moderation/cases/recent", authenticateDiscord, async (req, res) => {
     try {
         const casesList = await moderation.getRecentCasesApi(req.params.guildId, 25);
         res.json(casesList);
@@ -95,7 +95,7 @@ app.get("/api/guild/:guildId/moderation/cases/recent", authenticateDiscord, asyn
     }
 });
 
-app.get("/api/guild/:guildId/moderation/cases/:caseNumber", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/moderation/cases/:caseNumber", authenticateDiscord, async (req, res) => {
     try {
         const caseData = await moderation.getCaseApi(req.params.guildId, parseInt(req.params.caseNumber));
         res.json(caseData);
@@ -105,7 +105,7 @@ app.get("/api/guild/:guildId/moderation/cases/:caseNumber", authenticateDiscord,
     }
 });
 
-app.get("/api/guild/:guildId/moderation/cases/target/:targetId", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/moderation/cases/target/:targetId", authenticateDiscord, async (req, res) => {
     try {
         const casesList = await moderation.getCasesByTargetApi(req.params.guildId, req.params.targetId, 25);
         res.json(casesList);
@@ -115,7 +115,7 @@ app.get("/api/guild/:guildId/moderation/cases/target/:targetId", authenticateDis
     }
 });
 
-app.get("/api/guild/:guildId/moderation/cases/:caseId/notes", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/moderation/cases/:caseId/notes", authenticateDiscord, async (req, res) => {
     try {
         const notesList = await moderation.getCaseNotesApi(req.params.guildId, req.params.caseId, 25);
         res.json(notesList);
@@ -125,7 +125,7 @@ app.get("/api/guild/:guildId/moderation/cases/:caseId/notes", authenticateDiscor
     }
 });
 
-app.get("/api/guild/:guildId/moderation/stats", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/moderation/stats", authenticateDiscord, async (req, res) => {
     try {
         const modStats = await moderation.getCaseStatsApi(req.params.guildId);
         res.json({ moderation: modStats });
@@ -135,7 +135,7 @@ app.get("/api/guild/:guildId/moderation/stats", authenticateDiscord, async (req,
     }
 });
 
-app.get("/api/guild/:guildId/members/recent", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/members/recent", authenticateDiscord, async (req, res) => {
     try {
         // Get recent activity from tickets and mod cases
         const [recentTickets, recentCases] = await Promise.all([
@@ -153,7 +153,7 @@ app.get("/api/guild/:guildId/members/recent", authenticateDiscord, async (req, r
 });
 
 // ── API: Mod log history ────────────────────────────────
-app.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) => {
     try {
         const history = await logging.getModLogHistory(req.params.guildId, 50);
         res.json(history);
@@ -164,7 +164,7 @@ app.get("/api/guild/:guildId/logs/mod", authenticateDiscord, async (req, res) =>
 });
 
 // ── API: Stats ──────────────────────────────────────────
-app.get("/api/guild/:guildId/tickets", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/tickets", authenticateDiscord, async (req, res) => {
     try {
         const [openTickets, recentTickets, ticketTypes, stats] = await Promise.all([
             tickets.getOpenTicketsSummary(req.params.guildId, 50),
@@ -184,7 +184,7 @@ app.get("/api/guild/:guildId/tickets", authenticateDiscord, async (req, res) => 
     }
 });
 
-app.get("/api/guild/:guildId/tickets/:ticketId", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/tickets/:ticketId", authenticateDiscord, async (req, res) => {
     try {
         const summary = await tickets.getTicketSummary(req.params.ticketId);
         res.json(summary);
@@ -194,7 +194,7 @@ app.get("/api/guild/:guildId/tickets/:ticketId", authenticateDiscord, async (req
     }
 });
 
-app.get("/api/guild/:guildId/tickets/type/:typeId", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/tickets/type/:typeId", authenticateDiscord, async (req, res) => {
     try {
         const type = await prisma.ticketType.findUnique({ where: { id: req.params.typeId } });
         res.json(type);
@@ -206,7 +206,7 @@ app.get("/api/guild/:guildId/tickets/type/:typeId", authenticateDiscord, async (
 
 // ── API: Ticket actions ─────────────────────────────────
 
-app.post("/api/guild/:guildId/tickets/:ticketId/close", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/close", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.close(req.params.ticketId, req.user.id, req.body.closeReason);
         res.json({ success: true, ticketId: req.params.ticketId });
@@ -216,7 +216,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/close", authenticateDiscord, asy
     }
 });
 
-app.post("/api/guild/:guildId/tickets/:ticketId/reopen", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/reopen", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.reopen(req.params.ticketId, req.user.id);
         res.json({ success: true, ticketId: req.params.ticketId });
@@ -226,7 +226,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/reopen", authenticateDiscord, as
     }
 });
 
-app.post("/api/guild/:guildId/tickets/:ticketId/rename", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/rename", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.rename(req.params.ticketId, req.body.newName, req.user.id);
         res.json({ success: true, ticketId: req.params.ticketId, newName: req.body.newName });
@@ -236,7 +236,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/rename", authenticateDiscord, as
     }
 });
 
-app.post("/api/guild/:guildId/tickets/:ticketId/assign", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/assign", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.assign(req.params.ticketId, req.body.userId, req.user.id);
         res.json({ success: true, ticketId: req.params.ticketId });
@@ -246,7 +246,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/assign", authenticateDiscord, as
     }
 });
 
-app.post("/api/guild/:guildId/tickets/:ticketId/priority", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/priority", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.setPriority(req.params.ticketId, req.body.newPriority, req.user.id);
         res.json({ success: true, ticketId: req.params.ticketId, newPriority: req.body.newPriority });
@@ -256,7 +256,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/priority", authenticateDiscord, 
     }
 });
 
-app.post("/api/guild/:guildId/tickets/:ticketId/status", authenticateDiscord, async (req, res) => {
+expressApp.post("/api/guild/:guildId/tickets/:ticketId/status", authenticateDiscord, async (req, res) => {
     try {
         const result = await tickets.setStatus(req.params.ticketId, req.body.newStatus, req.user.id);
         res.json({ success: true, ticketId: req.params.ticketId, newStatus: req.body.newStatus });
@@ -267,7 +267,7 @@ app.post("/api/guild/:guildId/tickets/:ticketId/status", authenticateDiscord, as
 });
 
 // ── API: Recent activity ────────────────────────────────
-app.get("/api/guild/:guildId/activity/recent", authenticateDiscord, async (req, res) => {
+expressApp.get("/api/guild/:guildId/activity/recent", authenticateDiscord, async (req, res) => {
     try {
         // Get recent ticket opens and mod cases
         const [recentTickets, recentCases] = await Promise.all([
@@ -285,7 +285,7 @@ app.get("/api/guild/:guildId/activity/recent", authenticateDiscord, async (req, 
 });
 
 // ── Dashboard HTML page ─────────────────────────────────
-app.get("/dashboard", authenticateDiscord, (req, res) => {
+expressApp.get("/dashboard", authenticateDiscord, (req, res) => {
     res.send(`
         <!DOCTYPE html>
         <html lang="en">
@@ -345,18 +345,24 @@ app.get("/dashboard", authenticateDiscord, (req, res) => {
     `);
 });
 
-// ── Start server ────────────────────────────────────────
-const PORT = process.env.DASHBOARD_PORT || 9875;
+// ── Start server (separate entry point) ───────────────
+export default expressApp;
 
-app.listen(PORT, async () => {
-    logger.info("dashboard", `.pulse dashboard listening on port ${PORT}`);
-
-    // Initialize Prisma connection
+export async function startServer() {
     try {
         await prisma.$connect();
         logger.info("db", "Dashboard Prisma connected.");
     } catch (e) {
         logger.error("db", "Dashboard Prisma connection failed", e);
-        process.exit(1);
+        throw e;
     }
-});
+
+    return new Promise((resolve, reject) => {
+        const server = expressApp.listen(process.env.DASHBOARD_PORT || 9875, "0.0.0.0", () => {
+            logger.info("dashboard", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
+            resolve();
+        });
+
+        server.on("error", reject);
+    });
+}
