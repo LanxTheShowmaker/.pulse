@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — .pulse</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body data-page="dashboard" data-crumb="Dashboard">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="Primary">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 8h3l1.5-3.5 2.5 7L10.5 8h4"/></svg></div>
+                <div class="brand-text"><strong>.pulse</strong><span>Control Panel</span></div>
+            </div>
+            <div id="guildSelectorMount"></div>
+            <nav class="side-nav" id="mainNav" aria-label="Dashboard sections"></nav>
+            <div class="side-foot" id="sideFoot"></div>
+        </aside>
+        <div class="overlay" id="overlay"></div>
+        <div class="app-content">
+            <header class="topbar" id="topbar"></header>
+            <main class="page-content" id="main" tabindex="-1">
+                <div class="page-head">
+                    <div>
+                        <h1>Dashboard</h1>
+                        <p id="pageDesc">Live overview of your server.</p>
+                    </div>
+                </div>
+                <div class="stat-grid" id="statGrid" aria-label="Key metrics">
+                    <div class="skel-card"><div class="skel" style="width:40%"></div><div class="skel" style="width:60%;min-height:1.8em"></div><div class="skel" style="width:70%"></div></div>
+                    <div class="skel-card"><div class="skel" style="width:40%"></div><div class="skel" style="width:60%;min-height:1.8em"></div><div class="skel" style="width:70%"></div></div>
+                    <div class="skel-card"><div class="skel" style="width:40%"></div><div class="skel" style="width:60%;min-height:1.8em"></div><div class="skel" style="width:70%"></div></div>
+                    <div class="skel-card"><div class="skel" style="width:40%"></div><div class="skel" style="width:60%;min-height:1.8em"></div><div class="skel" style="width:70%"></div></div>
+                </div>
+                <div class="dashboard-grid">
+                    <div class="stack">
+                        <section class="panel" aria-labelledby="h-tickets">
+                            <div class="panel-header"><div><h2 id="h-tickets">Recent tickets</h2><p>Latest open support tickets</p></div><span id="ticketsMore"></span></div>
+                            <div class="panel-body" id="ticketsPanel"><div class="skel" style="min-height:120px"></div></div>
+                        </section>
+                        <section class="panel" aria-labelledby="h-mod">
+                            <div class="panel-header"><div><h2 id="h-mod">Recent moderation</h2><p>Latest moderation events</p></div><span id="modMore"></span></div>
+                            <div class="panel-body" id="modPanel"><div class="skel" style="min-height:120px"></div></div>
+                        </section>
+                    </div>
+                    <div class="stack">
+                        <section class="panel" aria-labelledby="h-server">
+                            <div class="panel-header"><div><h2 id="h-server">Server</h2><p>Configuration snapshot</p></div><span id="serverMore"></span></div>
+                            <div class="panel-body" id="serverPanel"><div class="skel" style="min-height:120px"></div></div>
+                        </section>
+                        <section class="panel" aria-labelledby="h-bot">
+                            <div class="panel-header"><div><h2 id="h-bot">Bot status</h2><p>Live process state</p></div></div>
+                            <div class="panel-body" id="botPanel"><div class="skel" style="min-height:120px"></div></div>
+                        </section>
+                        <section class="panel" aria-labelledby="h-actions">
+                            <div class="panel-header"><div><h2 id="h-actions">Quick actions</h2><p>Jump to management pages</p></div></div>
+                            <div class="panel-body"><div class="action-list" id="quickActions"></div></div>
+                        </section>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <script src="/js/core/api.js"></script>
+    <script src="/js/core/router.js"></script>
+    <script src="/js/core/state.js"></script>
+    <script src="/js/components/icons.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/sidebar.js"></script>
+    <script src="/js/components/topbar.js"></script>
+    <script src="/js/components/guildSelector.js"></script>
+    <script src="/js/components/userMenu.js"></script>
+    <script src="/js/pages/dashboard.js"></script>
+</body>
+</html>

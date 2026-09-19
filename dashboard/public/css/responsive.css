@@ -1,0 +1,44 @@
+/* responsive.css — breakpoints + reduced motion. */
+@media (max-width: 1100px) {
+    .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 1024px) {
+    .sidebar { transform: translateX(-100%); width: 250px; }
+    body.collapsed .sidebar { width: 250px; }
+    body.collapsed .brand-text,
+    body.collapsed .nav-group,
+    body.collapsed .nav-link span,
+    body.collapsed .guild-zone,
+    body.collapsed .side-foot .who { display: block; }
+    body.collapsed .nav-link { justify-content: flex-start; }
+    .sidebar.open { transform: none; box-shadow: 0 0 60px rgba(0, 0, 0, .6); }
+    .app-content, body.collapsed .app-content { margin-left: 0; }
+    #navToggle { display: inline-flex; }
+    #collapseToggle { display: none; }
+    .overlay.show { display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .55); z-index: 35; }
+}
+
+@media (max-width: 640px) {
+    .page-content { padding: 1.1rem; }
+    .stat-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .7rem; }
+    .stat-card .vl { font-size: 1.3rem; }
+    .form-grid { grid-template-columns: minmax(0, 1fr); }
+    .detail-grid { grid-template-columns: minmax(0, 1fr); }
+    .topbar { padding: .65rem 1rem; }
+    .top-search { display: none; }
+    .guild-pill .gid-full { display: none; }
+    .guild-pill .gid-short { display: inline; }
+    .page-head h1 { font-size: 1.2rem; }
+    .modal { padding: 1.1rem; }
+}
+
+@media (max-width: 420px) {
+    .stat-grid { grid-template-columns: minmax(0, 1fr); }
+    .crumb { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+}

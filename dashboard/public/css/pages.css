@@ -1,0 +1,13 @@
+/* pages.css — small per-page adjustments. */
+.settings-section { margin-bottom: 1rem; }
+.detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 1.5rem; }
+.detail-grid .kv dd { max-width: 100%; }
+.history-list { list-style: none; display: flex; flex-direction: column; }
+.history-list li { padding: .55rem 0; border-bottom: 1px solid var(--border); font-size: .84rem; }
+.history-list li:last-child { border-bottom: 0; }
+.history-list .hm { font-size: .74rem; color: var(--text-3); margin-top: .1rem; }
+.note-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: .65rem .8rem; margin-bottom: .55rem; font-size: .84rem; }
+.note-card:last-child { margin-bottom: 0; }
+.note-card .nm { font-size: .72rem; color: var(--text-3); margin-top: .3rem; }
+.case-detail-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin-bottom: .8rem; }
+.case-detail-head .mono { font-size: 1rem; }

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mod Log — .pulse</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/pages.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body data-page="logs" data-crumb="Mod Log">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar" aria-label="Primary">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 8h3l1.5-3.5 2.5 7L10.5 8h4"/></svg></div>
+                <div class="brand-text"><strong>.pulse</strong><span>Control Panel</span></div>
+            </div>
+            <div id="guildSelectorMount"></div>
+            <nav class="side-nav" id="mainNav" aria-label="Dashboard sections"></nav>
+            <div class="side-foot" id="sideFoot"></div>
+        </aside>
+        <div class="overlay" id="overlay"></div>
+        <div class="app-content">
+            <header class="topbar" id="topbar"></header>
+            <main class="page-content" id="main" tabindex="-1">
+                <div class="page-head">
+                    <div>
+                        <h1>Mod Log</h1>
+                        <p>Audit trail of moderation-related activity for this server.</p>
+                    </div>
+                </div>
+                <section class="panel" aria-label="Moderation log">
+                    <div class="panel-header">
+                        <div><h2>Entries</h2><p id="logSub">Loading…</p></div>
+                    </div>
+                    <div class="panel-body" id="logBody">
+                        <div class="skel" style="min-height:220px"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <script src="/js/core/api.js"></script>
+    <script src="/js/core/router.js"></script>
+    <script src="/js/core/state.js"></script>
+    <script src="/js/components/icons.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/components/modal.js"></script>
+    <script src="/js/components/sidebar.js"></script>
+    <script src="/js/components/topbar.js"></script>
+    <script src="/js/components/guildSelector.js"></script>
+    <script src="/js/components/userMenu.js"></script>
+    <script src="/js/pages/modlog.js"></script>
+</body>
+</html>
