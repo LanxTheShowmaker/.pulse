@@ -172,8 +172,8 @@ expressApp.post("/auth/logout", async (req, res) => {
 });
 
 expressApp.use(requireAuth);
-expressApp.use("/api/guild/:guildId/*", requireGuildAuth);
-expressApp.use("/dashboard/guild/:guildId/*", requireGuildAuth);
+expressApp.use("/api/guild/:guildId", requireGuildAuth);
+expressApp.use("/dashboard/guild/:guildId", requireGuildAuth);
 
 expressApp.get("/api/user", async (req, res) => { try { const s = await prisma.session.findUnique({ where: { id: req.session?.id } }); if (!s) return res.status(401).json({ error: "Not authenticated." }); res.json({ id: s.userId, guildId: s.guildId }); } catch (e) { res.status(500).json({ error: "Failed." }); } });
 
