@@ -463,11 +463,18 @@ export class TicketService {
     async checkAutoClose() {
         const staleTickets = await this.prisma.ticket.findMany({
             where: { status: { in: ["OPEN", "CLAIMED", "IN_PROGRESS", "WAITING"] } },
-            include: { TicketType: true },
         });
 
         for (const ticket of staleTickets) {
-            const autoCloseMin = ticket.TicketType?.autoCloseMinutes ?? 30;
+            let autoCloseMin = 30;
+
+            if (ticket.typeId) {
+                const ticketType = await this.prisma.ticketType.findUnique({
+                    where: { id: ticket.typeId },
+                });
+
+                autoCloseMin = ticketType?.autoCloseMinutes ?? 30;
+            }
             if (autoCloseMin <= 0) continue;
 
             const cutoff = new Date(Date.now() - autoCloseMin * 60_000);
@@ -542,17 +549,40 @@ export class TicketService {
             where: { guildId },
             orderBy: [{ closedAt: "desc" }],
             take: limit,
-            include: { TicketType: true },
         });
-        return tickets.map(t => ({
-            id: t.id,
-            guildId: t.guildId,
-            type: t.typeId ? { displayName: t.TicketType.displayName, key: t.TicketType.key } : null,
-            status: t.status,
-            closedAt: t.closedAt,
-            closeReason: t.closeReason,
-            openedAt: t.createdAt,
-        }));
+
+        return Promise.all(
+            tickets.map(async t => {
+                let type = null;
+
+                if (t.typeId) {
+                    const ticketType = await this.prisma.ticketType.findUnique({
+                        where: { id: t.typeId },
+                        select: {
+                            displayName: true,
+                            key: true,
+                        },
+                    });
+
+                    if (ticketType) {
+                        type = {
+                            displayName: ticketType.displayName,
+                            key: ticketType.key,
+                        };
+                    }
+                }
+
+                return {
+                    id: t.id,
+                    guildId: t.guildId,
+                    type,
+                    status: t.status,
+                    closedAt: t.closedAt,
+                    closeReason: t.closeReason,
+                    openedAt: t.createdAt,
+                };
+            })
+        );
     }
 
     // ─── API BOUNDARY: Moderation Cases ──────────────────────
