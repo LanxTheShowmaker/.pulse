@@ -8,6 +8,7 @@ import { createServices } from "../core/services.js";
 import { logger } from "../core/logger.js";
 
 const expressApp = express();
+expressApp.set("trust proxy", 1);
 const prisma = new PrismaClient();
 
 // ── Rate limiting ───────────────────────────────────────
