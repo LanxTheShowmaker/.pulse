@@ -222,6 +222,7 @@ function getStyles() {
         ".guild-pill{display:inline-flex;align-items:center;gap:.45rem;font-size:.8rem;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);border-radius:999px;padding:.32rem .8rem;white-space:nowrap}",
         ".guild-pill .dot{width:7px;height:7px;border-radius:50%;background:var(--success);flex-shrink:0}",
         ".guild-pill code{font-family:var(--mono);font-size:.76rem;color:var(--text)}",
+        ".guild-pill .gid-short{display:none}",
         ".logout-form{display:inline}",
         /* content */
         ".content{width:100%;max-width:1200px;margin:0 auto;padding:1.75rem}",
@@ -349,7 +350,7 @@ function getStyles() {
         "#collapseToggle{display:none}",
         ".overlay.show{display:block;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:35}",
         "}",
-        "@media (max-width:640px){.content{padding:1.1rem}.stat-grid{grid-template-columns:1fr 1fr;gap:.7rem}.stat-card .vl{font-size:1.3rem}.form-grid{grid-template-columns:1fr}.topbar{padding:.7rem 1rem}.guild-pill .gid-full{display:none}.page-head h1{font-size:1.2rem}}",
+        "@media (max-width:640px){.content{padding:1.1rem}.stat-grid{grid-template-columns:1fr 1fr;gap:.7rem}.stat-card .vl{font-size:1.3rem}.form-grid{grid-template-columns:1fr}.topbar{padding:.7rem 1rem}.guild-pill .gid-full{display:none}.guild-pill .gid-short{display:inline}.page-head h1{font-size:1.2rem}}",
         "@media (max-width:420px){.stat-grid{grid-template-columns:1fr}}",
         "@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}",
     ].join("");
@@ -387,7 +388,7 @@ function shell(opts) {
         + `<nav class="crumb" aria-label="Breadcrumb">Pulse <span aria-hidden="true">/</span> <strong>${esc(opts.crumb)}</strong></nav>`
         + `<div class="spacer"></div>`
         + (gid
-            ? `<span class="guild-pill" title="Guild ID ${esc(gid)}"><span class="dot" aria-hidden="true"></span>Server <code class="gid-full">${esc(gid)}</code><code>${esc(shortId(gid))}</code></span>`
+            ? `<span class="guild-pill" title="Guild ID ${esc(gid)}"><span class="dot" aria-hidden="true"></span>Server <code class="gid-full">${esc(gid)}</code><code class="gid-short">${esc(shortId(gid))}</code></span>`
             : `<span class="guild-pill"><span class="dot" aria-hidden="true"></span>No server selected</span>`)
         + `<form class="logout-form" action="/auth/logout" method="POST"><button type="submit" class="btn btn-secondary btn-sm" aria-label="Log out">${ICONS.logout}<span class="logout-text">Log out</span></button></form>`
         + `</header><main class="content" id="main" tabindex="-1">${opts.content}</main></div></div>`
