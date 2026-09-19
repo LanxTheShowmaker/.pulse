@@ -87,11 +87,29 @@ async function main() {
 
     // Start dashboard server
     try {
-        const { startServer } = await import("./dashboard/index.js");
-        dashboardServer = await startServer();
-        logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
+        let retries = 0;
+        const maxRetries = 5;
+        const retryDelay = 2000;
+        
+        while (retries < maxRetries) {
+            try {
+                const { startServer } = await import("./dashboard/index.js");
+                dashboardServer = await startServer();
+                logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9876}`);
+                break;
+            } catch (e) {
+                if (e.code === 'EADDRINUSE' && retries < maxRetries - 1) {
+                    retries++;
+                    logger.warn("bootstrap", `Dashboard port in use, retry ${retries}/${maxRetries}...`);
+                    await new Promise(r => setTimeout(r, retryDelay));
+                } else {
+                    logger.error("bootstrap", "Failed to start dashboard server", e);
+                    throw e;
+                }
+            }
+        }
     } catch (e) {
-        logger.error("bootstrap", "Failed to start dashboard server", e);
+        logger.error("bootstrap", "Failed to start dashboard server after retries", e);
     }
 }
 
