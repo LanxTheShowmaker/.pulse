@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content=".pulse — Discord server moderation, tickets and management with a real control-panel dashboard.">
+    <title>.pulse — Discord Server Control Panel</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/landing.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="landing-nav">
+        <div class="landing-wrap nav-inner">
+            <div class="brand-inline">
+                <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 8h3l1.5-3.5 2.5 7L10.5 8h4"/></svg></div>
+                <strong>.pulse</strong>
+            </div>
+            <nav aria-label="Primary">
+                <a href="#features">Features</a>
+                <a href="#how">How it works</a>
+                <a class="btn btn-primary btn-sm" href="/login" data-cta>Access Dashboard</a>
+            </nav>
+        </div>
+    </header>
+    <main id="main">
+        <section class="hero">
+            <div class="landing-wrap">
+                <p class="eyebrow">Discord moderation &amp; management bot</p>
+                <h1>Run your Discord server<br>with a real control panel.</h1>
+                <p class="lede">.pulse handles moderation cases, support tickets, logging and server configuration — all manageable from a secure dashboard connected to the live bot.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-primary" href="/login" data-cta>Access Dashboard</a>
+                    <a class="btn btn-secondary" href="#features">See capabilities</a>
+                </div>
+                <p class="hero-note">Signs in securely with your Discord account. No password to remember.</p>
+            </div>
+        </section>
+        <section class="features" id="features" aria-labelledby="h-features">
+            <div class="landing-wrap">
+                <h2 id="h-features">What .pulse does</h2>
+                <div class="feature-grid">
+                    <article class="panel">
+                        <h3>Moderation</h3>
+                        <p>Warnings, bans, timeouts and kicks with numbered cases, reasons, moderators and a full audit trail.</p>
+                    </article>
+                    <article class="panel">
+                        <h3>Tickets</h3>
+                        <p>Support ticket channels with types, priorities, assignment, history, notes and close/reopen workflow.</p>
+                    </article>
+                    <article class="panel">
+                        <h3>Server management</h3>
+                        <p>Prefixes, logging channels, staff roles, module toggles — persisted per server, effective immediately.</p>
+                    </article>
+                    <article class="panel">
+                        <h3>Dashboard</h3>
+                        <p>Live overview, search and filters, case details, settings forms and safe confirmations for destructive actions.</p>
+                    </article>
+                </div>
+            </div>
+        </section>
+        <section class="how" id="how" aria-labelledby="h-how">
+            <div class="landing-wrap">
+                <h2 id="h-how">How it works</h2>
+                <ol class="steps">
+                    <li><strong>Access the dashboard</strong><span>Head to the login page when you're ready.</span></li>
+                    <li><strong>Sign in with Discord</strong><span>OAuth with the <code class="mono">identify</code> and <code class="mono">guilds</code> scopes only.</span></li>
+                    <li><strong>Pick a server</strong><span>Only servers you can manage — and where .pulse is installed — can be opened.</span></li>
+                    <li><strong>Manage everything</strong><span>Tickets, moderation, logs and settings, all live.</span></li>
+                </ol>
+            </div>
+        </section>
+    </main>
+    <footer class="landing-foot">
+        <div class="landing-wrap foot-inner">
+            <span><strong>.pulse</strong> — Discord server control panel.</span>
+            <a href="/login" data-cta>Access Dashboard</a>
+        </div>
+    </footer>
+    <script src="/js/pages/landing.js"></script>
+</body>
+</html>

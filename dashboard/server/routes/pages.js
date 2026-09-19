@@ -7,14 +7,25 @@ function page(file) {
     return (req, res) => res.sendFile(file, { root: PUBLIC_DIR });
 }
 
-// HTML shell pages. Guild pages require session-guild authorization
-// (mounted under requireGuildAuth by the bootstrap). Dynamic data is
-// loaded by page JS through the JSON APIs — these files are structure.
+// Authenticated HTML shell pages. Dynamic data loads through the JSON
+// APIs; the guild-scoped pages require session-guild authorization
+// (mounted under requireGuildAuth by the bootstrap).
+// Canonical guild URLs:
+//
+//   /dashboard/guild/:guildId
+//   /dashboard/guild/:guildId/tickets
+//   /dashboard/guild/:guildId/moderation
+//   /dashboard/guild/:guildId/modlog
+//   /dashboard/guild/:guildId/settings
 export function createPagesRouter() {
     const router = Router();
 
-    router.get("/dashboard", page("dashboard/index.html"));
-    router.get("/dashboard/guild/:guildId", (req, res) => res.redirect("/dashboard"));
+    // Bare overview without a selected guild: server selection owns
+    // guild choice, so send the user there.
+    router.get("/dashboard", (req, res) => res.redirect("/select-server"));
+    router.get("/select-server", page("select-server.html"));
+
+    router.get("/dashboard/guild/:guildId", page("dashboard/guild.html"));
     router.get("/dashboard/guild/:guildId/tickets", page("dashboard/tickets.html"));
     router.get("/dashboard/guild/:guildId/moderation", page("dashboard/moderation.html"));
     router.get("/dashboard/guild/:guildId/modlog", page("dashboard/modlog.html"));

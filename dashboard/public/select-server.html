@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select server — .pulse</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/server-select.css">
+    <link rel="stylesheet" href="/css/responsive.css">
+</head>
+<body data-page="select-server">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="select-wrap">
+        <header class="select-head">
+            <div class="brand-inline">
+                <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M1.5 8h3l1.5-3.5 2.5 7L10.5 8h4"/></svg></div>
+                <strong>.pulse</strong>
+            </div>
+            <form class="logout-form" action="/auth/logout" method="POST">
+                <button type="submit" class="btn btn-secondary btn-sm">Log out</button>
+            </form>
+        </header>
+        <main id="main" tabindex="-1">
+            <h1>Select a server</h1>
+            <p class="lede">Choose a server you manage. Only servers where you have management permissions are listed.</p>
+            <div id="serverGrid" aria-live="polite">
+                <div class="server-grid">
+                    <div class="skel-card"><div class="skel" style="width:48px;height:48px;border-radius:12px"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:45%"></div></div>
+                    <div class="skel-card"><div class="skel" style="width:48px;height:48px;border-radius:12px"></div><div class="skel" style="width:60%"></div><div class="skel" style="width:45%"></div></div>
+                    <div class="skel-card"><div class="skel" style="width:48px;height:48px;border-radius:12px"></div><div class="skel" style="width:65%"></div><div class="skel" style="width:45%"></div></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <div id="toasts" role="status" aria-live="polite"></div>
+    <script src="/js/core/api.js"></script>
+    <script src="/js/components/icons.js"></script>
+    <script src="/js/components/ui.js"></script>
+    <script src="/js/components/toast.js"></script>
+    <script src="/js/core/state.js"></script>
+    <script src="/js/pages/serverSelect.js"></script>
+</body>
+</html>

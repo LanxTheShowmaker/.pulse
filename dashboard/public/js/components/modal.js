@@ -50,21 +50,38 @@
         if (first) first.focus();
     }
 
-    function confirm({ title, desc, confirmText, danger }) {
+    function confirm({ title, desc, confirmText, danger, requireText }) {
         return new Promise((resolve) => {
+            let settled = false;
+            const done = (v) => { if (!settled) { settled = true; resolve(v); } };
+            const need = String(requireText || "").trim();
+            const inputHtml = need
+                ? `<div class="field" style="margin-top:.6rem"><label for="confirmInput">Type <code class="mono">${window.Pulse.ui.esc(need)}</code> to continue</label><input class="input" id="confirmInput" type="text" autocomplete="off" placeholder="${window.Pulse.ui.esc(need)}"></div>`
+                : "";
             open({
                 title: title || "Are you sure?",
                 desc,
+                bodyHtml: inputHtml,
                 actions: [
-                    { label: "Cancel", kind: "btn-secondary", onClick: () => resolve(false) },
-                    { label: confirmText || "Confirm", kind: danger === false ? "btn-primary" : "btn-danger", onClick: () => resolve(true) },
+                    { label: "Cancel", kind: "btn-secondary", onClick: () => done(false) },
+                    { label: confirmText || "Confirm", kind: danger === false ? "btn-primary" : "btn-danger", onClick: () => done(true) },
                 ],
             });
             const back = document.getElementById("modalBackdrop");
             const cancelOnBackdrop = (e) => {
-                if (e.target === back) { back.removeEventListener("click", cancelOnBackdrop); resolve(false); }
+                if (e.target === back) { back.removeEventListener("click", cancelOnBackdrop); done(false); }
             };
             back.addEventListener("click", cancelOnBackdrop);
+            if (need) {
+                const input = back.querySelector("#confirmInput");
+                const yesBtns = back.querySelectorAll("#modalActions .btn");
+                const yesBtn = yesBtns[yesBtns.length - 1];
+                if (input && yesBtn) {
+                    yesBtn.disabled = true;
+                    input.addEventListener("input", () => { yesBtn.disabled = input.value.trim() !== need; });
+                    input.focus();
+                }
+            }
         });
     }
 

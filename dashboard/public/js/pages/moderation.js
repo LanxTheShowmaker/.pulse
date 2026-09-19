@@ -2,22 +2,22 @@
 (function () {
     const { apiFetch } = window.Pulse;
     let gid = null;
+    let pager = null;
 
     function applyFilter() {
         const q = (document.getElementById("caseSearch") || {}).value || "";
         const needle = q.trim().toLowerCase();
         const act = (document.getElementById("actionFilter") || {}).value || "";
-        let n = 0;
+        const matched = [];
         document.querySelectorAll("#caseTable tbody tr[data-search]").forEach((r) => {
             const ok = (!needle || r.getAttribute("data-search").indexOf(needle) > -1)
                 && (!act || r.getAttribute("data-action") === act);
-            r.style.display = ok ? "" : "none";
-            if (ok) n++;
+            if (ok) matched.push(r);
+            else r.style.display = "none";
         });
-        const count = document.getElementById("caseCount");
-        if (count) count.textContent = n + " shown";
+        if (pager) pager.setRows(matched);
         const empty = document.getElementById("noCaseResults");
-        if (empty) empty.style.display = n === 0 ? "" : "none";
+        if (empty) empty.style.display = matched.length === 0 ? "" : "none";
     }
 
     async function openCase(caseNumber) {
@@ -82,6 +82,7 @@
                 r.addEventListener("click", open);
                 r.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
             });
+            pager = ui.createPager(document.querySelector("#caseTable tbody"), document.getElementById("caseCount"), 15);
             applyFilter();
             ui.hydrateTimes(document);
         } catch (e) {

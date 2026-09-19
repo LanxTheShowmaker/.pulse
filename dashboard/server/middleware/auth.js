@@ -1,17 +1,17 @@
 import { logger } from "../../../core/logger.js";
-import { hashToken, validateSession } from "../services/session.js";
+import { validateSession } from "../services/session.js";
 
 export function isApiRoute(req) {
     return req.path.startsWith("/api/");
 }
 
-// Browser: unauthenticated -> redirect to Discord login.
+// Browser: unauthenticated -> login page (which starts Discord OAuth).
 // API: unauthenticated -> 401 JSON. Never reveals why beyond expiry state.
 export async function requireAuth(req, res, next) {
     const token = req.signedCookies?.session_token;
     if (!token) {
         if (isApiRoute(req)) return res.status(401).json({ error: "Authentication required." });
-        return res.redirect("/auth/discord");
+        return res.redirect("/login");
     }
     try {
         const session = await validateSession(token);
@@ -19,7 +19,7 @@ export async function requireAuth(req, res, next) {
             res.clearCookie("session_token");
             logger.info("auth", `expired/invalid session for ${req.method} ${req.path}`);
             if (isApiRoute(req)) return res.status(401).json({ error: "Session expired." });
-            return res.redirect("/auth/discord");
+            return res.redirect("/login");
         }
         req.session = session;
         req.userId = session.userId;
@@ -29,7 +29,7 @@ export async function requireAuth(req, res, next) {
         logger.error("auth", `session validation failed for ${req.method} ${req.path}`, e?.message);
         res.clearCookie("session_token");
         if (isApiRoute(req)) return res.status(401).json({ error: "Authentication failed." });
-        return res.redirect("/auth/discord");
+        return res.redirect("/login");
     }
 }
 

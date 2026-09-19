@@ -1,0 +1,21 @@
+/* server-select.css — server selection page. */
+.select-wrap { width: 100%; max-width: 1020px; margin: 0 auto; padding: 0 1.5rem 3rem; }
+.select-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+.select-wrap h1 { font-size: 1.6rem; letter-spacing: -.01em; }
+.select-wrap .lede { color: var(--text-2); margin: .4rem 0 1.6rem; max-width: 70ch; }
+.server-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.server-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 1.3rem;
+    display: flex; flex-direction: column; gap: .7rem; min-width: 0;
+}
+.server-card.unavailable { opacity: .75; }
+.server-top { display: flex; align-items: center; gap: .8rem; min-width: 0; }
+.server-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--text-2); flex-shrink: 0; overflow: hidden; }
+.server-icon img { width: 100%; height: 100%; object-fit: cover; }
+.server-top strong { display: block; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.server-top small { display: block; font-size: .72rem; color: var(--text-3); font-family: var(--mono); }
+.server-meta { display: flex; flex-wrap: wrap; gap: .4rem; }
+.server-card .btn { margin-top: auto; width: 100%; }
+@media (max-width: 900px) { .server-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .server-grid { grid-template-columns: minmax(0, 1fr); } }

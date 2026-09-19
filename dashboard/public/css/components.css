@@ -111,11 +111,11 @@ textarea.input { font-family: var(--mono); font-size: .78rem; resize: vertical; 
 .form-status.err { color: #ff8a8d; }
 
 /* toolbar / search */
-.toolbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: .9rem; }
-.search-box { position: relative; flex: 1; min-width: 200px; max-width: 340px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-bottom: .9rem; }.search-box { position: relative; flex: 1; min-width: 200px; max-width: 340px; }
 .search-box > svg { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; color: var(--text-3); pointer-events: none; }
 .search-box .input { padding-left: 2.1rem; }
 .count-note { font-size: .8rem; color: var(--text-3); margin-top: .7rem; }
+.pager { display: flex; align-items: center; gap: .7rem; margin-top: .7rem; }
 
 /* modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .6); z-index: 80; display: flex; align-items: center; justify-content: center; padding: 1rem; }

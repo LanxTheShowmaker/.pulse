@@ -20,6 +20,24 @@ model Session {
     @@index([expiresAt])
 }
 
+// Snapshot of the Discord guilds a dashboard user may manage, captured at
+// OAuth login (identify+guilds scopes). Lets the server verify guild access
+// without storing access tokens. Refreshed on every login; bot presence is
+// always re-checked live from the client cache, never trusted from here.
+model DashboardGuild {
+    userId      String
+    guildId     String
+    name        String?
+    icon        String?
+    permissions String   @default("0")
+    manage      Boolean  @default(false)
+    owner       Boolean  @default(false)
+    updatedAt   DateTime @updatedAt
+
+    @@id([userId, guildId])
+    @@index([userId])
+}
+
 model GuildConfig {
   guildId             String   @id
   logChannelId        String?

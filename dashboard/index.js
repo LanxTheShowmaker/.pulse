@@ -9,8 +9,13 @@ import { logger } from "../core/logger.js";
 import { requireAuth, requireGuildAuth } from "./server/middleware/auth.js";
 import { validateGuildId } from "./server/middleware/validate.js";
 import { notFound, errorHandler } from "./server/middleware/errorHandler.js";
+import { createPublicRouter } from "./server/routes/public.js";
 import { createAuthRouter } from "./server/routes/auth.js";
-import { createApiRouter } from "./server/routes/api.js";
+import { createGuildsRouter } from "./server/routes/guilds.js";
+import { createTicketsRouter } from "./server/routes/tickets.js";
+import { createModerationRouter } from "./server/routes/moderation.js";
+import { createModlogRouter } from "./server/routes/modlog.js";
+import { createSettingsRouter } from "./server/routes/settings.js";
 import { createPagesRouter } from "./server/routes/pages.js";
 
 const PUBLIC_DIR = join(import.meta.dirname, "public");
@@ -43,23 +48,32 @@ const prismaServices = createServices(botClient);
 const { tickets, moderation, logging, settings } = prismaServices;
 const deps = { tickets, moderation, logging, settings };
 
-// ── Public routes ───────────────────────────────────────
-expressApp.get("/", (req, res) => { res.redirect("/dashboard"); });
+// ── Public flow: homepage, login, OAuth ─────────────────
+expressApp.use(createPublicRouter());
 expressApp.use(createAuthRouter());
+
+// Public frontend assets only (CSS/JS). HTML shells are served
+// exclusively through sendFile routes so server source, .env and
+// Prisma files can never be exposed as static files.
+expressApp.use("/css", express.static(join(PUBLIC_DIR, "css")));
+expressApp.use("/js", express.static(join(PUBLIC_DIR, "js")));
 
 // ── Everything below requires authentication ────────────
 expressApp.use(requireAuth);
 
-// Static frontend files (HTML/CSS/JS/assets). Served only to
-// authenticated sessions; server source, .env and Prisma files
-// live outside PUBLIC_DIR and are never exposed.
-expressApp.use(express.static(PUBLIC_DIR, { index: false, redirect: false }));
+// Session-establishing routes mount BEFORE the guild guard: selecting a
+// guild is what creates the session's guild context, and Express would
+// otherwise match "/api/guild/select" as ":guildId" === "select".
+expressApp.use(createGuildsRouter(deps));
 
-// Guild authorization for every guild-scoped route (API + pages).
+// Guild authorization for every other guild-scoped route (API + pages).
 expressApp.use("/api/guild/:guildId", validateGuildId, requireGuildAuth);
 expressApp.use("/dashboard/guild/:guildId", validateGuildId, requireGuildAuth);
 
-expressApp.use(createApiRouter(deps));
+expressApp.use(createTicketsRouter(deps));
+expressApp.use(createModerationRouter(deps));
+expressApp.use(createModlogRouter(deps));
+expressApp.use(createSettingsRouter(deps));
 expressApp.use(createPagesRouter());
 
 expressApp.use(notFound);

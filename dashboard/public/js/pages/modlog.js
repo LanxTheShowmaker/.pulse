@@ -1,20 +1,20 @@
 /* pages/modlog.js — audit-trail table with search. */
 (function () {
     const { apiFetch } = window.Pulse;
+    let pager = null;
 
     function applyFilter() {
         const q = (document.getElementById("logSearch") || {}).value || "";
         const needle = q.trim().toLowerCase();
-        let n = 0;
+        const matched = [];
         document.querySelectorAll("#logTable tbody tr[data-search]").forEach((r) => {
             const ok = !needle || r.getAttribute("data-search").indexOf(needle) > -1;
-            r.style.display = ok ? "" : "none";
-            if (ok) n++;
+            if (ok) matched.push(r);
+            else r.style.display = "none";
         });
-        const count = document.getElementById("logCount");
-        if (count) count.textContent = n + " shown";
+        if (pager) pager.setRows(matched);
         const empty = document.getElementById("noLogResults");
-        if (empty) empty.style.display = n === 0 ? "" : "none";
+        if (empty) empty.style.display = matched.length === 0 ? "" : "none";
     }
 
     async function load() {
@@ -41,6 +41,8 @@
                 + `</tbody></table></div><p class="count-note" id="logCount" aria-live="polite">${list.length} shown</p>`;
             const q = document.getElementById("logSearch");
             if (q) q.addEventListener("input", applyFilter);
+            pager = ui.createPager(document.querySelector("#logTable tbody"), document.getElementById("logCount"), 15);
+            applyFilter();
             ui.hydrateTimes(document);
         } catch (e) {
             const msg = e.status === 403 ? "You do not have access to this server." : (e.message || "Could not load the log.");

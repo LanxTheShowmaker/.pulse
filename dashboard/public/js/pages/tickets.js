@@ -4,6 +4,7 @@
     let gid = null;
     let allTickets = [];
     let typeById = {};
+    let pager = null;
 
     function toolbarHtml(initialQ) {
         const ui = window.Pulse.ui;
@@ -34,19 +35,18 @@
         const st = (document.getElementById("statusFilter") || {}).value || "";
         const pr = (document.getElementById("priorityFilter") || {}).value || "";
         const ty = (document.getElementById("typeFilter") || {}).value || "";
-        let n = 0;
+        const matched = [];
         document.querySelectorAll("#ticketTable tbody tr[data-search]").forEach((r) => {
             const ok = (!needle || r.getAttribute("data-search").indexOf(needle) > -1)
                 && (!st || r.getAttribute("data-status") === st)
                 && (!pr || r.getAttribute("data-priority") === pr)
                 && (!ty || r.getAttribute("data-type") === ty);
-            r.style.display = ok ? "" : "none";
-            if (ok) n++;
+            if (ok) matched.push(r);
+            else r.style.display = "none";
         });
-        const count = document.getElementById("ticketCount");
-        if (count) count.textContent = n + " shown";
+        if (pager) pager.setRows(matched);
         const empty = document.getElementById("noFilterResults");
-        if (empty) empty.style.display = n === 0 ? "" : "none";
+        if (empty) empty.style.display = matched.length === 0 ? "" : "none";
     }
 
     async function openDetail(ticketId) {
@@ -88,8 +88,8 @@
     }
 
     async function closeTicket(ticketId) {
-        const ok = await window.Pulse.modal.confirm({ title: "Close ticket?", desc: "The ticket channel will be closed. This can be reopened later.", confirmText: "Close ticket" });
-        if (!ok) return;
+        const okGo = await window.Pulse.modal.confirm({ title: "Close ticket?", desc: "The ticket channel will be closed. This can be reopened later.", confirmText: "Close ticket", requireText: "CLOSE" });
+        if (!okGo) return;
         try {
             await apiFetch("/api/guild/" + encodeURIComponent(gid) + "/tickets/" + encodeURIComponent(ticketId) + "/close", { method: "POST", body: JSON.stringify({}) });
             window.Pulse.toast("Ticket closed.", "ok");
@@ -146,6 +146,7 @@
                 r.addEventListener("click", open);
                 r.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
             });
+            pager = ui.createPager(document.querySelector("#ticketTable tbody"), document.getElementById("ticketCount"), 15);
             applyFilter();
             ui.hydrateTimes(document);
         } catch (e) {

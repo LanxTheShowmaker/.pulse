@@ -17,7 +17,7 @@
             throw Object.assign(new Error("Network error. Is the dashboard reachable?"), { status: 0 });
         }
         if (res.status === 401) {
-            window.location.href = "/auth/discord";
+            window.location.href = "/login";
             throw Object.assign(new Error("Session expired."), { status: 401 });
         }
         const ct = res.headers.get("content-type") || "";

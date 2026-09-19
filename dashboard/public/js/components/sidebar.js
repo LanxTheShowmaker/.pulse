@@ -22,8 +22,8 @@
     ];
 
     function guildPath(gid, section) {
-        if (!gid) return "/dashboard";
-        return "/dashboard/guild/" + encodeURIComponent(gid) + "/" + section;
+        if (!gid) return "/select-server";
+        return "/dashboard/guild/" + encodeURIComponent(gid) + (section ? "/" + section : "");
     }
 
     function render() {
