@@ -1,7 +1,11 @@
 import { readdir } from "node:fs/promises";
-import { join, extname } from "node:path";
+import { join, extname, basename } from "node:path";
 import { pathToFileURL } from "node:url";
 import { logger } from "./logger.js";
+
+// Helper/shared modules live alongside commands but are not commands
+// themselves (no default export with data.name). Skip them silently.
+const HELPER_FILES = new Set(["shared.js", "helpers.js", "util.js", "utils.js", "common.js"]);
 
 async function walk(dir) {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -23,6 +27,7 @@ export async function loadCommands() {
     try { files = await walk(dir); } catch { return commands; }
 
     for (const file of files) {
+        if (HELPER_FILES.has(basename(file))) continue;
         try {
             const mod = await import(pathToFileURL(file).href);
             const cmd = mod.default ?? mod;

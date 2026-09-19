@@ -517,7 +517,7 @@ function userMenu(session) {
 
 function shell(opts) {
     const gid = opts.gid || null;
-    const g = (p) => gid ? "/dashboard/guild/" + gid + p : "/dashboard";
+    const g = (p) => gid ? "/dashboard/guild/" + gid + "/" + p : "/dashboard";
     const nav = [
         `<p class="nav-group" id="ng-overview">Overview</p><div role="group" aria-labelledby="ng-overview">`,
         navItem("/dashboard", ICONS.dashboard, "Dashboard", opts.active === "dashboard"),
