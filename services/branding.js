@@ -1,21 +1,23 @@
+import { eq } from "drizzle-orm";
+import { guildBranding } from "../db/schema/index.js";
+import { clean, one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 export class BrandingService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async get(guildId) {
-        return this.prisma.guildBranding.findUnique({ where: { guildId } });
+        return one(await this.db.select().from(guildBranding).where(eq(guildBranding.guildId, guildId)).limit(1));
     }
 
     async set(guildId, data) {
-        return this.prisma.guildBranding.upsert({
-            where: { guildId },
-            create: { guildId, ...data },
-            update: data,
-        });
+        const set = clean(data);
+        await this.db.insert(guildBranding).values({ guildId, ...set })
+            .onDuplicateKeyUpdate({ set });
+        return one(await this.db.select().from(guildBranding).where(eq(guildBranding.guildId, guildId)).limit(1));
     }
 
     async applyNickname(guild) {

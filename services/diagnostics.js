@@ -1,8 +1,9 @@
+import { sql } from "drizzle-orm";
 import { logger } from "../core/logger.js";
 
 export class DiagnosticsService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
@@ -11,8 +12,8 @@ export class DiagnosticsService {
 
         // Database
         try {
-            await this.prisma.$queryRaw`SELECT 1`;
-            results.push({ name: "Database", status: "OK", detail: "Prisma query succeeded" });
+            await this.db.execute(sql`SELECT 1`);
+            results.push({ name: "Database", status: "OK", detail: "MySQL query succeeded" });
         } catch (e) {
             results.push({ name: "Database", status: "ERROR", detail: e.message });
         }

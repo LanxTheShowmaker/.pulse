@@ -19,7 +19,7 @@ function shuffle(arr) {
 }
 
 export class GiveawayService {
-    constructor(_prisma, client) {
+    constructor(_db, client) {
         this.client = client;
         this.giveaways = {};
         this._ticking = false;

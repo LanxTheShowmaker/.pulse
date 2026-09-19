@@ -41,15 +41,12 @@ export default {
             }
 
             // Check if already exists
-            const existing = await reactionRoles.prisma.reactionRole.findFirst({
-                where: { guildId: interaction.guild.id, messageId, emoji },
-            });
+            const existing = await reactionRoles.find(interaction.guild.id, messageId, emoji);
             if (existing) {
                 return interaction.reply({ embeds: [error("Duplicate", "That emoji is already mapped to a role on this message.")], flags: MessageFlags.Ephemeral });
             }
 
             await reactionRoles.add(interaction.guild.id, channel.id, messageId, emoji, role.id);
-            await reactionRoles.prisma.$queryRaw`SELECT 1`; // ensure DB is ready
 
             // Add the reaction to the message
             await message.react(emoji).catch(() => {});

@@ -44,8 +44,8 @@ expressApp.use(globalLimiter);
 // imports fall back to a stub: DB reads work, Discord-touching mutations
 // fail gracefully instead of crashing.
 const botClient = globalThis._client ?? {};
-const prismaServices = createServices(botClient);
-const { tickets, moderation, logging, settings } = prismaServices;
+const botServices = createServices(botClient);
+const { tickets, moderation, logging, settings } = botServices;
 const deps = { tickets, moderation, logging, settings };
 
 // ── Public flow: homepage, login, OAuth ─────────────────
@@ -54,7 +54,7 @@ expressApp.use(createAuthRouter());
 
 // Public frontend assets only (CSS/JS). HTML shells are served
 // exclusively through sendFile routes so server source, .env and
-// Prisma files can never be exposed as static files.
+// server source, .env and database files can never be exposed as static files.
 expressApp.use("/css", express.static(join(PUBLIC_DIR, "css")));
 expressApp.use("/js", express.static(join(PUBLIC_DIR, "js")));
 
@@ -82,12 +82,12 @@ expressApp.use(errorHandler);
 export default expressApp;
 
 export async function startServer() {
-    const { getSessionPrisma } = await import("./server/services/session.js");
+    const { verifyDatabase } = await import("../db/index.js");
     try {
-        await getSessionPrisma().$connect();
-        logger.info("db", "Dashboard Prisma connected.");
+        await verifyDatabase();
+        logger.info("db", "Dashboard MySQL connected.");
     } catch (e) {
-        logger.error("db", "Dashboard Prisma connection failed", e);
+        logger.error("db", "Dashboard MySQL connection failed", e);
         throw e;
     }
 

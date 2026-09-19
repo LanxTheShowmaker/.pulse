@@ -1,11 +1,19 @@
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and, asc } from "drizzle-orm";
+import { panel } from "../db/schema/index.js";
+import { clean, one, uuid } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 
 export class PanelService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
+    }
+
+    async find(guildId, panelType) {
+        return one(await this.db.select().from(panel)
+            .where(and(eq(panel.guildId, guildId), eq(panel.panelType, panelType))).limit(1));
     }
 
     async create(guildId, panelType, channelId, options = {}) {
@@ -20,95 +28,83 @@ export class PanelService {
         const msg = await channel.send({ embeds: [embed] }).catch(() => null);
         if (!msg) return null;
 
-        return this.prisma.panel.upsert({
-            where: { guildId_panelType: { guildId, panelType } },
-            create: {
-                guildId, panelType, channelId, messageId: msg.id,
-                title: options.title, description: options.description,
-                bannerUrl: options.bannerUrl, thumbnailUrl: options.thumbnailUrl,
-                embedColor: options.embedColor, footerText: options.footerText,
-                footerIcon: options.footerIcon, enabled: true,
-            },
-            update: {
-                channelId, messageId: msg.id,
-                title: options.title, description: options.description,
-                bannerUrl: options.bannerUrl, thumbnailUrl: options.thumbnailUrl,
-                embedColor: options.embedColor, footerText: options.footerText,
-                footerIcon: options.footerIcon, enabled: true,
-            },
+        const data = clean({
+            guildId, panelType, channelId, messageId: msg.id,
+            title: options.title, description: options.description,
+            bannerUrl: options.bannerUrl, thumbnailUrl: options.thumbnailUrl,
+            embedColor: options.embedColor, footerText: options.footerText,
+            footerIcon: options.footerIcon, enabled: true,
         });
+        await this.db.insert(panel).values({ id: uuid(), ...data })
+            .onDuplicateKeyUpdate({ set: data });
+        return this.find(guildId, panelType);
     }
 
     async update(guildId, panelType, options = {}) {
-        const panel = await this.prisma.panel.findUnique({ where: { guildId_panelType: { guildId, panelType } } });
-        if (!panel || !panel.messageId) return null;
+        const row = await this.find(guildId, panelType);
+        if (!row || !row.messageId) return null;
 
         const guild = this.client.guilds.cache.get(guildId);
         if (!guild) return null;
 
-        const channel = guild.channels.cache.get(panel.channelId);
+        const channel = guild.channels.cache.get(row.channelId);
         if (!channel?.isTextBased()) return null;
 
-        const msg = await channel.messages.fetch(panel.messageId).catch(() => null);
+        const msg = await channel.messages.fetch(row.messageId).catch(() => null);
         if (!msg) return this.repost(guildId, panelType);
 
-        const embed = this.buildEmbed({ ...panel, ...options });
+        const embed = this.buildEmbed({ ...row, ...options });
         await msg.edit({ embeds: [embed] }).catch(() => {});
 
-        return this.prisma.panel.update({
-            where: { id: panel.id },
-            data: { ...options, updatedAt: new Date() },
-        });
+        const set = clean({ ...options, updatedAt: new Date() });
+        await this.db.update(panel).set(set).where(eq(panel.id, row.id));
+        return one(await this.db.select().from(panel).where(eq(panel.id, row.id)).limit(1));
     }
 
     async repost(guildId, panelType) {
-        const panel = await this.prisma.panel.findUnique({ where: { guildId_panelType: { guildId, panelType } } });
-        if (!panel) return null;
+        const row = await this.find(guildId, panelType);
+        if (!row) return null;
 
         const guild = this.client.guilds.cache.get(guildId);
         if (!guild) return null;
 
-        const channel = guild.channels.cache.get(panel.channelId);
+        const channel = guild.channels.cache.get(row.channelId);
         if (!channel?.isTextBased()) return null;
 
-        const embed = this.buildEmbed(panel);
+        const embed = this.buildEmbed(row);
         const msg = await channel.send({ embeds: [embed] }).catch(() => null);
         if (!msg) return null;
 
-        return this.prisma.panel.update({
-            where: { id: panel.id },
-            data: { messageId: msg.id, updatedAt: new Date() },
-        });
+        await this.db.update(panel).set({ messageId: msg.id, updatedAt: new Date() }).where(eq(panel.id, row.id));
+        return one(await this.db.select().from(panel).where(eq(panel.id, row.id)).limit(1));
     }
 
     async disable(guildId, panelType) {
-        const panel = await this.prisma.panel.findUnique({ where: { guildId_panelType: { guildId, panelType } } });
-        if (!panel) return null;
+        const row = await this.find(guildId, panelType);
+        if (!row) return null;
 
         // Delete the message if it exists
-        if (panel.messageId) {
+        if (row.messageId) {
             const guild = this.client.guilds.cache.get(guildId);
-            const channel = guild?.channels.cache.get(panel.channelId);
+            const channel = guild?.channels.cache.get(row.channelId);
             if (channel?.isTextBased()) {
-                await channel.messages.fetch(panel.messageId).then(m => m.delete()).catch(() => {});
+                await channel.messages.fetch(row.messageId).then(m => m.delete()).catch(() => {});
             }
         }
 
-        return this.prisma.panel.update({
-            where: { id: panel.id },
-            data: { enabled: false, messageId: null },
-        });
+        await this.db.update(panel).set({ enabled: false, messageId: null }).where(eq(panel.id, row.id));
+        return one(await this.db.select().from(panel).where(eq(panel.id, row.id)).limit(1));
     }
 
     async restoreAll() {
-        const panels = await this.prisma.panel.findMany({ where: { enabled: true } });
+        const panels = await this.db.select().from(panel).where(eq(panel.enabled, true));
         let restored = 0;
-        for (const panel of panels) {
+        for (const p of panels) {
             try {
-                await this.repost(panel.guildId, panel.panelType);
+                await this.repost(p.guildId, p.panelType);
                 restored++;
             } catch (e) {
-                logger.error("panels", `restore failed for ${panel.panelType}`, e.message);
+                logger.error("panels", `restore failed for ${p.panelType}`, e.message);
             }
         }
         return restored;
@@ -130,6 +126,7 @@ export class PanelService {
     }
 
     async list(guildId) {
-        return this.prisma.panel.findMany({ where: { guildId }, orderBy: { panelType: "asc" } });
+        return this.db.select().from(panel)
+            .where(eq(panel.guildId, guildId)).orderBy(asc(panel.panelType));
     }
 }

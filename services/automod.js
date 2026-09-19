@@ -12,8 +12,8 @@ const DETECTORS = {
 };
 
 export class AutoModService {
-    constructor(prisma, client, settings, logging) {
-        this.prisma = prisma;
+    constructor(db, client, settings, logging) {
+        this.db = db;
         this.client = client;
         this.settings = settings;
         this.logging = logging;

@@ -1,14 +1,17 @@
 import { ChannelType } from "discord.js";
+import { eq, desc } from "drizzle-orm";
+import { guildConfig, auditLog } from "../db/schema/index.js";
+import { one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 export class LoggingService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async channel(guildId, type) {
-        const config = await this.prisma.guildConfig.findUnique({ where: { guildId } });
+        const config = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
         if (!config) return null;
         const id = type === "mod" ? config.modLogChannelId : config.logChannelId;
         if (!id) return null;
@@ -29,11 +32,15 @@ export class LoggingService {
 
     async getModLogHistory(guildId, limit = 50) {
         // Return audit log entries for moderation
-        return this.prisma.auditLog.findMany({
-            where: { guildId },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-            select: { id: true, actorId: true, targetId: true, action: true, category: true, details: true, createdAt: true },
-        });
+        return this.db.select({
+            id: auditLog.id,
+            actorId: auditLog.actorId,
+            targetId: auditLog.targetId,
+            action: auditLog.action,
+            category: auditLog.category,
+            details: auditLog.details,
+            createdAt: auditLog.createdAt,
+        }).from(auditLog).where(eq(auditLog.guildId, guildId))
+            .orderBy(desc(auditLog.createdAt)).limit(limit);
     }
 }

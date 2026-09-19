@@ -111,7 +111,7 @@ export default {
 
         // Fetch item names
         const itemIds = inv.map(i => i.itemId);
-        const items = await shop.prisma.shopItem.findMany({ where: { id: { in: itemIds } } });
+        const items = await shop.getItemsByIds(itemIds);
         const itemMap = Object.fromEntries(items.map(i => [i.id, i]));
 
         const lines = inv.map(i => {
@@ -162,7 +162,7 @@ export default {
         if (role !== null) updates.roleId = role.id;
         if (stock !== null) updates.stock = stock === -1 ? null : stock;
 
-        await shop.prisma.shopItem.update({ where: { id: item.id }, data: updates });
+        await shop.updateItem(item.id, updates);
         await interaction.reply({
             embeds: [success("Item Updated", `**${name}** updated.${price ? ` Price: ${price}` : ""}${stock !== null ? ` Stock: ${stock === -1 ? "∞" : stock}` : ""}`)],
             flags: MessageFlags.Ephemeral,
@@ -178,7 +178,7 @@ export default {
         if (!item) return interaction.reply({ embeds: [error("Not Found", "Item not found.")], flags: MessageFlags.Ephemeral });
 
         const newStock = (item.stock ?? 0) + amount;
-        await shop.prisma.shopItem.update({ where: { id: item.id }, data: { stock: newStock } });
+        await shop.updateItem(item.id, { stock: newStock });
         await interaction.reply({
             embeds: [success("Restocked", `**${name}** now has ${newStock} in stock.`)],
             flags: MessageFlags.Ephemeral,
@@ -194,11 +194,7 @@ export default {
         const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (!item) return interaction.reply({ embeds: [error("Not Found", "Item not found.")], flags: MessageFlags.Ephemeral });
 
-        await shop.prisma.shopInventory.upsert({
-            where: { guildId_userId_itemId: { guildId: interaction.guild.id, userId: target.id, itemId: item.id } },
-            create: { guildId: interaction.guild.id, userId: target.id, itemId: item.id, quantity },
-            update: { quantity: { increment: quantity } },
-        });
+        await shop.grantItem(interaction.guild.id, target.id, item.id, quantity);
 
         await interaction.reply({
             embeds: [success("Item Granted", `Gave **${item.name}** x${quantity} to <@${target.id}>`)],
@@ -214,13 +210,10 @@ export default {
         const item = items.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (!item) return interaction.reply({ embeds: [error("Not Found", "Item not found.")], flags: MessageFlags.Ephemeral });
 
-        const inv = await shop.prisma.shopInventory.findUnique({
-            where: { guildId_userId_itemId: { guildId: interaction.guild.id, userId: target.id, itemId: item.id } },
-        });
+        const inv = await shop.revokeItem(interaction.guild.id, target.id, item.id);
 
         if (!inv) return interaction.reply({ embeds: [error("Not Found", `<@${target.id}> doesn't own this item.`)], flags: MessageFlags.Ephemeral });
 
-        await shop.prisma.shopInventory.delete({ where: { id: inv.id } });
         await interaction.reply({
             embeds: [success("Item Revoked", `Removed **${item.name}** from <@${target.id}>'s inventory.`)],
             flags: MessageFlags.Ephemeral,

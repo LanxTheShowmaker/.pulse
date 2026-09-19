@@ -1,25 +1,34 @@
+import { eq, and } from "drizzle-orm";
+import { reactionRole } from "../db/schema/index.js";
+import { clean, one, uuid, affected } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 export class ReactionRoleService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async add(guildId, channelId, messageId, emoji, roleId) {
-        return this.prisma.reactionRole.create({
-            data: { guildId, channelId, messageId, emoji, roleId },
-        });
+        const id = uuid();
+        await this.db.insert(reactionRole).values(clean({ id, guildId, channelId, messageId, emoji, roleId }));
+        return one(await this.db.select().from(reactionRole).where(eq(reactionRole.id, id)));
     }
 
     async remove(guildId, messageId, emoji) {
-        return this.prisma.reactionRole.deleteMany({
-            where: { guildId, messageId, emoji },
-        });
+        const res = await this.db.delete(reactionRole)
+            .where(and(eq(reactionRole.guildId, guildId), eq(reactionRole.messageId, messageId), eq(reactionRole.emoji, emoji)));
+        return { count: affected(res) };
     }
 
     async getByMessage(messageId) {
-        return this.prisma.reactionRole.findMany({ where: { messageId } });
+        return this.db.select().from(reactionRole).where(eq(reactionRole.messageId, messageId));
+    }
+
+    async find(guildId, messageId, emoji) {
+        return one(await this.db.select().from(reactionRole)
+            .where(and(eq(reactionRole.guildId, guildId), eq(reactionRole.messageId, messageId), eq(reactionRole.emoji, emoji)))
+            .limit(1));
     }
 
     async handleReactionAdd(reaction, user) {
@@ -28,9 +37,7 @@ export class ReactionRoleService {
         if (!message.guild) return;
 
         const emoji = reaction.emoji.id ?? reaction.emoji.name;
-        const rr = await this.prisma.reactionRole.findFirst({
-            where: { guildId: message.guild.id, messageId: message.id, emoji },
-        });
+        const rr = await this.find(message.guild.id, message.id, emoji);
 
         if (!rr) return;
 
@@ -46,9 +53,7 @@ export class ReactionRoleService {
         if (!message.guild) return;
 
         const emoji = reaction.emoji.id ?? reaction.emoji.name;
-        const rr = await this.prisma.reactionRole.findFirst({
-            where: { guildId: message.guild.id, messageId: message.id, emoji },
-        });
+        const rr = await this.find(message.guild.id, message.id, emoji);
 
         if (!rr) return;
 

@@ -1,17 +1,27 @@
 import { MessageFlags, ChannelType, ButtonStyle, PermissionFlagsBits, TextInputStyle } from "discord.js";
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and, desc, ne, count } from "drizzle-orm";
+import { ticketType, ticket } from "../db/schema/index.js";
+import { clean, one, uuid } from "../db/util.js";
 import { success, error, panel, stat } from "../ui/embeds.js";
 import { button, selectMenu, row, modal } from "../ui/components.js";
 import { Theme, Brand } from "../ui/theme.js";
 
 // ─── HELPERS ──────────────────────────────────────────────
 
+async function updateTypeById(client, id, data) {
+    await client.services.db.update(ticketType).set(clean(data)).where(eq(ticketType.id, id));
+}
+
 async function getConfigView(client, guildId) {
-    const prisma = client.services.prisma;
+    const db = client.services.db;
     const settings = await client.services.settings.get(guildId);
-    const types = await prisma.ticketType.findMany({ where: { guildId } });
-    const openCount = await prisma.ticket.count({ where: { guildId, status: { notIn: ["CLOSED"] } } });
-    const totalCount = await prisma.ticket.count({ where: { guildId } });
+    const types = await db.select().from(ticketType).where(eq(ticketType.guildId, guildId));
+    const openRows = await db.select({ n: count() }).from(ticket)
+        .where(and(eq(ticket.guildId, guildId), ne(ticket.status, "CLOSED")));
+    const totalRows = await db.select({ n: count() }).from(ticket).where(eq(ticket.guildId, guildId));
+    const openCount = Number(openRows[0]?.n ?? 0);
+    const totalCount = Number(totalRows[0]?.n ?? 0);
 
     const category = settings?.ticketCategoryId ? `<#${settings.ticketCategoryId}>` : "Not set";
     const logChannel = settings?.ticketLogChannelId ? `<#${settings.ticketLogChannelId}>` : "Not set";
@@ -259,24 +269,22 @@ export default {
                 return i.reply({ embeds: [error("Invalid", "Name must contain at least one letter or number.")], flags: MessageFlags.Ephemeral });
             }
 
-            const existing = await client.services.prisma.ticketType.findFirst({
-                where: { guildId: i.guild.id, key },
-            });
+            const existing = one(await client.services.db.select().from(ticketType)
+                .where(and(eq(ticketType.guildId, i.guild.id), eq(ticketType.key, key))).limit(1));
             if (existing) {
                 return i.reply({ embeds: [error("Duplicate", "A type with this name already exists.")], flags: MessageFlags.Ephemeral });
             }
 
-            await client.services.prisma.ticketType.create({
-                data: {
-                    guildId: i.guild.id,
-                    key,
-                    displayName: name,
-                    emoji,
-                    description,
-                    channelPrefix,
-                    panelType: "default",
-                    welcomeMessage,
-                },
+            await client.services.db.insert(ticketType).values({
+                id: uuid(),
+                guildId: i.guild.id,
+                key,
+                displayName: name,
+                emoji,
+                description,
+                channelPrefix,
+                panelType: "default",
+                welcomeMessage,
             });
 
             await i.reply({ embeds: [success("Type Added", `**${name}** created. Click it to edit advanced settings.`)], flags: MessageFlags.Ephemeral });
@@ -294,7 +302,7 @@ export default {
 
     "ticket:cfg:types:edit:": async (i, client) => {
         const typeId = i.customId.split(":")[4];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const staffRoles = JSON.parse(type.staffRoleIds || "[]");
@@ -342,7 +350,7 @@ export default {
 
     "ticket:cfg:types:modal:info:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const m = modal("Edit Type Info", `ticket:cfg:types:sub:info:${typeId}`, [
@@ -363,18 +371,15 @@ export default {
                 return i.reply({ embeds: [error("Invalid", "Display name is required.")], flags: MessageFlags.Ephemeral });
             }
 
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: {
-                    displayName: name,
-                    emoji: (i.components.getTextInputValue("emoji") || "").trim() || null,
-                    description: (i.components.getTextInputValue("description") || "").trim() || null,
-                    channelPrefix: (i.components.getTextInputValue("channel_prefix") || "").trim() || "ticket",
-                    categoryId: (i.components.getTextInputValue("category") || "").trim() || null,
-                },
+            await updateTypeById(client, typeId, {
+                displayName: name,
+                emoji: (i.components.getTextInputValue("emoji") || "").trim() || null,
+                description: (i.components.getTextInputValue("description") || "").trim() || null,
+                channelPrefix: (i.components.getTextInputValue("channel_prefix") || "").trim() || "ticket",
+                categoryId: (i.components.getTextInputValue("category") || "").trim() || null,
             });
             await i.reply({ embeds: [success("Updated", "Type info updated.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
@@ -388,7 +393,7 @@ export default {
 
     "ticket:cfg:types:modal:roles:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const staffRoles = JSON.parse(type.staffRoleIds || "[]");
@@ -404,7 +409,7 @@ export default {
     "ticket:cfg:types:sub:roles:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
             const staffRaw = i.components.getTextInputValue("staff_roles") || "";
@@ -413,12 +418,9 @@ export default {
             const staffRoles = staffRaw.split(",").map(s => s.trim()).filter(Boolean);
             const modRoles = modRaw.split(",").map(s => s.trim()).filter(Boolean);
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: {
-                    staffRoleIds: JSON.stringify(staffRoles),
-                    moderatorRoleIds: JSON.stringify(modRoles),
-                },
+            await updateTypeById(client, typeId, {
+                staffRoleIds: JSON.stringify(staffRoles),
+                moderatorRoleIds: JSON.stringify(modRoles),
             });
             await i.reply({ embeds: [success("Updated", "Roles updated.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
@@ -432,7 +434,7 @@ export default {
 
     "ticket:cfg:types:modal:limits:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const m = modal("Edit Limits", `ticket:cfg:types:sub:limits:${typeId}`, [
@@ -446,20 +448,17 @@ export default {
     "ticket:cfg:types:sub:limits:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
             const maxOpen = safeInt(i.components.getTextInputValue("max_open"), 0);
             const cooldownMin = safeInt(i.components.getTextInputValue("cooldown"), 0);
             const autoCloseMin = safeInt(i.components.getTextInputValue("auto_close"), 30);
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: {
-                    maxOpen,
-                    cooldown: cooldownMin * 60_000,
-                    autoCloseMinutes: autoCloseMin,
-                },
+            await updateTypeById(client, typeId, {
+                maxOpen,
+                cooldown: cooldownMin * 60_000,
+                autoCloseMinutes: autoCloseMin,
             });
             await i.reply({ embeds: [success("Updated", "Limits updated.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
@@ -473,7 +472,7 @@ export default {
 
     "ticket:cfg:types:modal:msgs:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const m = modal("Edit Messages", `ticket:cfg:types:sub:msgs:${typeId}`, [
@@ -486,15 +485,12 @@ export default {
     "ticket:cfg:types:sub:msgs:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: {
-                    welcomeMessage: (i.components.getTextInputValue("welcome") || "").trim() || null,
-                    instructions: (i.components.getTextInputValue("instructions") || "").trim() || null,
-                },
+            await updateTypeById(client, typeId, {
+                welcomeMessage: (i.components.getTextInputValue("welcome") || "").trim() || null,
+                instructions: (i.components.getTextInputValue("instructions") || "").trim() || null,
             });
             await i.reply({ embeds: [success("Updated", "Messages updated.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
@@ -508,7 +504,7 @@ export default {
 
     "ticket:cfg:types:form:": async (i, client) => {
         const typeId = i.customId.split(":")[4];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const questions = JSON.parse(type.formQuestions || "[]");
@@ -538,7 +534,7 @@ export default {
 
     "ticket:cfg:types:modal:form:": async (i, client) => {
         const typeId = i.customId.split(":")[5];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const questions = JSON.parse(type.formQuestions || "[]");
@@ -559,7 +555,7 @@ export default {
     "ticket:cfg:types:sub:form:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
             const questions = [];
@@ -573,10 +569,7 @@ export default {
             if (q2Label) questions.push({ id: "q2", label: q2Label, style: "short", required: q2Req });
             if (q3Label) questions.push({ id: "q3", label: q3Label, style: "short", required: false });
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: { formQuestions: JSON.stringify(questions) },
-            });
+            await updateTypeById(client, typeId, { formQuestions: JSON.stringify(questions) });
 
             const count = questions.length;
             await i.reply({ embeds: [success("Form Updated", `${count} question${count !== 1 ? "s" : ""} configured.`)], flags: MessageFlags.Ephemeral });
@@ -590,13 +583,10 @@ export default {
     "ticket:cfg:types:form:clear:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: { formQuestions: "[]" },
-            });
+            await updateTypeById(client, typeId, { formQuestions: "[]" });
             await i.reply({ embeds: [success("Form Cleared", "All form questions removed.")], flags: MessageFlags.Ephemeral });
         } catch (e) {
             if (!i.replied && !i.deferred) {
@@ -610,13 +600,10 @@ export default {
     "ticket:cfg:types:toggle:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[4];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
-            await client.services.prisma.ticketType.update({
-                where: { id: typeId },
-                data: { enabled: !type.enabled },
-            });
+            await updateTypeById(client, typeId, { enabled: !type.enabled });
 
             const status = type.enabled ? "disabled" : "enabled";
             await i.reply({ embeds: [success("Toggled", `**${type.displayName}** is now ${status}.`)], flags: MessageFlags.Ephemeral });
@@ -629,7 +616,7 @@ export default {
 
     "ticket:cfg:types:rm:": async (i, client) => {
         const typeId = i.customId.split(":")[4];
-        const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+        const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
         if (!type) return i.reply({ embeds: [error("Not Found", "Type not found.")], flags: MessageFlags.Ephemeral });
 
         const embed = panel("Confirm Removal", `Remove **${type.displayName}**? This cannot be undone.`);
@@ -645,10 +632,10 @@ export default {
     "ticket:cfg:types:rm:confirm:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[5];
-            const type = await client.services.prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = await client.services.db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1).then(one);
             if (!type) return i.update({ embeds: [error("Not Found", "Type not found.")], components: [] });
 
-            await client.services.prisma.ticketType.delete({ where: { id: typeId } });
+            await client.services.db.delete(ticketType).where(eq(ticketType.id, typeId));
             await i.update({ embeds: [success("Removed", `**${type.displayName}** deleted.`)], components: [] });
         } catch (e) {
             await i.update({ embeds: [error("Failed", e.message || "Delete failed")], components: [] }).catch(() => {});
@@ -699,9 +686,8 @@ export default {
             const channelId = i.values[0];
             const channel = i.guild.channels.cache.get(channelId);
 
-            const types = await client.services.prisma.ticketType.findMany({
-                where: { guildId: i.guild.id, enabled: true },
-            });
+            const types = await client.services.db.select().from(ticketType)
+                .where(and(eq(ticketType.guildId, i.guild.id), eq(ticketType.enabled, true)));
 
             if (!types.length) {
                 return i.update({ embeds: [error("No Types", "Create and enable at least one ticket type first.")], components: [] });
@@ -758,12 +744,12 @@ export default {
     "ticket:open:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[2];
-            const prisma = client.services.prisma;
+            const db = client.services.db;
             const tickets = client.services.tickets;
 
             let type = null;
             if (typeId !== "default") {
-                type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+                type = one(await db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1));
             }
 
             // Limits check
@@ -776,10 +762,14 @@ export default {
 
             // Cooldown check
             if (type?.cooldown && type.cooldown > 0) {
-                const lastClosed = await prisma.ticket.findFirst({
-                    where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
-                    orderBy: { closedAt: "desc" },
-                });
+            const lastClosed = one(await db.select().from(ticket)
+                .where(and(
+                    eq(ticket.guildId, i.guild.id),
+                    eq(ticket.openerId, i.user.id),
+                    eq(ticket.typeId, type.id),
+                    eq(ticket.status, "CLOSED"),
+                ))
+                .orderBy(desc(ticket.closedAt)).limit(1));
                 if (lastClosed?.closedAt) {
                     const elapsed = Date.now() - lastClosed.closedAt.getTime();
                     if (elapsed < type.cooldown) {
@@ -876,12 +866,12 @@ export default {
     "ticket:open:form:": async (i, client) => {
         try {
             const typeId = i.customId.split(":")[3];
-            const prisma = client.services.prisma;
+            const db = client.services.db;
             const tickets = client.services.tickets;
 
             let type = null;
             if (typeId !== "default") {
-                type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+                type = one(await db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1));
             }
 
             // Collect form answers
@@ -976,10 +966,10 @@ export default {
     "ticket:open:select": async (i, client) => {
         try {
             const typeId = i.values[0];
-            const prisma = client.services.prisma;
+            const db = client.services.db;
             const tickets = client.services.tickets;
 
-            const type = await prisma.ticketType.findUnique({ where: { id: typeId } });
+            const type = one(await db.select().from(ticketType).where(eq(ticketType.id, typeId)).limit(1));
 
             // Limits check
             if (type?.maxOpen && type.maxOpen > 0) {
@@ -991,10 +981,14 @@ export default {
 
             // Cooldown check
             if (type?.cooldown && type.cooldown > 0) {
-                const lastClosed = await prisma.ticket.findFirst({
-                    where: { guildId: i.guild.id, openerId: i.user.id, typeId: type.id, status: "CLOSED" },
-                    orderBy: { closedAt: "desc" },
-                });
+            const lastClosed = one(await db.select().from(ticket)
+                .where(and(
+                    eq(ticket.guildId, i.guild.id),
+                    eq(ticket.openerId, i.user.id),
+                    eq(ticket.typeId, type.id),
+                    eq(ticket.status, "CLOSED"),
+                ))
+                .orderBy(desc(ticket.closedAt)).limit(1));
                 if (lastClosed?.closedAt) {
                     const elapsed = Date.now() - lastClosed.closedAt.getTime();
                     if (elapsed < type.cooldown) {
@@ -1095,7 +1089,7 @@ export default {
 
             await tickets.claim(ticketId, i.user.id);
             const ticket = await tickets.getById(ticketId);
-            const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
+            const type = ticket?.typeId ? await one(await client.services.db.select().from(ticketType).where(eq(ticketType.id, ticket.typeId)).limit(1)) : null;
 
             await i.reply({ embeds: [success("Claimed", `<@${i.user.id}> is now handling this ticket.`)] });
 
@@ -1161,7 +1155,7 @@ export default {
             await tickets.setStatus(ticketId, newStatus, i.user.id);
 
             const ticket = await tickets.getById(ticketId);
-            const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
+            const type = ticket?.typeId ? await one(await client.services.db.select().from(ticketType).where(eq(ticketType.id, ticket.typeId)).limit(1)) : null;
 
             await i.update({ components: [] });
             await i.channel.send({ embeds: [success("Status Updated", `Ticket status set to **${newStatus}** by <@${i.user.id}>.`)] }).catch(() => {});
@@ -1205,7 +1199,7 @@ export default {
             await tickets.setPriority(ticketId, newPriority, i.user.id);
 
             const ticket = await tickets.getById(ticketId);
-            const type = ticket?.typeId ? await client.services.prisma.ticketType.findUnique({ where: { id: ticket.typeId } }) : null;
+            const type = ticket?.typeId ? await one(await client.services.db.select().from(ticketType).where(eq(ticketType.id, ticket.typeId)).limit(1)) : null;
 
             await i.update({ components: [] });
             await i.channel.send({ embeds: [success("Priority Updated", `Ticket priority set to **${newPriority}** by <@${i.user.id}>.`)] }).catch(() => {});

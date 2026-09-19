@@ -1,3 +1,6 @@
+import { eq, and, desc, sql } from "drizzle-orm";
+import { levelConfig, xp } from "../db/schema/index.js";
+import { selectRows, clean, one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 function xpForLevel(level) {
@@ -5,16 +8,19 @@ function xpForLevel(level) {
 }
 
 export class LevelingService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
         this._cooldown = new Map();
         this._msgCount = new Map(); // guildId:userId -> count for anti-farm
     }
 
     async getLevelConfig(guildId) {
-        let cfg = await this.prisma.levelConfig.findUnique({ where: { guildId } });
-        if (!cfg) cfg = await this.prisma.levelConfig.create({ data: { guildId } });
+        let cfg = one(await this.db.select().from(levelConfig).where(eq(levelConfig.guildId, guildId)).limit(1));
+        if (!cfg) {
+            await this.db.insert(levelConfig).values({ guildId });
+            cfg = one(await this.db.select().from(levelConfig).where(eq(levelConfig.guildId, guildId)).limit(1));
+        }
         return {
             ...cfg,
             channelMultipliers: JSON.parse(cfg.channelMultipliers || "{}"),
@@ -23,11 +29,10 @@ export class LevelingService {
     }
 
     async setLevelConfig(guildId, data) {
-        return this.prisma.levelConfig.upsert({
-            where: { guildId },
-            create: { guildId, ...data },
-            update: data,
-        });
+        const set = clean(data);
+        await this.db.insert(levelConfig).values({ guildId, ...set })
+            .onDuplicateKeyUpdate({ set });
+        return one(await this.db.select().from(levelConfig).where(eq(levelConfig.guildId, guildId)).limit(1));
     }
 
     async handleMessage(message) {
@@ -66,19 +71,18 @@ export class LevelingService {
         if (channelMult) xpGain = Math.floor(xpGain * channelMult);
         xpGain = Math.max(1, xpGain);
 
-        const xp = await this.prisma.xp.upsert({
-            where: { guildId_userId: { guildId: message.guild.id, userId: message.author.id } },
-            create: { guildId: message.guild.id, userId: message.author.id, xp: xpGain, level: 0 },
-            update: { xp: { increment: xpGain } },
-        });
+        await this.db.insert(xp)
+            .values({ guildId: message.guild.id, userId: message.author.id, xp: xpGain, level: 0 })
+            .onDuplicateKeyUpdate({ set: { xp: sql`${xp.xp} + ${xpGain}` } });
+        const row = one(await this.db.select().from(xp)
+            .where(and(eq(xp.guildId, message.guild.id), eq(xp.userId, message.author.id))).limit(1));
 
-        const needed = xpForLevel(xp.level);
-        if (xp.xp >= needed) {
-            const newLevel = xp.level + 1;
-            await this.prisma.xp.update({
-                where: { guildId_userId: { guildId: message.guild.id, userId: message.author.id } },
-                data: { level: newLevel, xp: xp.xp - needed },
-            });
+        const needed = xpForLevel(row.level);
+        if (row.xp >= needed) {
+            const newLevel = row.level + 1;
+            await this.db.update(xp)
+                .set({ level: newLevel, xp: row.xp - needed })
+                .where(and(eq(xp.guildId, message.guild.id), eq(xp.userId, message.author.id)));
 
             // Announce level-up
             const chId = lvlConfig.announceChannelId || config?.welcomeChannelId;
@@ -103,22 +107,22 @@ export class LevelingService {
     }
 
     async getRank(guildId, userId) {
-        const xp = await this.prisma.xp.findUnique({ where: { guildId_userId: { guildId, userId } } });
-        if (!xp) return { level: 0, xp: 0, needed: xpForLevel(0), rank: 0 };
+        const row = one(await this.db.select().from(xp)
+            .where(and(eq(xp.guildId, guildId), eq(xp.userId, userId))).limit(1));
+        if (!row) return { level: 0, xp: 0, needed: xpForLevel(0), rank: 0 };
 
-        const rank = await this.prisma.$queryRaw`
-            SELECT COUNT(*) as rank FROM "Xp"
-            WHERE "guildId" = ${guildId} AND ("level" > ${xp.level} OR ("level" = ${xp.level} AND "xp" > ${xp.xp}))
-        `;
+        const rank = await selectRows(this.db.execute(sql`
+            SELECT COUNT(*) as rnk FROM \`Xp\`
+            WHERE \`guildId\` = ${guildId} AND (\`level\` > ${row.level} OR (\`level\` = ${row.level} AND \`xp\` > ${row.xp}))
+        `));
+        const n = rank[0]?.rnk ?? 0;
 
-        return { level: xp.level, xp: xp.xp, needed: xpForLevel(xp.level), rank: Number(rank[0]?.rank ?? 0) + 1 };
+        return { level: row.level, xp: row.xp, needed: xpForLevel(row.level), rank: Number(n) + 1 };
     }
 
     async getLeaderboard(guildId, limit = 10) {
-        return this.prisma.xp.findMany({
-            where: { guildId },
-            orderBy: [{ level: "desc" }, { xp: "desc" }],
-            take: limit,
-        });
+        return this.db.select().from(xp)
+            .where(eq(xp.guildId, guildId))
+            .orderBy(desc(xp.level), desc(xp.xp)).limit(limit);
     }
 }

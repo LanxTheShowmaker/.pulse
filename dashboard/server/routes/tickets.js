@@ -1,14 +1,16 @@
 import { Router } from "express";
+import { eq, and } from "drizzle-orm";
 import { logger } from "../../../core/logger.js";
-import { getSessionPrisma } from "../services/session.js";
+import { getDb } from "../../../db/index.js";
+import { ticketType, ticketFormResponse } from "../../../db/schema/index.js";
+import { one } from "../../../db/util.js";
 import { ownedTicket, ownedType } from "../services/access.js";
 import { serviceError, validateTicketId } from "../middleware/validate.js";
-
-const prisma = getSessionPrisma();
 
 export function createTicketsRouter(deps) {
     const { tickets } = deps;
     const router = Router();
+    const db = getDb();
 
     router.get("/api/guild/:guildId/tickets/open", async (req, res) => {
         try { res.json(await tickets.getOpenTicketsSummary(req.params.guildId, 50)); }
@@ -25,7 +27,7 @@ export function createTicketsRouter(deps) {
             const [openTickets, recentTickets, ticketTypes, stats] = await Promise.all([
                 tickets.getOpenTicketsSummary(req.params.guildId, 50),
                 tickets.getTicketHistorySummary(req.params.guildId, 20),
-                prisma.ticketType.findMany({ where: { guildId: req.params.guildId } }),
+                db.select().from(ticketType).where(eq(ticketType.guildId, req.params.guildId)),
                 tickets.getStats(req.params.guildId),
             ]);
             res.json({ openTickets, recentTickets, ticketTypes, stats });
@@ -34,7 +36,7 @@ export function createTicketsRouter(deps) {
 
     router.get("/api/guild/:guildId/tickets/:ticketId", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             res.json(await tickets.getTicketSummary(t.id));
         } catch (e) { res.status(500).json({ error: "Failed." }); }
@@ -44,7 +46,7 @@ export function createTicketsRouter(deps) {
     // invented relation) + history + notes + form response.
     router.get("/api/guild/:guildId/tickets/:ticketId/detail", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             const [summary, history, notes] = await Promise.all([
                 tickets.getTicketSummary(t.id),
@@ -53,14 +55,16 @@ export function createTicketsRouter(deps) {
             ]);
             let type = null;
             if (t.typeId) {
-                type = await ownedType(prisma, req, res, t.typeId);
+                type = await ownedType(db, req, res, t.typeId);
                 if (type === null && res.headersSent) return;
             }
             let formResponse = null;
             try {
-                formResponse = await prisma.ticketFormResponse.findUnique({
-                    where: { guildId_ticketId: { guildId: t.guildId, ticketId: t.id } },
-                });
+                formResponse = one(await db.select().from(ticketFormResponse)
+                    .where(and(
+                        eq(ticketFormResponse.guildId, t.guildId),
+                        eq(ticketFormResponse.ticketId, t.id),
+                    )).limit(1));
             } catch { formResponse = null; }
             res.json({ summary, type, history, notes, formResponse });
         } catch (e) {
@@ -71,7 +75,7 @@ export function createTicketsRouter(deps) {
 
     router.get("/api/guild/:guildId/tickets/type/:typeId", async (req, res) => {
         try {
-            const type = await ownedType(prisma, req, res, req.params.typeId);
+            const type = await ownedType(db, req, res, req.params.typeId);
             if (!type) return;
             res.json(type);
         } catch (e) { res.status(500).json({ error: "Failed." }); }
@@ -82,7 +86,7 @@ export function createTicketsRouter(deps) {
     // channel.id). rename/assign/priority/status take the ticket id.
     router.post("/api/guild/:guildId/tickets/:ticketId/close", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             const result = await tickets.close(t.channelId, req.userId, req.body.closeReason);
             res.json({ success: true, ticketId: t.id, status: result?.status || "CLOSED" });
@@ -91,7 +95,7 @@ export function createTicketsRouter(deps) {
 
     router.post("/api/guild/:guildId/tickets/:ticketId/reopen", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             await tickets.reopen(t.channelId, req.userId);
             res.json({ success: true, ticketId: t.id });
@@ -100,7 +104,7 @@ export function createTicketsRouter(deps) {
 
     router.post("/api/guild/:guildId/tickets/:ticketId/rename", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             await tickets.rename(t.id, req.body.newName, req.userId);
             res.json({ success: true, ticketId: t.id, newName: req.body.newName });
@@ -109,7 +113,7 @@ export function createTicketsRouter(deps) {
 
     router.post("/api/guild/:guildId/tickets/:ticketId/assign", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             await tickets.assign(t.id, req.body.userId, req.userId);
             res.json({ success: true, ticketId: t.id });
@@ -118,7 +122,7 @@ export function createTicketsRouter(deps) {
 
     router.post("/api/guild/:guildId/tickets/:ticketId/priority", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             await tickets.setPriority(t.id, req.body.newPriority, req.userId);
             res.json({ success: true, ticketId: t.id, newPriority: req.body.newPriority });
@@ -127,7 +131,7 @@ export function createTicketsRouter(deps) {
 
     router.post("/api/guild/:guildId/tickets/:ticketId/status", validateTicketId, async (req, res) => {
         try {
-            const t = await ownedTicket(prisma, req, res, req.params.ticketId);
+            const t = await ownedTicket(db, req, res, req.params.ticketId);
             if (!t) return;
             await tickets.setStatus(t.id, req.body.newStatus, req.userId);
             res.json({ success: true, ticketId: t.id, newStatus: req.body.newStatus });

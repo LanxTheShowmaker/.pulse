@@ -1,6 +1,9 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags, ChannelType, ButtonStyle } from "discord.js";
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and, ne, count } from "drizzle-orm";
+import { ticket, ticketType } from "../../db/schema/index.js";
+import { one } from "../../db/util.js";
 import { success, error, panel, stat } from "../../ui/embeds.js";
 import { button, selectMenu, row } from "../../ui/components.js";
 import { Theme, Brand } from "../../ui/theme.js";
@@ -66,15 +69,16 @@ export default {
     },
 
     async handleConfig(interaction) {
-        const prisma = interaction.client.services.prisma;
+        const db = interaction.client.services.db;
         const guildId = interaction.guild.id;
 
-        const [types, settings, openCount, totalCount] = await Promise.all([
-            prisma.ticketType.findMany({ where: { guildId } }),
-            interaction.client.services.settings.get(guildId),
-            prisma.ticket.count({ where: { guildId, status: { notIn: ["CLOSED"] } } }),
-            prisma.ticket.count({ where: { guildId } }),
-        ]);
+        const types = await db.select().from(ticketType).where(eq(ticketType.guildId, guildId));
+        const settings = await interaction.client.services.settings.get(guildId);
+        const openRows = await db.select({ n: count() }).from(ticket)
+            .where(and(eq(ticket.guildId, guildId), ne(ticket.status, "CLOSED")));
+        const totalRows = await db.select({ n: count() }).from(ticket).where(eq(ticket.guildId, guildId));
+        const openCount = Number(openRows[0]?.n ?? 0);
+        const totalCount = Number(totalRows[0]?.n ?? 0);
 
         const category = settings?.ticketCategoryId ? `<#${settings.ticketCategoryId}>` : "Not set";
         const logChannel = settings?.ticketLogChannelId ? `<#${settings.ticketLogChannelId}>` : "Not set";
@@ -118,10 +122,10 @@ export default {
     },
 
     async handleSetup(interaction) {
-        const prisma = interaction.client.services.prisma;
+        const db = interaction.client.services.db;
         const guildId = interaction.guild.id;
 
-        const types = await prisma.ticketType.findMany({ where: { guildId } });
+        const types = await db.select().from(ticketType).where(eq(ticketType.guildId, guildId));
         const settings = await interaction.client.services.settings.get(guildId);
 
         const steps = [];
@@ -151,9 +155,12 @@ export default {
     },
 
     async handleCreate(interaction, tickets) {
-        const existing = await interaction.client.services.prisma.ticket.findFirst({
-            where: { guildId: interaction.guild.id, openerId: interaction.user.id, status: { notIn: ["CLOSED"] } },
-        });
+        const existing = one(await interaction.client.services.db.select().from(ticket)
+            .where(and(
+                eq(ticket.guildId, interaction.guild.id),
+                eq(ticket.openerId, interaction.user.id),
+                ne(ticket.status, "CLOSED"),
+            )).limit(1));
         if (existing) return interaction.reply({ embeds: [error("Already Open", `You already have an open ticket: <#${existing.channelId}>`)], flags: MessageFlags.Ephemeral });
 
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });

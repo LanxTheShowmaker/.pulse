@@ -1,5 +1,8 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, PermissionFlagsBits } from "discord.js";
+import { eq } from "drizzle-orm";
+import { poll } from "../../db/schema/index.js";
+import { one } from "../../db/util.js";
 import { panel, stat, success, error } from "../../ui/embeds.js";
 import { Theme, Brand } from "../../ui/theme.js";
 
@@ -25,7 +28,7 @@ export default {
             .addStringOption(o => o.setName("message-id").setDescription("Poll message ID").setRequired(true))),
 
     async execute(interaction) {
-        const prisma = interaction.client.services.prisma;
+        const db = interaction.client.services.db;
         const sub = interaction.options.getSubcommand();
 
         if (sub === "create") {
@@ -48,25 +51,23 @@ export default {
                 await sent.react(NUMBERS[i]).catch(() => {});
             }
 
-            await prisma.poll.create({
-                data: {
-                    guildId: interaction.guild.id,
-                    channelId: interaction.channel.id,
-                    messageId: sent.id,
-                    authorId: interaction.user.id,
-                    question,
-                    options: JSON.stringify(raw),
-                },
+            await db.insert(poll).values({
+                guildId: interaction.guild.id,
+                channelId: interaction.channel.id,
+                messageId: sent.id,
+                authorId: interaction.user.id,
+                question,
+                options: JSON.stringify(raw),
             });
         }
 
         if (sub === "results") {
             const messageId = interaction.options.getString("message-id");
-            const poll = await prisma.poll.findUnique({ where: { messageId } });
-            if (!poll) return interaction.reply({ embeds: [error("Not Found", "Poll not found.")], flags: MessageFlags.Ephemeral });
+            const row = one(await db.select().from(poll).where(eq(poll.messageId, messageId)).limit(1));
+            if (!row) return interaction.reply({ embeds: [error("Not Found", "Poll not found.")], flags: MessageFlags.Ephemeral });
 
-            const options = JSON.parse(poll.options);
-            const channel = interaction.guild.channels.cache.get(poll.channelId);
+            const options = JSON.parse(row.options);
+            const channel = interaction.guild.channels.cache.get(row.channelId);
             if (!channel) return interaction.reply({ embeds: [error("Not Found", "Poll channel not found.")], flags: MessageFlags.Ephemeral });
 
             const message = await channel.messages.fetch(messageId).catch(() => null);
@@ -88,7 +89,7 @@ export default {
                 return `**${r.option}**${winner}\n${bar || "▱"} ${r.votes} vote${r.votes !== 1 ? "s" : ""} (${pct}%)`;
             });
 
-            const embed = panel(`🗳️ ${poll.question}`, lines.join("\n\n"))
+            const embed = panel(`🗳️ ${row.question}`, lines.join("\n\n"))
                 .setFooter({ text: `Total: ${total} vote${total !== 1 ? "s" : ""}` });
 
             await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
@@ -96,15 +97,15 @@ export default {
 
         if (sub === "end") {
             const messageId = interaction.options.getString("message-id");
-            const poll = await prisma.poll.findUnique({ where: { messageId } });
-            if (!poll) return interaction.reply({ embeds: [error("Not Found", "Poll not found.")], flags: MessageFlags.Ephemeral });
+            const row = one(await db.select().from(poll).where(eq(poll.messageId, messageId)).limit(1));
+            if (!row) return interaction.reply({ embeds: [error("Not Found", "Poll not found.")], flags: MessageFlags.Ephemeral });
 
-            if (poll.authorId !== interaction.user.id && !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
+            if (row.authorId !== interaction.user.id && !interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
                 return interaction.reply({ embeds: [error("Denied", "Only the poll creator or admins can end it.")], flags: MessageFlags.Ephemeral });
             }
 
-            const options = JSON.parse(poll.options);
-            const channel = interaction.guild.channels.cache.get(poll.channelId);
+            const options = JSON.parse(row.options);
+            const channel = interaction.guild.channels.cache.get(row.channelId);
             if (!channel) return interaction.reply({ embeds: [error("Not Found", "Poll channel not found.")], flags: MessageFlags.Ephemeral });
 
             const message = await channel.messages.fetch(messageId).catch(() => null);
@@ -125,7 +126,7 @@ export default {
                 return `${marker}**${r.option}** — ${r.votes} vote${r.votes !== 1 ? "s" : ""}`;
             });
 
-            const embed = panel(`🗳️ ${poll.question}`, lines.join("\n\n"))
+            const embed = panel(`🗳️ ${row.question}`, lines.join("\n\n"))
                 .setFooter({ text: `Final \u2022 Winner: ${winner.option} \u2022 ${total} total votes` });
 
             await message.edit({ embeds: [embed] }).catch(() => {});

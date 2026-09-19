@@ -1,6 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { sql } from "drizzle-orm";
+import { getDb } from "../../../db/index.js";
 
 // Read-only live data from the running Discord client cache.
 // Anything unknown is reported as unknown — never fabricated.
@@ -20,7 +19,7 @@ export function getGuildInfo(gid) {
 
 export async function getBotStatus() {
     let dbOk = false;
-    try { await prisma.$queryRaw`SELECT 1`; dbOk = true; } catch { dbOk = false; }
+    try { await getDb().execute(sql`SELECT 1`); dbOk = true; } catch { dbOk = false; }
     try {
         const client = globalThis._client;
         if (!client || !client.user) return { online: false, dbOk };

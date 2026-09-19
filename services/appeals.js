@@ -1,52 +1,55 @@
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and, asc, count } from "drizzle-orm";
+import { appeal } from "../db/schema/index.js";
+import { clean, one, uuid } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 
 export class AppealService {
-    constructor(prisma, client, logging) {
-        this.prisma = prisma;
+    constructor(db, client, logging) {
+        this.db = db;
         this.client = client;
         this.logging = logging;
     }
 
     async submit(guildId, caseNumber, appellantId, reason) {
-        const existing = await this.prisma.appeal.findFirst({
-            where: { guildId, caseNumber, appellantId, status: "PENDING" },
-        });
+        const existing = one(await this.db.select().from(appeal)
+            .where(and(eq(appeal.guildId, guildId), eq(appeal.caseNumber, caseNumber), eq(appeal.appellantId, appellantId), eq(appeal.status, "PENDING")))
+            .limit(1));
         if (existing) return { ok: false, error: "You already have a pending appeal for this case." };
 
-        const appeal = await this.prisma.appeal.create({
-            data: { guildId, caseNumber, appellantId, reason },
-        });
+        const id = uuid();
+        await this.db.insert(appeal).values(clean({ id, guildId, caseNumber, appellantId, reason }));
+        const row = one(await this.db.select().from(appeal).where(eq(appeal.id, id)));
 
-        return { ok: true, appeal };
+        return { ok: true, appeal: row };
     }
 
     async approve(appealId, reviewerId, reviewerTag) {
-        const appeal = await this.prisma.appeal.findUnique({ where: { id: appealId } });
-        if (!appeal) return null;
+        const row = one(await this.db.select().from(appeal).where(eq(appeal.id, appealId)).limit(1));
+        if (!row) return null;
 
-        const updated = await this.prisma.appeal.update({
-            where: { id: appealId },
-            data: { status: "APPROVED", reviewerId, reviewerTag },
-        });
+        await this.db.update(appeal)
+            .set({ status: "APPROVED", reviewerId, reviewerTag })
+            .where(eq(appeal.id, appealId));
+        const updated = one(await this.db.select().from(appeal).where(eq(appeal.id, appealId)).limit(1));
 
         // Attempt to unban the appellant
-        const guild = this.client.guilds.cache.get(appeal.guildId);
+        const guild = this.client.guilds.cache.get(updated.guildId);
         if (guild) {
-            await guild.members.unban(appeal.appellantId, `Appeal approved for case #${appeal.caseNumber}`).catch((e) => {
+            await guild.members.unban(updated.appellantId, `Appeal approved for case #${updated.caseNumber}`).catch((e) => {
                 logger.error("appeals", "unban failed", e.message);
             });
 
             // Notify in mod log channel
-            const config = await this.client.services.settings?.get(appeal.guildId);
+            const config = await this.client.services.settings?.get(updated.guildId);
             if (config?.logChannelId) {
                 const ch = guild.channels.cache.get(config.logChannelId);
                 if (ch?.isTextBased()) {
                     const embed = new EmbedBuilder()
                         .setColor(Theme.success)
                         .setTitle("Appeal Approved")
-                        .setDescription(`Case #${appeal.caseNumber} — <@${appeal.appellantId}>\nReason: ${appeal.reason}`)
+                        .setDescription(`Case #${updated.caseNumber} — <@${updated.appellantId}>\nReason: ${updated.reason}`)
                         .setFooter({ text: Brand.footer })
                         .setTimestamp();
                     await ch.send({ embeds: [embed] }).catch(() => {});
@@ -58,25 +61,25 @@ export class AppealService {
     }
 
     async deny(appealId, reviewerId, reviewerTag) {
-        const appeal = await this.prisma.appeal.findUnique({ where: { id: appealId } });
-        if (!appeal) return null;
+        const row = one(await this.db.select().from(appeal).where(eq(appeal.id, appealId)).limit(1));
+        if (!row) return null;
 
-        const updated = await this.prisma.appeal.update({
-            where: { id: appealId },
-            data: { status: "DENIED", reviewerId, reviewerTag },
-        });
+        await this.db.update(appeal)
+            .set({ status: "DENIED", reviewerId, reviewerTag })
+            .where(eq(appeal.id, appealId));
+        const updated = one(await this.db.select().from(appeal).where(eq(appeal.id, appealId)).limit(1));
 
         // Notify in mod log channel
-        const guild = this.client.guilds.cache.get(appeal.guildId);
+        const guild = this.client.guilds.cache.get(updated.guildId);
         if (guild) {
-            const config = await this.client.services.settings?.get(appeal.guildId);
+            const config = await this.client.services.settings?.get(updated.guildId);
             if (config?.logChannelId) {
                 const ch = guild.channels.cache.get(config.logChannelId);
                 if (ch?.isTextBased()) {
                     const embed = new EmbedBuilder()
                         .setColor(Theme.danger)
                         .setTitle("Appeal Denied")
-                        .setDescription(`Case #${appeal.caseNumber} — <@${appeal.appellantId}>\nReason: ${appeal.reason}`)
+                        .setDescription(`Case #${updated.caseNumber} — <@${updated.appellantId}>\nReason: ${updated.reason}`)
                         .setFooter({ text: Brand.footer })
                         .setTimestamp();
                     await ch.send({ embeds: [embed] }).catch(() => {});
@@ -88,16 +91,19 @@ export class AppealService {
     }
 
     async listPending(guildId) {
-        return this.prisma.appeal.findMany({
-            where: { guildId, status: "PENDING" },
-            orderBy: { createdAt: "asc" },
-        });
+        return this.db.select().from(appeal)
+            .where(and(eq(appeal.guildId, guildId), eq(appeal.status, "PENDING")))
+            .orderBy(asc(appeal.createdAt));
     }
 
     async getStats(guildId) {
-        const pending = await this.prisma.appeal.count({ where: { guildId, status: "PENDING" } });
-        const approved = await this.prisma.appeal.count({ where: { guildId, status: "APPROVED" } });
-        const denied = await this.prisma.appeal.count({ where: { guildId, status: "DENIED" } });
-        return { pending, approved, denied, total: pending + approved + denied };
+        const pending = await this.db.select({ n: count() }).from(appeal)
+            .where(and(eq(appeal.guildId, guildId), eq(appeal.status, "PENDING")));
+        const approved = await this.db.select({ n: count() }).from(appeal)
+            .where(and(eq(appeal.guildId, guildId), eq(appeal.status, "APPROVED")));
+        const denied = await this.db.select({ n: count() }).from(appeal)
+            .where(and(eq(appeal.guildId, guildId), eq(appeal.status, "DENIED")));
+        const p = Number(pending[0]?.n ?? 0), a = Number(approved[0]?.n ?? 0), d = Number(denied[0]?.n ?? 0);
+        return { pending: p, approved: a, denied: d, total: p + a + d };
     }
 }

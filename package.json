@@ -8,9 +8,7 @@
     "start": "node bot.js",
     "dev": "node --watch bot.js",
     "deploy": "node core/deploy.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
+    "db:migrate": "node db/run-migrate.mjs",
     "lint": "eslint src",
     "test": "node --test src/**/*.test.js"
   },
@@ -24,12 +22,12 @@
     "@discordjs/rest": "3.0.0-pr-11602.1789066132-275cd4b42",
     "@discordjs/util": "2.0.0-pr-11602.1789066132-275cd4b42",
     "@discordjs/ws": "3.0.0-pr-11602.1789066132-275cd4b42",
-    "@prisma/client": "^5.22.0",
     "discord.js": "15.0.0-pr-11602.1789066132-275cd4b42",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.45.2",
+    "mysql2": "^3.24.4"
   },
   "devDependencies": {
-    "eslint": "^8.57.0",
-    "prisma": "^5.22.0"
+    "eslint": "^8.57.0"
   }
 }

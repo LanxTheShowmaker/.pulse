@@ -365,11 +365,7 @@ export default {
     async handleAdminBank(interaction, economy) {
         const target = interaction.options.getUser("target");
         const amount = interaction.options.getInteger("amount");
-        await economy.prisma.economy.upsert({
-            where: { guildId_userId: { guildId: interaction.guild.id, userId: target.id } },
-            create: { guildId: interaction.guild.id, userId: target.id, bank: amount },
-            update: { bank: amount },
-        });
+        await economy.setBank(interaction.guild.id, target.id, amount);
         await interaction.reply({
             embeds: [success("Bank Set", `Set <@${target.id}>'s bank to **${amount.toLocaleString()}**`)],
             flags: MessageFlags.Ephemeral,

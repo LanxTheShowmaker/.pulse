@@ -1,13 +1,14 @@
 import { Router } from "express";
+import { eq, and, desc } from "drizzle-orm";
 import { logger } from "../../../core/logger.js";
-import { getSessionPrisma } from "../services/session.js";
+import { getDb } from "../../../db/index.js";
+import { session, dashboardGuild } from "../../../db/schema/index.js";
+import { one } from "../../../db/util.js";
 import { getGuildInfo } from "../services/guild.js";
 import { getOverview } from "../services/overview.js";
 import { botInGuild } from "../services/access.js";
 import { validateGuildId } from "../middleware/validate.js";
 import { requireGuildAuth } from "../middleware/auth.js";
-
-const prisma = getSessionPrisma();
 
 function iconUrl(g) {
     if (g.icon) return `https://cdn.discordapp.com/icons/${g.guildId}/${g.icon}.png`;
@@ -17,9 +18,10 @@ function iconUrl(g) {
 
 export function createGuildsRouter(deps) {
     const router = Router();
+    const db = getDb();
 
     router.get("/api/user", async (req, res) => {        try {
-            const s = await prisma.session.findUnique({ where: { id: req.session?.id } });
+            const s = one(await db.select().from(session).where(eq(session.id, req.session?.id)).limit(1));
             if (!s) return res.status(401).json({ error: "Not authenticated." });
             res.json({ id: s.userId, guildId: s.guildId, expiresAt: s.expiresAt });
         } catch (e) { res.status(500).json({ error: "Failed." }); }
@@ -29,10 +31,9 @@ export function createGuildsRouter(deps) {
     // enriched with live bot presence. Never invents access.
     router.get("/api/guilds", async (req, res) => {
         try {
-            const rows = await prisma.dashboardGuild.findMany({
-                where: { userId: req.userId, manage: true },
-                orderBy: { updatedAt: "desc" },
-            });
+            const rows = await db.select().from(dashboardGuild)
+                .where(and(eq(dashboardGuild.userId, req.userId), eq(dashboardGuild.manage, true)))
+                .orderBy(desc(dashboardGuild.updatedAt));
             let memberCounts = {};
             try {
                 const client = globalThis._client;
@@ -64,9 +65,8 @@ export function createGuildsRouter(deps) {
             if (typeof guildId !== "string" || !guildId) {
                 return res.status(400).json({ error: "Guild ID required." });
             }
-            const row = await prisma.dashboardGuild.findUnique({
-                where: { userId_guildId: { userId: req.userId, guildId } },
-            });
+            const row = one(await db.select().from(dashboardGuild)
+                .where(and(eq(dashboardGuild.userId, req.userId), eq(dashboardGuild.guildId, guildId))).limit(1));
             if (!row || !row.manage) {
                 logger.info("auth", `guild select denied: user ${req.userId} has no access to ${guildId}`);
                 return res.status(403).json({ error: "You cannot manage this server." });
@@ -75,7 +75,7 @@ export function createGuildsRouter(deps) {
                 logger.info("auth", `guild select denied: bot not in ${guildId} (user ${req.userId})`);
                 return res.status(403).json({ error: ".pulse is not installed in this server." });
             }
-            await prisma.session.update({ where: { id: req.session.id }, data: { guildId } });
+            await db.update(session).set({ guildId }).where(eq(session.id, req.session.id));
             logger.info("auth", `user ${req.userId} selected guild ${guildId}`);
             res.json({ success: true, guildId, redirect: `/dashboard/guild/${guildId}` });
         } catch (e) {

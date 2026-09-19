@@ -2,7 +2,7 @@ import "dotenv/config";
 import { GatewayIntentBits, Partials } from "discord.js";
 import { PulseClient } from "./core/client.js";
 import { loadCommands, loadEvents, loadHandlers } from "./core/registry.js";
-import { createServices, initDatabase, shutdownServices } from "./core/services.js";
+import { createServices, initDatabase, shutdownServices, closeDatabase } from "./core/services.js";
 import { logger } from "./core/logger.js";
 
 // Dashboard import (Phase 4: shared platform)
@@ -14,7 +14,7 @@ process.on("uncaughtException", e => logger.error("process", "uncaughtException"
 async function main() {
     const token = process.env.DISCORD_TOKEN;
     if (!token) { logger.error("bootstrap", "DISCORD_TOKEN missing"); process.exit(1); }
-    if (!process.env.DATABASE_URL) { logger.error("bootstrap", "DATABASE_URL missing"); process.exit(1); }
+    if (!process.env.DATABASE_URL) { logger.error("bootstrap", "DATABASE_URL missing (expected mysql://user:pass@host:port/db)"); process.exit(1); }
 
     // OAuth2 configuration
     const oauth2 = {
@@ -39,7 +39,7 @@ async function main() {
 
     client.services = createServices(client);
     globalThis._client = client;
-    await initDatabase(client.services.prisma);
+    await initDatabase();
 
     client.commands = await loadCommands();
 
@@ -59,7 +59,7 @@ async function main() {
         try {
             await shutdownServices(client.services);
             if (dashboardServer) await dashboardServer.close();
-            await client.services.prisma.$disconnect();
+            await closeDatabase();
         } catch {}
         client.destroy();
         process.exit(0);

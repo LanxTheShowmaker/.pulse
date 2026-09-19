@@ -1,5 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
+import { reminder } from "../../db/schema/index.js";
+import { uuid } from "../../db/util.js";
 import { success } from "../../ui/embeds.js";
 
 function parseDuration(input) {
@@ -27,14 +29,13 @@ export default {
 
         const remindAt = new Date(Date.now() + duration.ms);
 
-        await interaction.client.services.prisma.reminder.create({
-            data: {
-                guildId: interaction.guild.id,
-                channelId: interaction.channel.id,
-                userId: interaction.user.id,
-                message,
-                remindAt,
-            },
+        await interaction.client.services.db.insert(reminder).values({
+            id: uuid(),
+            guildId: interaction.guild.id,
+            channelId: interaction.channel.id,
+            userId: interaction.user.id,
+            message,
+            remindAt,
         });
 
         await interaction.reply({

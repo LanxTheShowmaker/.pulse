@@ -1,30 +1,34 @@
+import { eq, and } from "drizzle-orm";
+import { afk } from "../db/schema/index.js";
+import { one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 export class AfkService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async set(guildId, userId, reason) {
-        return this.prisma.afk.upsert({
-            where: { guildId_userId: { guildId, userId } },
-            create: { guildId, userId, reason },
-            update: { reason, since: new Date() },
-        });
+        await this.db.insert(afk).values({ guildId, userId, reason })
+            .onDuplicateKeyUpdate({ set: { reason, since: new Date() } });
+        return one(await this.db.select().from(afk)
+            .where(and(eq(afk.guildId, guildId), eq(afk.userId, userId))).limit(1));
     }
 
     async remove(guildId, userId) {
-        const afk = await this.prisma.afk.findUnique({ where: { guildId_userId: { guildId, userId } } });
-        if (afk) {
-            await this.prisma.afk.delete({ where: { guildId_userId: { guildId, userId } } });
-            return afk;
+        const row = one(await this.db.select().from(afk)
+            .where(and(eq(afk.guildId, guildId), eq(afk.userId, userId))).limit(1));
+        if (row) {
+            await this.db.delete(afk).where(and(eq(afk.guildId, guildId), eq(afk.userId, userId)));
+            return row;
         }
         return null;
     }
 
     async get(guildId, userId) {
-        return this.prisma.afk.findUnique({ where: { guildId_userId: { guildId, userId } } });
+        return one(await this.db.select().from(afk)
+            .where(and(eq(afk.guildId, guildId), eq(afk.userId, userId))).limit(1));
     }
 
     async handleMessage(message) {
@@ -32,10 +36,10 @@ export class AfkService {
 
         // Check if the mentioned user is AFK
         for (const [id, user] of message.mentions.users) {
-            const afk = await this.get(message.guild.id, id);
-            if (afk) {
-                const time = Math.floor((Date.now() - afk.since.getTime()) / 60_000);
-                await message.reply(`${user.tag} is AFK${afk.reason ? `: ${afk.reason}` : ""} (${time}m ago)`).catch(() => {});
+            const row = await this.get(message.guild.id, id);
+            if (row) {
+                const time = Math.floor((Date.now() - row.since.getTime()) / 60_000);
+                await message.reply(`${user.tag} is AFK${row.reason ? `: ${row.reason}` : ""} (${time}m ago)`).catch(() => {});
             }
         }
 

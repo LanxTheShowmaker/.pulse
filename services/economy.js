@@ -1,3 +1,6 @@
+import { eq, and, desc, sql } from "drizzle-orm";
+import { economy, economyConfig, economyTransaction } from "../db/schema/index.js";
+import { clean, one, uuid } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 const COOLDOWNS = {
@@ -55,38 +58,44 @@ function formatMs(ms) {
     return `${s}s`;
 }
 
+function profileWhere(guildId, userId) {
+    return and(eq(economy.guildId, guildId), eq(economy.userId, userId));
+}
+
+const COOLDOWN_FIELDS = new Set(["lastDaily", "lastWeekly", "lastWork", "lastCrime", "lastRob"]);
+
 export class EconomyService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async getEconomyConfig(guildId) {
-        let cfg = await this.prisma.economyConfig.findUnique({ where: { guildId } });
-        if (!cfg) cfg = await this.prisma.economyConfig.create({ data: { guildId } });
+        let cfg = one(await this.db.select().from(economyConfig).where(eq(economyConfig.guildId, guildId)).limit(1));
+        if (!cfg) {
+            await this.db.insert(economyConfig).values({ guildId });
+            cfg = one(await this.db.select().from(economyConfig).where(eq(economyConfig.guildId, guildId)).limit(1));
+        }
         return cfg;
     }
 
     async setEconomyConfig(guildId, data) {
-        return this.prisma.economyConfig.upsert({
-            where: { guildId },
-            create: { guildId, ...data },
-            update: data,
-        });
+        const set = clean(data);
+        await this.db.insert(economyConfig).values({ guildId, ...set })
+            .onDuplicateKeyUpdate({ set });
+        return one(await this.db.select().from(economyConfig).where(eq(economyConfig.guildId, guildId)).limit(1));
     }
 
     // ── Core ──
 
     async getProfile(guildId, userId) {
-        return this.prisma.economy.findUnique({ where: { guildId_userId: { guildId, userId } } });
+        return one(await this.db.select().from(economy).where(profileWhere(guildId, userId)).limit(1));
     }
 
     async getOrCreate(guildId, userId) {
-        return this.prisma.economy.upsert({
-            where: { guildId_userId: { guildId, userId } },
-            create: { guildId, userId },
-            update: {},
-        });
+        await this.db.insert(economy).values({ guildId, userId })
+            .onDuplicateKeyUpdate({ set: { userId } });
+        return one(await this.db.select().from(economy).where(profileWhere(guildId, userId)).limit(1));
     }
 
     async getBalance(guildId, userId) {
@@ -95,34 +104,39 @@ export class EconomyService {
     }
 
     async addCoins(guildId, userId, amount, type, meta) {
-        const eco = await this.prisma.economy.upsert({
-            where: { guildId_userId: { guildId, userId } },
-            create: { guildId, userId, balance: Math.max(0, amount), totalEarned: Math.max(0, amount) },
-            update: {
-                balance: { increment: amount },
-                totalEarned: amount > 0 ? { increment: amount } : undefined,
-                totalSpent: amount < 0 ? { increment: Math.abs(amount) } : undefined,
-            },
-        });
+        const set = { balance: sql`${economy.balance} + ${amount}` };
+        if (amount > 0) set.totalEarned = sql`${economy.totalEarned} + ${amount}`;
+        if (amount < 0) set.totalSpent = sql`${economy.totalSpent} + ${Math.abs(amount)}`;
+        await this.db.insert(economy)
+            .values({ guildId, userId, balance: Math.max(0, amount), totalEarned: Math.max(0, amount) })
+            .onDuplicateKeyUpdate({ set });
+        const eco = await this.getProfile(guildId, userId);
 
-        await this.prisma.economyTransaction.create({
-            data: { guildId, userId, type, amount, balanceAfter: eco.balance, meta: meta ? JSON.stringify(meta) : null },
+        await this.db.insert(economyTransaction).values({
+            id: uuid(), guildId, userId, type, amount,
+            balanceAfter: eco.balance, meta: meta ? JSON.stringify(meta) : null,
         }).catch(() => {});
 
         return eco.balance;
     }
 
     async setBalance(guildId, userId, amount) {
-        return this.prisma.economy.upsert({
-            where: { guildId_userId: { guildId, userId } },
-            create: { guildId, userId, balance: amount },
-            update: { balance: amount },
-        });
+        await this.db.insert(economy).values({ guildId, userId, balance: amount })
+            .onDuplicateKeyUpdate({ set: { balance: amount } });
+        return one(await this.db.select().from(economy).where(profileWhere(guildId, userId)).limit(1));
+    }
+
+    async setBank(guildId, userId, amount) {
+        await this.db.insert(economy).values({ guildId, userId, bank: amount })
+            .onDuplicateKeyUpdate({ set: { bank: amount } });
+        return one(await this.db.select().from(economy).where(profileWhere(guildId, userId)).limit(1));
     }
 
     async resetUser(guildId, userId) {
-        await this.prisma.economyTransaction.deleteMany({ where: { guildId, userId } });
-        return this.prisma.economy.deleteMany({ where: { guildId, userId } });
+        await this.db.delete(economyTransaction).where(profileWhere(guildId, userId));
+        const res = await this.db.delete(economy).where(profileWhere(guildId, userId));
+        const n = Array.isArray(res) ? res[0]?.affectedRows ?? 0 : res?.affectedRows ?? 0;
+        return { count: Number(n) || 0 };
     }
 
     // ── Cooldowns ──
@@ -135,10 +149,8 @@ export class EconomyService {
     }
 
     async markUsed(guildId, userId, field) {
-        await this.prisma.economy.update({
-            where: { guildId_userId: { guildId, userId } },
-            update: { [field]: new Date() },
-        }).catch(() => {});
+        if (!COOLDOWN_FIELDS.has(field)) throw new Error(`Invalid cooldown field: ${field}`);
+        await this.db.update(economy).set({ [field]: new Date() }).where(profileWhere(guildId, userId)).catch(() => {});
     }
 
     // ── Daily / Weekly ──
@@ -155,10 +167,9 @@ export class EconomyService {
         const bonus = Math.min(streak, 30) * 10;
         const amount = base + bonus;
 
-        await this.prisma.economy.update({
-            where: { guildId_userId: { guildId, userId } },
-            update: { lastDaily: new Date(), dailyStreak: streak },
-        });
+        await this.db.update(economy)
+            .set({ lastDaily: new Date(), dailyStreak: streak })
+            .where(profileWhere(guildId, userId));
         const balance = await this.addCoins(guildId, userId, amount, "daily", { streak });
         // Achievement: daily claimed
         this.client.services.achievements?.increment(guildId, userId, "dailyClaimed").catch(() => {});
@@ -177,10 +188,9 @@ export class EconomyService {
         const bonus = Math.min(streak, 12) * 50;
         const amount = base + bonus;
 
-        await this.prisma.economy.update({
-            where: { guildId_userId: { guildId, userId } },
-            update: { lastWeekly: new Date(), weeklyStreak: streak },
-        });
+        await this.db.update(economy)
+            .set({ lastWeekly: new Date(), weeklyStreak: streak })
+            .where(profileWhere(guildId, userId));
         const balance = await this.addCoins(guildId, userId, amount, "weekly", { streak });
         return { ok: true, amount, balance, streak };
     }
@@ -210,14 +220,9 @@ export class EconomyService {
         const option = CRIME_OPTIONS[Math.floor(Math.random() * CRIME_OPTIONS.length)];
         const success = Math.random() < option.successChance;
 
-        await this.prisma.economy.update({
-            where: { guildId_userId: { guildId, userId } },
-            update: {
-                lastCrime: new Date(),
-                crimesCommitted: { increment: 1 },
-                crimesFailed: success ? undefined : { increment: 1 },
-            },
-        });
+        const crimeSet = { lastCrime: new Date(), crimesCommitted: sql`${economy.crimesCommitted} + 1` };
+        if (!success) crimeSet.crimesFailed = sql`${economy.crimesFailed} + 1`;
+        await this.db.update(economy).set(crimeSet).where(profileWhere(guildId, userId));
 
         // Achievement: crime committed
         this.client.services.achievements?.increment(guildId, userId, "crimesCommitted").catch(() => {});
@@ -259,16 +264,14 @@ export class EconomyService {
             return { ok: true, caught: true, amount: fine, victim: victimId };
         }
 
-        await this.prisma.$transaction([
-            this.prisma.economy.update({
-                where: { guildId_userId: { guildId, userId: robberId } },
-                data: { balance: { increment: stolen }, timesRobbed: { increment: 1 } },
-            }),
-            this.prisma.economy.update({
-                where: { guildId_userId: { guildId, userId: victimId } },
-                data: { balance: { decrement: stolen } },
-            }),
-        ]);
+        await this.db.transaction(async (tx) => {
+            await tx.update(economy)
+                .set({ balance: sql`${economy.balance} + ${stolen}`, timesRobbed: sql`${economy.timesRobbed} + 1` })
+                .where(profileWhere(guildId, robberId));
+            await tx.update(economy)
+                .set({ balance: sql`${economy.balance} - ${stolen}` })
+                .where(profileWhere(guildId, victimId));
+        });
 
         const balance = robber.balance + stolen;
         return { ok: true, caught: false, amount: stolen, balance, victim: victimId };
@@ -294,10 +297,9 @@ export class EconomyService {
         const winAmount = bet * multiplier;
         const net = winAmount - bet;
 
-        await this.prisma.economy.update({
-            where: { guildId_userId: { guildId, userId } },
-            update: { slotsPlayed: { increment: 1 }, slotsWon: multiplier > 0 ? { increment: 1 } : undefined },
-        });
+        const slotSet = { slotsPlayed: sql`${economy.slotsPlayed} + 1` };
+        if (multiplier > 0) slotSet.slotsWon = sql`${economy.slotsWon} + 1`;
+        await this.db.update(economy).set(slotSet).where(profileWhere(guildId, userId));
 
         // Achievement: slots played/won
         this.client.services.achievements?.increment(guildId, userId, "slotsPlayed").catch(() => {});
@@ -314,9 +316,9 @@ export class EconomyService {
         if (amount <= 0) return { ok: false, error: "Amount must be positive." };
         if (eco.balance < amount) return { ok: false, error: "Insufficient wallet balance." };
 
-        await this.prisma.$transaction([
-            this.prisma.economy.update({ where: { guildId_userId: { guildId, userId } }, data: { balance: { decrement: amount }, bank: { increment: amount } } }),
-        ]);
+        await this.db.update(economy)
+            .set({ balance: sql`${economy.balance} - ${amount}`, bank: sql`${economy.bank} + ${amount}` })
+            .where(profileWhere(guildId, userId));
 
         return { ok: true, wallet: eco.balance - amount, bank: eco.bank + amount };
     }
@@ -326,9 +328,9 @@ export class EconomyService {
         if (amount <= 0) return { ok: false, error: "Amount must be positive." };
         if (eco.bank < amount) return { ok: false, error: "Insufficient bank balance." };
 
-        await this.prisma.$transaction([
-            this.prisma.economy.update({ where: { guildId_userId: { guildId, userId } }, data: { bank: { decrement: amount }, balance: { increment: amount } } }),
-        ]);
+        await this.db.update(economy)
+            .set({ bank: sql`${economy.bank} - ${amount}`, balance: sql`${economy.balance} + ${amount}` })
+            .where(profileWhere(guildId, userId));
 
         return { ok: true, wallet: eco.balance + amount, bank: eco.bank - amount };
     }
@@ -338,16 +340,15 @@ export class EconomyService {
     async gift(guildId, fromId, toId, amount) {
         if (amount <= 0) return { ok: false, error: "Amount must be positive." };
 
-        const result = await this.prisma.$transaction(async (tx) => {
-            const sender = await tx.economy.findUnique({ where: { guildId_userId: { guildId, userId: fromId } } });
+        const result = await this.db.transaction(async (tx) => {
+            const sender = one(await tx.select().from(economy).where(profileWhere(guildId, fromId)).limit(1));
             if ((sender?.balance ?? 0) < amount) throw new Error("Insufficient balance");
 
-            await tx.economy.update({ where: { guildId_userId: { guildId, userId: fromId } }, data: { balance: { decrement: amount } } });
-            await tx.economy.upsert({
-                where: { guildId_userId: { guildId, userId: toId } },
-                create: { guildId, userId: toId, balance: amount },
-                update: { balance: { increment: amount } },
-            });
+            await tx.update(economy)
+                .set({ balance: sql`${economy.balance} - ${amount}` })
+                .where(profileWhere(guildId, fromId));
+            await tx.insert(economy).values({ guildId, userId: toId, balance: amount })
+                .onDuplicateKeyUpdate({ set: { balance: sql`${economy.balance} + ${amount}` } });
             return true;
         }).catch(() => false);
 
@@ -358,19 +359,15 @@ export class EconomyService {
     // ── Leaderboard / History ──
 
     async getLeaderboard(guildId, limit = 10) {
-        return this.prisma.economy.findMany({
-            where: { guildId },
-            orderBy: [{ bank: "desc" }, { balance: "desc" }],
-            take: limit,
-        });
+        return this.db.select().from(economy)
+            .where(eq(economy.guildId, guildId))
+            .orderBy(desc(economy.bank), desc(economy.balance)).limit(limit);
     }
 
     async getHistory(guildId, userId, limit = 15) {
-        return this.prisma.economyTransaction.findMany({
-            where: { guildId, userId },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-        });
+        return this.db.select().from(economyTransaction)
+            .where(and(eq(economyTransaction.guildId, guildId), eq(economyTransaction.userId, userId)))
+            .orderBy(desc(economyTransaction.createdAt)).limit(limit);
     }
 
     // ── Admin ──

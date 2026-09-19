@@ -1,45 +1,48 @@
 import { Router } from "express";
 import crypto from "crypto";
+import { eq, and, notInArray } from "drizzle-orm";
 import { logger } from "../../../core/logger.js";
-import { createSession, deleteSessionByToken, getSessionPrisma, SESSION_TTL_MS } from "../services/session.js";
+import { getDb } from "../../../db/index.js";
+import { dashboardGuild } from "../../../db/schema/index.js";
+import { createSession, deleteSessionByToken, SESSION_TTL_MS } from "../services/session.js";
 import { discordOAuthURL, discordTokenExchange, fetchDiscordUser, fetchDiscordGuilds } from "../services/oauth.js";
 import { guildManageable, botInGuild } from "../services/access.js";
-
-const prisma = getSessionPrisma();
 
 // Persist the user's manageable guilds (verified from the live OAuth
 // guild list at login). The access token itself is never stored.
 async function snapshotGuilds(userId, guilds) {
+    const db = getDb();
     const list = Array.isArray(guilds) ? guilds : [];
     const manageable = list.filter(guildManageable);
     const seen = new Set();
     for (const g of manageable) {
         if (seen.has(g.id)) continue;
         seen.add(g.id);
-        await prisma.dashboardGuild.upsert({
-            where: { userId_guildId: { userId, guildId: g.id } },
-            create: {
-                userId,
-                guildId: g.id,
-                name: g.name || null,
-                icon: g.icon || null,
-                permissions: String(g.permissions ?? "0"),
-                manage: true,
-                owner: g.owner === true,
-            },
-            update: {
-                name: g.name || null,
-                icon: g.icon || null,
-                permissions: String(g.permissions ?? "0"),
-                manage: true,
-                owner: g.owner === true,
-            },
-        });
+        const row = {
+            userId,
+            guildId: g.id,
+            name: g.name || null,
+            icon: g.icon || null,
+            permissions: String(g.permissions ?? "0"),
+            manage: true,
+            owner: g.owner === true,
+        };
+        await db.insert(dashboardGuild).values(row)
+            .onDuplicateKeyUpdate({
+                set: {
+                    name: row.name, icon: row.icon, permissions: row.permissions,
+                    manage: true, owner: row.owner,
+                },
+            });
     }
     // Prune servers the user can no longer manage.
-    await prisma.dashboardGuild.deleteMany({
-        where: { userId, guildId: { notIn: [...seen] } },
-    }).catch(() => {});
+    if (seen.size > 0) {
+        await db.delete(dashboardGuild)
+            .where(and(eq(dashboardGuild.userId, userId), notInArray(dashboardGuild.guildId, [...seen])))
+            .catch(() => {});
+    } else {
+        await db.delete(dashboardGuild).where(eq(dashboardGuild.userId, userId)).catch(() => {});
+    }
     return manageable;
 }
 

@@ -282,7 +282,7 @@ Examples:
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `DISCORD_TOKEN` | Yes | Bot token |
-| `DATABASE_URL` | Yes | SQLite path (e.g., `file:./data.db`) |
+| `DATABASE_URL` | Yes | MySQL connection URL (e.g., `mysql://user:pass@localhost:3306/pulse`) |
 | `LOG_LEVEL` | No | debug/info/warn/error (default: info) |
 
 ### 8.2 Validation

@@ -1,3 +1,6 @@
+import { eq } from "drizzle-orm";
+import { guildConfig } from "../db/schema/index.js";
+import { clean, one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 const DEFAULTS = {
@@ -19,17 +22,18 @@ const DEFAULTS = {
 };
 
 export class SettingsService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
         this._cache = new Map();
     }
 
     async get(guildId) {
         if (this._cache.has(guildId)) return this._cache.get(guildId);
-        let config = await this.prisma.guildConfig.findUnique({ where: { guildId } });
+        let config = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
         if (!config) {
-            config = await this.prisma.guildConfig.create({ data: { guildId } });
+            await this.db.insert(guildConfig).values({ guildId });
+            config = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
         }
         const parsed = this.parse(config);
         this._cache.set(guildId, parsed);
@@ -37,11 +41,10 @@ export class SettingsService {
     }
 
     async patch(guildId, data) {
-        const config = await this.prisma.guildConfig.upsert({
-            where: { guildId },
-            create: { guildId, ...data },
-            update: data,
-        });
+        const set = clean(data);
+        await this.db.insert(guildConfig).values({ guildId, ...set })
+            .onDuplicateKeyUpdate({ set });
+        const config = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
         const parsed = this.parse(config);
         this._cache.set(guildId, parsed);
         return parsed;
@@ -88,8 +91,13 @@ export class SettingsService {
     // ─── API BOUNDARY: Settings API ──────────────────────────
 
     async getAllSettings(guildId) {
-        const config = await this.prisma.guildConfig.findUnique({ where: { guildId } });
-        if (!config) return this._cache.get(guildId) || this.parse(await this.prisma.guildConfig.create({ data: { guildId } }));
+        const config = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
+        if (!config) {
+            if (this._cache.get(guildId)) return this._cache.get(guildId);
+            await this.db.insert(guildConfig).values({ guildId });
+            const created = one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
+            return this.parse(created);
+        }
         return this.parse(config);
     }
 

@@ -1,7 +1,8 @@
 import crypto from "crypto";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { eq } from "drizzle-orm";
+import { getDb } from "../../../db/index.js";
+import { session } from "../../../db/schema/index.js";
+import { one } from "../../../db/util.js";
 
 export const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -10,29 +11,32 @@ export function hashToken(token) {
 }
 
 export async function createSession(userId, guildId) {
+    const db = getDb();
     const token = crypto.randomBytes(32).toString("hex");
     const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-    await prisma.session.create({ data: { tokenHash, userId, guildId, expiresAt } });
+    await db.insert(session).values({ tokenHash, userId, guildId, expiresAt });
     return { token, expiresAt };
 }
 
 export async function validateSession(token) {
+    const db = getDb();
     const tokenHash = hashToken(token);
-    const session = await prisma.session.findUnique({ where: { tokenHash } });
-    if (!session || Date.now() > session.expiresAt.getTime()) {
-        if (session && Date.now() > session.expiresAt.getTime()) {
-            await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
+    const row = one(await db.select().from(session).where(eq(session.tokenHash, tokenHash)).limit(1));
+    if (!row || Date.now() > row.expiresAt.getTime()) {
+        if (row && Date.now() > row.expiresAt.getTime()) {
+            await db.delete(session).where(eq(session.id, row.id)).catch(() => {});
         }
         return null;
     }
-    return session;
+    return row;
 }
 
 export async function deleteSessionByToken(token) {
-    await prisma.session.deleteMany({ where: { tokenHash: hashToken(token) } }).catch(() => {});
+    const db = getDb();
+    await db.delete(session).where(eq(session.tokenHash, hashToken(token))).catch(() => {});
 }
 
-export function getSessionPrisma() {
-    return prisma;
+export function getSessionDb() {
+    return getDb();
 }

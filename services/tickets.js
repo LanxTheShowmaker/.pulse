@@ -1,5 +1,11 @@
 import { EmbedBuilder } from "@discordjs/builders";
 import { ChannelType, PermissionFlagsBits, MessageFlags, ButtonStyle } from "discord.js";
+import { eq, and, desc, asc, count, avg, ne, inArray } from "drizzle-orm";
+import {
+    ticket, ticketType, ticketNote, ticketHistory, ticketFormResponse,
+    ticketRating, case_ as caseTable, caseNote, guildConfig, panel,
+} from "../db/schema/index.js";
+import { clean, one, uuid } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 import { button, row } from "../ui/components.js";
@@ -16,44 +22,51 @@ const VALID_TRANSITIONS = {
 };
 
 export class TicketService {
-    constructor(prisma, client, settings, logging) {
-        this.prisma = prisma;
+    constructor(db, client, settings, logging) {
+        this.db = db;
         this.client = client;
         this.settings = settings;
         this.logging = logging;
     }
 
+    async findById(ticketId) {
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
+    }
+
+    async findByChannel(channelId) {
+        return one(await this.db.select().from(ticket).where(eq(ticket.channelId, channelId)).limit(1));
+    }
+
     // ─── CREATE ────────────────────────────────────────────
 
     async create(guild, channel, opener, type, formAnswers) {
-        const ticket = await this.prisma.ticket.create({
-            data: {
-                guildId: guild.id,
-                channelId: channel.id,
-                openerId: opener.id,
-                typeId: type?.id ?? null,
-                panelType: type?.panelType ?? "default",
-                status: "OPEN",
-                priority: type?.priority ?? "NORMAL",
-            },
-        });
+        const id = uuid();
+        await this.db.insert(ticket).values(clean({
+            id,
+            guildId: guild.id,
+            channelId: channel.id,
+            openerId: opener.id,
+            typeId: type?.id ?? null,
+            panelType: type?.panelType ?? "default",
+            status: "OPEN",
+            priority: type?.priority ?? "NORMAL",
+        }));
+        const row = one(await this.db.select().from(ticket).where(eq(ticket.id, id)));
 
-        await this.log(guild.id, ticket.id, "CREED", opener.id);
+        await this.log(guild.id, row.id, "CREED", opener.id);
 
         if (formAnswers && Object.keys(formAnswers).length > 0) {
-            await this.prisma.ticketFormResponse.create({
-                data: {
-                    guildId: guild.id,
-                    ticketId: ticket.id,
-                    questions: JSON.stringify(type?.formQuestions ? JSON.parse(type.formQuestions) : []),
-                    answers: JSON.stringify(formAnswers),
-                },
+            await this.db.insert(ticketFormResponse).values({
+                guildId: guild.id,
+                ticketId: row.id,
+                questions: JSON.stringify(type?.formQuestions ? JSON.parse(type.formQuestions) : []),
+                answers: JSON.stringify(formAnswers),
             });
         }
 
         this.client.services.achievements?.increment(guild.id, opener.id, "ticketsOpened").catch(() => {});
 
-        return ticket;
+        return row;
     }
 
     // ─── PERMISSIONS ───────────────────────────────────────
@@ -87,47 +100,44 @@ export class TicketService {
     // ─── CLAIM ─────────────────────────────────────────────
 
     async claim(ticketId, userId) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
-        if (!["OPEN", "WAITING"].includes(ticket.status)) throw new Error(`Cannot claim ticket in ${ticket.status} status`);
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
+        if (!["OPEN", "WAITING"].includes(row.status)) throw new Error(`Cannot claim ticket in ${row.status} status`);
 
-        const updated = await this.prisma.ticket.update({
-            where: { id: ticketId },
-            data: { claimedById: userId, status: "CLAIMED", assignedById: userId, assignedAt: new Date() },
-        });
+        await this.db.update(ticket)
+            .set({ claimedById: userId, status: "CLAIMED", assignedById: userId, assignedAt: new Date() })
+            .where(eq(ticket.id, ticketId));
 
-        await this.log(ticket.guildId, ticketId, "CLAIMED", userId);
-        return updated;
+        await this.log(row.guildId, ticketId, "CLAIMED", userId);
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── ASSIGN ────────────────────────────────────────────
 
     async assign(ticketId, userId, assignedBy) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const updated = await this.prisma.ticket.update({
-            where: { id: ticketId },
-            data: { assignedById: userId, assignedAt: new Date() },
-        });
+        await this.db.update(ticket)
+            .set({ assignedById: userId, assignedAt: new Date() })
+            .where(eq(ticket.id, ticketId));
 
-        await this.log(ticket.guildId, ticketId, "ASSIGNED", assignedBy, `Assigned to <@${userId}>`);
-        return updated;
+        await this.log(row.guildId, ticketId, "ASSIGNED", assignedBy, `Assigned to <@${userId}>`);
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── UNASSIGN ──────────────────────────────────────────
 
     async unassign(ticketId, unassignedBy) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const updated = await this.prisma.ticket.update({
-            where: { id: ticketId },
-            data: { assignedById: null, assignedAt: null, claimedById: ticket.claimedById === ticket.assignedById ? null : ticket.claimedById },
-        });
+        await this.db.update(ticket)
+            .set({ assignedById: null, assignedAt: null, claimedById: row.claimedById === row.assignedById ? null : row.claimedById })
+            .where(eq(ticket.id, ticketId));
 
-        await this.log(ticket.guildId, ticketId, "UNASSIGNED", unassignedBy);
-        return updated;
+        await this.log(row.guildId, ticketId, "UNASSIGNED", unassignedBy);
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── STATUS ────────────────────────────────────────────
@@ -135,21 +145,21 @@ export class TicketService {
     async setStatus(ticketId, newStatus, changedBy) {
         if (!VALID_STATUSES.includes(newStatus)) throw new Error(`Invalid status: ${newStatus}`);
 
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const allowed = VALID_TRANSITIONS[ticket.status] || [];
+        const allowed = VALID_TRANSITIONS[row.status] || [];
         if (!allowed.includes(newStatus)) {
-            throw new Error(`Cannot transition from ${ticket.status} to ${newStatus}`);
+            throw new Error(`Cannot transition from ${row.status} to ${newStatus}`);
         }
 
         const data = { status: newStatus };
         if (newStatus === "RESOLVED") data.closedById = changedBy;
         if (newStatus === "CLOSED") data.closedAt = new Date();
 
-        const updated = await this.prisma.ticket.update({ where: { id: ticketId }, data });
-        await this.log(ticket.guildId, ticketId, "STATUS_CHANGED", changedBy, `${ticket.status} → ${newStatus}`);
-        return updated;
+        await this.db.update(ticket).set(data).where(eq(ticket.id, ticketId));
+        await this.log(row.guildId, ticketId, "STATUS_CHANGED", changedBy, `${row.status} → ${newStatus}`);
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── PRIORITY ──────────────────────────────────────────
@@ -157,74 +167,72 @@ export class TicketService {
     async setPriority(ticketId, newPriority, changedBy) {
         if (!VALID_PRIORITIES.includes(newPriority)) throw new Error(`Invalid priority: ${newPriority}`);
 
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const updated = await this.prisma.ticket.update({
-            where: { id: ticketId },
-            data: { priority: newPriority },
-        });
+        await this.db.update(ticket).set({ priority: newPriority }).where(eq(ticket.id, ticketId));
 
-        await this.log(ticket.guildId, ticketId, "PRIORITY_CHANGED", changedBy, `${ticket.priority} → ${newPriority}`);
-        return updated;
+        await this.log(row.guildId, ticketId, "PRIORITY_CHANGED", changedBy, `${row.priority} → ${newPriority}`);
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── NOTES ─────────────────────────────────────────────
 
     async addNote(ticketId, authorId, content) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const note = await this.prisma.ticketNote.create({
-            data: { guildId: ticket.guildId, ticketId, authorId, content },
+        const id = uuid();
+        await this.db.insert(ticketNote).values({
+            id, guildId: row.guildId, ticketId, authorId, content,
         });
 
-        await this.log(ticket.guildId, ticketId, "NOTE_ADDED", authorId);
-        return note;
+        await this.log(row.guildId, ticketId, "NOTE_ADDED", authorId);
+        return one(await this.db.select().from(ticketNote).where(eq(ticketNote.id, id)));
     }
 
     async getNotes(ticketId) {
-        return this.prisma.ticketNote.findMany({
-            where: { ticketId },
-            orderBy: { createdAt: "asc" },
-        });
+        return this.db.select().from(ticketNote)
+            .where(eq(ticketNote.ticketId, ticketId))
+            .orderBy(asc(ticketNote.createdAt));
     }
 
     async deleteNote(noteId) {
-        return this.prisma.ticketNote.delete({ where: { id: noteId } });
+        const row = one(await this.db.select().from(ticketNote).where(eq(ticketNote.id, noteId)).limit(1));
+        if (!row) return null;
+        await this.db.delete(ticketNote).where(eq(ticketNote.id, noteId));
+        return row;
     }
 
     // ─── HISTORY ───────────────────────────────────────────
 
     async log(guildId, ticketId, event, actorId, details) {
-        await this.prisma.ticketHistory.create({
-            data: { guildId, ticketId, event, actorId: actorId ?? null, details: details ?? null },
+        await this.db.insert(ticketHistory).values({
+            guildId, ticketId, event, actorId: actorId ?? null, details: details ?? null,
         }).catch(e => logger.error("tickets", `history log failed: ${e.message}`));
     }
 
     async getHistory(ticketId) {
-        return this.prisma.ticketHistory.findMany({
-            where: { ticketId },
-            orderBy: { createdAt: "asc" },
-        });
+        return this.db.select().from(ticketHistory)
+            .where(eq(ticketHistory.ticketId, ticketId))
+            .orderBy(asc(ticketHistory.createdAt));
     }
 
     // ─── RENAME ────────────────────────────────────────────
 
     async rename(ticketId, newName, renamedBy) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) throw new Error("Ticket not found");
+        const row = await this.findById(ticketId);
+        if (!row) throw new Error("Ticket not found");
 
-        const updated = await this.prisma.ticket.update({
-            where: { id: ticketId },
-            data: { customName: newName || null },
-        });
+        await this.db.update(ticket)
+            .set({ customName: newName || null })
+            .where(eq(ticket.id, ticketId));
 
-        await this.log(ticket.guildId, ticketId, "RENAMED", renamedBy, newName ? `Renamed to "${newName}"` : "Name cleared");
+        await this.log(row.guildId, ticketId, "RENAMED", renamedBy, newName ? `Renamed to "${newName}"` : "Name cleared");
 
-        const guild = this.client.guilds.cache.get(ticket.guildId);
+        const guild = this.client.guilds.cache.get(row.guildId);
         if (guild) {
-            const ch = guild.channels.cache.get(ticket.channelId);
+            const ch = guild.channels.cache.get(row.channelId);
             if (ch) {
                 const displayName = newName || ch.name.replace(/^ticket-/, "");
                 const prefix = displayName.startsWith("ticket-") ? "" : "ticket-";
@@ -232,25 +240,24 @@ export class TicketService {
             }
         }
 
-        return updated;
+        return one(await this.db.select().from(ticket).where(eq(ticket.id, ticketId)).limit(1));
     }
 
     // ─── WORKSPACE MESSAGE ─────────────────────────────────
 
     async setWorkspaceMessage(channelId, messageId) {
-        await this.prisma.ticket.update({
-            where: { channelId },
-            data: { workspaceMessageId: messageId },
-        }).catch(() => {});
+        await this.db.update(ticket)
+            .set({ workspaceMessageId: messageId })
+            .where(eq(ticket.channelId, channelId)).catch(() => {});
     }
 
     // ─── CLOSE ─────────────────────────────────────────────
 
     async close(channelId, closedById, closeReason) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { channelId } });
-        if (!ticket) return null;
+        const row = await this.findByChannel(channelId);
+        if (!row) return null;
 
-        const guild = this.client.guilds.cache.get(ticket.guildId);
+        const guild = this.client.guilds.cache.get(row.guildId);
         let transcript = null;
 
         if (guild) {
@@ -272,12 +279,11 @@ export class TicketService {
             }
         }
 
-        await this.prisma.ticket.update({
-            where: { channelId },
-            data: { status: "CLOSED", closedById, closedAt: new Date(), transcript, closeReason: closeReason || null },
-        });
+        await this.db.update(ticket)
+            .set({ status: "CLOSED", closedById, closedAt: new Date(), transcript, closeReason: closeReason || null })
+            .where(eq(ticket.channelId, channelId));
 
-        await this.log(ticket.guildId, ticket.id, "CLOSED", closedById, closeReason || null);
+        await this.log(row.guildId, row.id, "CLOSED", closedById, closeReason || null);
 
         if (guild) {
             const ch = guild.channels.cache.get(channelId);
@@ -291,7 +297,7 @@ export class TicketService {
                 const ratingButtons = [];
                 for (let s = 1; s <= 5; s++) {
                     ratingButtons.push(
-                        button(`${"⭐".repeat(s)}`, `ticketrate:${ticket.id}:${s}`, ButtonStyle.Secondary)
+                        button(`${"⭐".repeat(s)}`, `ticketrate:${row.id}:${s}`, ButtonStyle.Secondary)
                     );
                 }
 
@@ -308,42 +314,47 @@ export class TicketService {
             }
         }
 
-        return { ...ticket, transcript };
+        const fresh = await this.findByChannel(channelId);
+        return { ...fresh, transcript };
     }
 
     // ─── REOPEN ────────────────────────────────────────────
 
     async reopen(channelId, reopenedBy) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { channelId } });
-        if (!ticket) throw new Error("Ticket not found");
-        if (ticket.status !== "CLOSED") throw new Error("Only closed tickets can be reopened");
+        const row = await this.findByChannel(channelId);
+        if (!row) throw new Error("Ticket not found");
+        if (row.status !== "CLOSED") throw new Error("Only closed tickets can be reopened");
 
-        const updated = await this.prisma.ticket.update({
-            where: { channelId },
-            data: { status: "OPEN", closedAt: null, closedById: null, transcript: null },
-        });
+        await this.db.update(ticket)
+            .set({ status: "OPEN", closedAt: null, closedById: null, transcript: null })
+            .where(eq(ticket.channelId, channelId));
 
-        await this.log(ticket.guildId, ticket.id, "REOPENED", reopenedBy);
-        return updated;
+        await this.log(row.guildId, row.id, "REOPENED", reopenedBy);
+        return one(await this.db.select().from(ticket).where(eq(ticket.channelId, channelId)).limit(1));
     }
 
     // ─── RATING ────────────────────────────────────────────
 
     async rate(ticketId, channelId, guildId, raterId, rating, feedback) {
-        const existing = await this.prisma.ticketRating.findUnique({
-            where: { guildId_channelId_raterId: { guildId, channelId, raterId } },
-        });
+        const existing = one(await this.db.select().from(ticketRating)
+            .where(and(
+                eq(ticketRating.guildId, guildId),
+                eq(ticketRating.channelId, channelId),
+                eq(ticketRating.raterId, raterId),
+            )).limit(1));
 
         if (existing) {
-            return this.prisma.ticketRating.update({
-                where: { id: existing.id },
-                data: { rating, feedback: feedback || null },
-            });
+            await this.db.update(ticketRating)
+                .set({ rating, feedback: feedback || null })
+                .where(eq(ticketRating.id, existing.id));
+            return one(await this.db.select().from(ticketRating).where(eq(ticketRating.id, existing.id)).limit(1));
         }
 
-        return this.prisma.ticketRating.create({
-            data: { guildId, channelId, raterId, rating, feedback: feedback || null },
+        const id = uuid();
+        await this.db.insert(ticketRating).values({
+            id, guildId, channelId, raterId, rating, feedback: feedback || null,
         });
+        return one(await this.db.select().from(ticketRating).where(eq(ticketRating.id, id)));
     }
 
     // ─── TRANSCRIPT ────────────────────────────────────────
@@ -368,26 +379,25 @@ export class TicketService {
         }
         messages.reverse();
 
-        const ticket = await this.prisma.ticket.findUnique({ where: { channelId: channel.id } });
-        const history = ticket ? await this.getHistory(ticket.id) : [];
-        const notes = ticket ? await this.getNotes(ticket.id) : [];
-        const formResponse = ticket ? await this.prisma.ticketFormResponse.findUnique({
-            where: { guildId_ticketId: { guildId: ticket.guildId, ticketId: ticket.id } },
-        }) : null;
+        const row = await this.findByChannel(channel.id);
+        const history = row ? await this.getHistory(row.id) : [];
+        const notes = row ? await this.getNotes(row.id) : [];
+        const formResponse = row ? one(await this.db.select().from(ticketFormResponse)
+            .where(and(eq(ticketFormResponse.guildId, row.guildId), eq(ticketFormResponse.ticketId, row.id))).limit(1)) : null;
 
         return JSON.stringify({
-            ticket: ticket ? {
-                id: ticket.id,
-                guildId: ticket.guildId,
-                openerId: ticket.openerId,
-                typeId: ticket.typeId,
-                status: ticket.status,
-                priority: ticket.priority,
-                claimedById: ticket.claimedById,
-                assignedById: ticket.assignedById,
-                closedById: ticket.closedById,
-                createdAt: ticket.createdAt?.toISOString(),
-                closedAt: ticket.closedAt?.toISOString(),
+            ticket: row ? {
+                id: row.id,
+                guildId: row.guildId,
+                openerId: row.openerId,
+                typeId: row.typeId,
+                status: row.status,
+                priority: row.priority,
+                claimedById: row.claimedById,
+                assignedById: row.assignedById,
+                closedById: row.closedById,
+                createdAt: row.createdAt?.toISOString(),
+                closedAt: row.closedAt?.toISOString(),
             } : null,
             messages,
             history: history.map(h => ({
@@ -411,76 +421,85 @@ export class TicketService {
     // ─── QUERIES ───────────────────────────────────────────
 
     async getStats(guildId) {
-        const open = await this.prisma.ticket.count({ where: { guildId, status: { notIn: ["CLOSED"] } } });
-        const closed = await this.prisma.ticket.count({ where: { guildId, status: "CLOSED" } });
-        const avg = await this.prisma.ticketRating.aggregate({
-            where: { guildId },
-            _avg: { rating: true },
-            _count: { rating: true },
-        });
-        return { open, closed, total: open + closed, avgRating: avg._avg.rating, ratedCount: avg._count.rating };
+        const openRows = await this.db.select({ n: count() }).from(ticket)
+            .where(and(eq(ticket.guildId, guildId), ne(ticket.status, "CLOSED")));
+        const closedRows = await this.db.select({ n: count() }).from(ticket)
+            .where(and(eq(ticket.guildId, guildId), eq(ticket.status, "CLOSED")));
+        const aggRows = await this.db.select({ a: avg(ticketRating.rating), c: count() }).from(ticketRating)
+            .where(eq(ticketRating.guildId, guildId));
+        const open = Number(openRows[0]?.n ?? 0);
+        const closed = Number(closedRows[0]?.n ?? 0);
+        const avgRaw = aggRows[0]?.a;
+        return {
+            open,
+            closed,
+            total: open + closed,
+            avgRating: avgRaw == null ? null : Number(avgRaw),
+            ratedCount: Number(aggRows[0]?.c ?? 0),
+        };
     }
 
     async listOpen(guildId, limit = 15) {
-        return this.prisma.ticket.findMany({
-            where: { guildId, status: { notIn: ["CLOSED"] } },
-            orderBy: [
-                { priority: "asc" },
-                { createdAt: "desc" },
-            ],
-            take: limit,
-        });
+        return this.db.select().from(ticket)
+            .where(and(eq(ticket.guildId, guildId), ne(ticket.status, "CLOSED")))
+            .orderBy(asc(ticket.priority), desc(ticket.createdAt)).limit(limit);
     }
 
     async getByChannel(channelId) {
-        return this.prisma.ticket.findUnique({ where: { channelId } });
+        return this.findByChannel(channelId);
     }
 
     async getById(ticketId) {
-        return this.prisma.ticket.findUnique({ where: { id: ticketId } });
+        return this.findById(ticketId);
     }
 
     async getOpenByUser(guildId, userId) {
-        return this.prisma.ticket.findFirst({
-            where: { guildId, openerId: userId, status: { notIn: ["CLOSED"] } },
-        });
+        return one(await this.db.select().from(ticket)
+            .where(and(eq(ticket.guildId, guildId), eq(ticket.openerId, userId), ne(ticket.status, "CLOSED")))
+            .limit(1));
     }
 
     async getOpenByTypeAndUser(guildId, typeId, userId) {
-        return this.prisma.ticket.findFirst({
-            where: { guildId, typeId, openerId: userId, status: { notIn: ["CLOSED"] } },
-        });
+        return one(await this.db.select().from(ticket)
+            .where(and(
+                eq(ticket.guildId, guildId),
+                eq(ticket.typeId, typeId),
+                eq(ticket.openerId, userId),
+                ne(ticket.status, "CLOSED"),
+            )).limit(1));
     }
 
     async countOpenByType(guildId, typeId) {
-        return this.prisma.ticket.count({
-            where: { guildId, typeId, status: { notIn: ["CLOSED"] } },
-        });
+        const rows = await this.db.select({ n: count() }).from(ticket)
+            .where(and(
+                eq(ticket.guildId, guildId),
+                eq(ticket.typeId, typeId),
+                ne(ticket.status, "CLOSED"),
+            ));
+        return Number(rows[0]?.n ?? 0);
     }
 
     // ─── AUTO-CLOSE CHECK ─────────────────────────────────
 
     async checkAutoClose() {
-        const staleTickets = await this.prisma.ticket.findMany({
-            where: { status: { in: ["OPEN", "CLAIMED", "IN_PROGRESS", "WAITING"] } },
-        });
+        const staleTickets = await this.db.select().from(ticket)
+            .where(inArray(ticket.status, ["OPEN", "CLAIMED", "IN_PROGRESS", "WAITING"]));
 
-        for (const ticket of staleTickets) {
+        for (const row of staleTickets) {
             let autoCloseMin = 30;
 
-            if (ticket.typeId) {
-                const ticketType = await this.prisma.ticketType.findUnique({
-                    where: { id: ticket.typeId },
-                });
+            if (row.typeId) {
+                const ttype = one(await this.db.select().from(ticketType)
+                    .where(eq(ticketType.id, row.typeId)).limit(1));
 
-                autoCloseMin = ticketType?.autoCloseMinutes ?? 30;
+                autoCloseMin = ttype?.autoCloseMinutes ?? 30;
             }
             if (autoCloseMin <= 0) continue;
 
             const cutoff = new Date(Date.now() - autoCloseMin * 60_000);
-            if (ticket.lastMessageAt && ticket.lastMessageAt < cutoff) {
-                const guild = this.client.guilds.cache.get(ticket.guildId);
-                const ch = guild?.channels.cache.get(ticket.channelId);
+            if (row.lastMessageAt && row.lastMessageAt < cutoff) {
+                const guild = this.client.guilds.cache.get(row.guildId);
+                const ch = guild?.channels.cache.get(row.channelId);
                 if (ch?.isTextBased()) {
                     const warnEmbed = new EmbedBuilder()
                         .setColor(Theme.warn)
@@ -493,9 +512,9 @@ export class TicketService {
             }
 
             const warningCutoff = new Date(Date.now() - (autoCloseMin + 5) * 60_000);
-            if (ticket.lastMessageAt && ticket.lastMessageAt < warningCutoff) {
-                await this.close(ticket.channelId, this.client.user?.id).catch(e => {
-                    logger.error("tickets", `auto-close failed for ${ticket.channelId}: ${e.message}`);
+            if (row.lastMessageAt && row.lastMessageAt < warningCutoff) {
+                await this.close(row.channelId, this.client.user?.id).catch(e => {
+                    logger.error("tickets", `auto-close failed for ${row.channelId}: ${e.message}`);
                 });
             }
         }
@@ -504,32 +523,30 @@ export class TicketService {
     // ─── API BOUNDARY: Ticket Summaries ─────────────────────
 
     async getTicketSummary(ticketId) {
-        const ticket = await this.prisma.ticket.findUnique({ where: { id: ticketId } });
-        if (!ticket) return null;
+        const row = await this.findById(ticketId);
+        if (!row) return null;
         return {
-            id: ticket.id,
-            guildId: ticket.guildId,
-            channelId: ticket.channelId,
-            typeId: ticket.typeId,
-            status: ticket.status,
-            priority: ticket.priority,
-            openerId: ticket.openerId,
-            claimedById: ticket.claimedById,
-            assignedById: ticket.assignedById,
-            closedById: ticket.closedById,
-            closeReason: ticket.closeReason,
-            createdAt: ticket.createdAt,
-            closedAt: ticket.closedAt,
+            id: row.id,
+            guildId: row.guildId,
+            channelId: row.channelId,
+            typeId: row.typeId,
+            status: row.status,
+            priority: row.priority,
+            openerId: row.openerId,
+            claimedById: row.claimedById,
+            assignedById: row.assignedById,
+            closedById: row.closedById,
+            closeReason: row.closeReason,
+            createdAt: row.createdAt,
+            closedAt: row.closedAt,
         };
     }
 
     async getOpenTicketsSummary(guildId, limit = 50) {
-        const tickets = await this.prisma.ticket.findMany({
-            where: { guildId, status: { notIn: ["CLOSED"] } },
-            orderBy: [{ priority: "asc" }, { createdAt: "desc" }],
-            take: limit,
-        });
-        return tickets.map(t => ({
+        const rows = await this.db.select().from(ticket)
+            .where(and(eq(ticket.guildId, guildId), ne(ticket.status, "CLOSED")))
+            .orderBy(asc(ticket.priority), desc(ticket.createdAt)).limit(limit);
+        return rows.map(t => ({
             id: t.id,
             guildId: t.guildId,
             channelId: t.channelId,
@@ -545,29 +562,24 @@ export class TicketService {
     }
 
     async getTicketHistorySummary(guildId, limit = 50) {
-        const tickets = await this.prisma.ticket.findMany({
-            where: { guildId },
-            orderBy: [{ closedAt: "desc" }],
-            take: limit,
-        });
+        const rows = await this.db.select().from(ticket)
+            .where(eq(ticket.guildId, guildId))
+            .orderBy(desc(ticket.closedAt)).limit(limit);
 
         return Promise.all(
-            tickets.map(async t => {
+            rows.map(async t => {
                 let type = null;
 
                 if (t.typeId) {
-                    const ticketType = await this.prisma.ticketType.findUnique({
-                        where: { id: t.typeId },
-                        select: {
-                            displayName: true,
-                            key: true,
-                        },
-                    });
+                    const ttype = one(await this.db.select({
+                        displayName: ticketType.displayName,
+                        key: ticketType.key,
+                    }).from(ticketType).where(eq(ticketType.id, t.typeId)).limit(1));
 
-                    if (ticketType) {
+                    if (ttype) {
                         type = {
-                            displayName: ticketType.displayName,
-                            key: ticketType.key,
+                            displayName: ttype.displayName,
+                            key: ttype.key,
                         };
                     }
                 }
@@ -588,99 +600,94 @@ export class TicketService {
     // ─── API BOUNDARY: Moderation Cases ──────────────────────
 
     async getRecentCases(guildId, limit = 25) {
-        return this.prisma.case.findMany({
-            where: { guildId },
-            orderBy: { caseNumber: "desc" },
-            take: limit,
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                resolvedById: true,
-                resolvedByTag: true,
-                resolvedAt: true,
-                createdAt: true,
-            },
-        });
+        return this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            resolvedById: caseTable.resolvedById,
+            resolvedByTag: caseTable.resolvedByTag,
+            resolvedAt: caseTable.resolvedAt,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable).where(eq(caseTable.guildId, guildId))
+            .orderBy(desc(caseTable.caseNumber)).limit(limit);
     }
 
     async getCase(guildId, caseNumber) {
-        return this.prisma.case.findUnique({
-            where: { guildId_caseNumber: { guildId, caseNumber } },
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                moderatorId: true,
-                moderatorTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                resolvedById: true,
-                resolvedByTag: true,
-                resolvedAt: true,
-                metadata: true,
-                createdAt: true,
-            },
-        });
+        return one(await this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            moderatorId: caseTable.moderatorId,
+            moderatorTag: caseTable.moderatorTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            resolvedById: caseTable.resolvedById,
+            resolvedByTag: caseTable.resolvedByTag,
+            resolvedAt: caseTable.resolvedAt,
+            metadata: caseTable.metadata,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable)
+            .where(and(eq(caseTable.guildId, guildId), eq(caseTable.caseNumber, caseNumber))).limit(1));
     }
 
     async getCasesByTarget(guildId, targetId, limit = 25) {
-        return this.prisma.case.findMany({
-            where: { guildId, targetId },
-            orderBy: { caseNumber: "desc" },
-            take: limit,
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                createdAt: true,
-            },
-        });
+        return this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable)
+            .where(and(eq(caseTable.guildId, guildId), eq(caseTable.targetId, targetId)))
+            .orderBy(desc(caseTable.caseNumber)).limit(limit);
     }
 
     async getCaseNotes(guildId, targetId, limit = 25) {
-        return this.prisma.caseNote.findMany({
-            where: { guildId, targetId },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-            select: { id: true, authorId: true, authorTag: true, content: true, createdAt: true },
-        });
+        return this.db.select({
+            id: caseNote.id,
+            authorId: caseNote.authorId,
+            authorTag: caseNote.authorTag,
+            content: caseNote.content,
+            createdAt: caseNote.createdAt,
+        }).from(caseNote)
+            .where(and(eq(caseNote.guildId, guildId), eq(caseNote.targetId, targetId)))
+            .orderBy(desc(caseNote.createdAt)).limit(limit);
     }
 
     // ─── API BOUNDARY: General Guild Info ────────────────────
 
     async getGuildConfig(guildId) {
-        return this.prisma.guildConfig.findUnique({ where: { guildId } });
+        return one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
     }
 
     async getGuildSettings(guildId) {
-        return this.prisma.guildConfig.findUnique({ where: { guildId } });
+        return one(await this.db.select().from(guildConfig).where(eq(guildConfig.guildId, guildId)).limit(1));
     }
 
     // ─── API BOUNDARY: Panel System ──────────────────────────
 
     async getPanels(guildId) {
-        return this.prisma.panel.findMany({ where: { guildId }, orderBy: { panelType: "asc" } });
+        return this.db.select().from(panel).where(eq(panel.guildId, guildId)).orderBy(asc(panel.panelType));
     }
 
     async getPanel(guildId, panelType) {
-        return this.prisma.panel.findUnique({ where: { guildId_panelType: { guildId, panelType } } });
+        return one(await this.db.select().from(panel)
+            .where(and(eq(panel.guildId, guildId), eq(panel.panelType, panelType))).limit(1));
     }
 
     canTransition(from, to) {

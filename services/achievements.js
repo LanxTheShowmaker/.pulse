@@ -1,3 +1,6 @@
+import { eq, and, asc, count } from "drizzle-orm";
+import { achievement, userAchievement } from "../db/schema/index.js";
+import { one } from "../db/util.js";
 import { logger } from "../core/logger.js";
 
 const BUILTIN_ACHIEVEMENTS = [
@@ -49,19 +52,27 @@ function counterKey(guildId, userId) {
     return `${guildId}:${userId}`;
 }
 
+function uaWhere(guildId, userId, achievementId) {
+    return and(eq(userAchievement.guildId, guildId), eq(userAchievement.userId, userId), eq(userAchievement.achievementId, achievementId));
+}
+
 export class AchievementService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
     }
 
     async ensureDefinitions(guildId) {
         for (const def of BUILTIN_ACHIEVEMENTS) {
-            await this.prisma.achievement.upsert({
-                where: { guildId_key: { guildId, key: def.key } },
-                create: { guildId, ...def, conditions: JSON.stringify(def.conditions) },
-                update: {},
-            });
+            // Atomic upsert: concurrent callers (fire-and-forget increments)
+            // must not collide on duplicate inserts.
+            await this.db.insert(achievement).values({
+                guildId, key: def.key, name: def.name,
+                description: def.description ?? null, icon: def.icon ?? null,
+                category: def.category ?? "general",
+                rewards: JSON.stringify(def.rewards ?? {}),
+                conditions: JSON.stringify(def.conditions),
+            }).onDuplicateKeyUpdate({ set: { key: def.key } });
         }
     }
 
@@ -92,7 +103,7 @@ export class AchievementService {
     async checkAll(guildId, userId) {
         await this.ensureDefinitions(guildId);
 
-        const achievements = await this.prisma.achievement.findMany({ where: { guildId } });
+        const achievements = await this.db.select().from(achievement).where(eq(achievement.guildId, guildId));
         const eco = await this.client.services.economy?.getProfile(guildId, userId);
         const xp = await this.client.services.leveling?.getRank(guildId, userId);
         const key = counterKey(guildId, userId);
@@ -117,26 +128,23 @@ export class AchievementService {
                 unlocked = (xp?.level ?? 0) >= conditions.target;
             }
 
-            const existing = await this.prisma.userAchievement.findUnique({
-                where: { guildId_userId_achievementId: { guildId, userId, achievementId: ach.id } },
-            });
+            const existing = one(await this.db.select().from(userAchievement)
+                .where(uaWhere(guildId, userId, ach.id)).limit(1));
 
             if (existing) {
                 if (!existing.unlocked && unlocked) {
-                    await this.prisma.userAchievement.update({
-                        where: { id: existing.id },
-                        data: { unlocked: true, unlockedAt: new Date(), progress },
-                    });
+                    await this.db.update(userAchievement)
+                        .set({ unlocked: true, unlockedAt: new Date(), progress })
+                        .where(uaWhere(guildId, userId, ach.id));
                     await this.notifyUnlock(guildId, userId, ach);
                 } else if (!existing.unlocked) {
-                    await this.prisma.userAchievement.update({
-                        where: { id: existing.id },
-                        data: { progress },
-                    });
+                    await this.db.update(userAchievement)
+                        .set({ progress })
+                        .where(uaWhere(guildId, userId, ach.id));
                 }
             } else {
-                await this.prisma.userAchievement.create({
-                    data: { guildId, userId, achievementId: ach.id, progress, unlocked },
+                await this.db.insert(userAchievement).values({
+                    guildId, userId, achievementId: ach.id, progress, unlocked,
                 });
                 if (unlocked) await this.notifyUnlock(guildId, userId, ach);
             }
@@ -160,15 +168,22 @@ export class AchievementService {
     }
 
     async getUnlocked(guildId, userId) {
-        return this.prisma.userAchievement.findMany({
-            where: { guildId, userId, unlocked: true },
-            include: { achievement: true },
-        });
+        // Manual join: the schema defines no relation between the tables,
+        // so this composes the same shape instead of a broken include.
+        const rows = await this.db.select().from(userAchievement)
+            .where(and(eq(userAchievement.guildId, guildId), eq(userAchievement.userId, userId), eq(userAchievement.unlocked, true)));
+        if (rows.length === 0) return [];
+        const defs = await this.db.select().from(achievement)
+            .where(and(eq(achievement.guildId, guildId)));
+        const byId = Object.fromEntries(defs.map(a => [a.id, a]));
+        return rows.map(u => ({ ...u, achievement: byId[u.achievementId] ?? null }));
     }
 
     async getAll(guildId, userId) {
-        const achievements = await this.prisma.achievement.findMany({ where: { guildId }, orderBy: { category: "asc" } });
-        const user = await this.prisma.userAchievement.findMany({ where: { guildId, userId } });
+        const achievements = await this.db.select().from(achievement)
+            .where(eq(achievement.guildId, guildId)).orderBy(asc(achievement.category));
+        const user = await this.db.select().from(userAchievement)
+            .where(and(eq(userAchievement.guildId, guildId), eq(userAchievement.userId, userId)));
         const userMap = Object.fromEntries(user.map(u => [u.achievementId, u]));
 
         return achievements.map(a => ({
@@ -180,8 +195,9 @@ export class AchievementService {
     }
 
     async getStats(guildId) {
-        const total = await this.prisma.achievement.count({ where: { guildId } });
-        const unlocked = await this.prisma.userAchievement.count({ where: { guildId, unlocked: true } });
-        return { total, unlocked };
+        const totalRows = await this.db.select({ n: count() }).from(achievement).where(eq(achievement.guildId, guildId));
+        const unlockedRows = await this.db.select({ n: count() }).from(userAchievement)
+            .where(and(eq(userAchievement.guildId, guildId), eq(userAchievement.unlocked, true)));
+        return { total: Number(totalRows[0]?.n ?? 0), unlocked: Number(unlockedRows[0]?.n ?? 0) };
     }
 }

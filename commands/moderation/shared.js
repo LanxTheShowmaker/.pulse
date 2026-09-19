@@ -1,4 +1,7 @@
 import { MessageFlags, ButtonStyle } from "discord.js";
+import { eq } from "drizzle-orm";
+import { guildConfig } from "../../db/schema/index.js";
+import { one } from "../../db/util.js";
 import { row, button } from "../../ui/components.js";
 
 export function parseDuration(input) {
@@ -25,9 +28,8 @@ export function formatDuration(ms) {
 }
 
 export async function requireModerator(interaction) {
-    const config = await interaction.client.services.prisma.guildConfig.findUnique({
-        where: { guildId: interaction.guild.id },
-    });
+    const config = one(await interaction.client.services.db.select().from(guildConfig)
+        .where(eq(guildConfig.guildId, interaction.guild.id)).limit(1));
     if (interaction.member.permissions.has("Administrator") || interaction.member.permissions.has("ManageGuild")) return true;
     if (!config) return false;
     const roleIds = new Set(interaction.member.roles.cache.keys());

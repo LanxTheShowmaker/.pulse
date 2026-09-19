@@ -1,10 +1,13 @@
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and, desc, count, sql } from "drizzle-orm";
+import { case_ as caseTable, caseNote } from "../db/schema/index.js";
+import { one } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 
 export class ModerationService {
-    constructor(prisma, cases, logging, audit, client) {
-        this.prisma = prisma;
+    constructor(db, cases, logging, audit, client) {
+        this.db = db;
         this.cases = cases;
         this.logging = logging;
         this.audit = audit;
@@ -134,97 +137,89 @@ export class ModerationService {
     // ─── API BOUNDARY: Moderation API ────────────────────────
 
     async getRecentCasesApi(guildId, limit = 25) {
-        return this.prisma.case.findMany({
-            where: { guildId },
-            orderBy: { caseNumber: "desc" },
-            take: limit,
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                resolvedById: true,
-                resolvedByTag: true,
-                resolvedAt: true,
-                createdAt: true,
-            },
-        });
+        return this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            resolvedById: caseTable.resolvedById,
+            resolvedByTag: caseTable.resolvedByTag,
+            resolvedAt: caseTable.resolvedAt,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable).where(eq(caseTable.guildId, guildId))
+            .orderBy(desc(caseTable.caseNumber)).limit(limit);
     }
 
     async getCaseApi(guildId, caseNumber) {
-        return this.prisma.case.findUnique({
-            where: { guildId_caseNumber: { guildId, caseNumber } },
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                moderatorId: true,
-                moderatorTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                resolvedById: true,
-                resolvedByTag: true,
-                resolvedAt: true,
-                metadata: true,
-                createdAt: true,
-            },
-        });
+        return one(await this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            moderatorId: caseTable.moderatorId,
+            moderatorTag: caseTable.moderatorTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            resolvedById: caseTable.resolvedById,
+            resolvedByTag: caseTable.resolvedByTag,
+            resolvedAt: caseTable.resolvedAt,
+            metadata: caseTable.metadata,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable)
+            .where(and(eq(caseTable.guildId, guildId), eq(caseTable.caseNumber, caseNumber))).limit(1));
     }
 
     async getCasesByTargetApi(guildId, targetId, limit = 25) {
-        return this.prisma.case.findMany({
-            where: { guildId, targetId },
-            orderBy: { caseNumber: "desc" },
-            take: limit,
-            select: {
-                id: true,
-                caseNumber: true,
-                targetId: true,
-                targetTag: true,
-                action: true,
-                reason: true,
-                duration: true,
-                durationMs: true,
-                resolved: true,
-                createdAt: true,
-            },
-        });
+        return this.db.select({
+            id: caseTable.id,
+            caseNumber: caseTable.caseNumber,
+            targetId: caseTable.targetId,
+            targetTag: caseTable.targetTag,
+            action: caseTable.action,
+            reason: caseTable.reason,
+            duration: caseTable.duration,
+            durationMs: caseTable.durationMs,
+            resolved: caseTable.resolved,
+            createdAt: caseTable.createdAt,
+        }).from(caseTable)
+            .where(and(eq(caseTable.guildId, guildId), eq(caseTable.targetId, targetId)))
+            .orderBy(desc(caseTable.caseNumber)).limit(limit);
     }
 
     async getCaseNotesApi(guildId, targetId, limit = 25) {
-        return this.prisma.caseNote.findMany({
-            where: { guildId, targetId },
-            orderBy: { createdAt: "desc" },
-            take: limit,
-            select: { id: true, authorId: true, authorTag: true, content: true, createdAt: true },
-        });
+        return this.db.select({
+            id: caseNote.id,
+            authorId: caseNote.authorId,
+            authorTag: caseNote.authorTag,
+            content: caseNote.content,
+            createdAt: caseNote.createdAt,
+        }).from(caseNote)
+            .where(and(eq(caseNote.guildId, guildId), eq(caseNote.targetId, targetId)))
+            .orderBy(desc(caseNote.createdAt)).limit(limit);
     }
 
     async getCaseStatsApi(guildId) {
-        const total = await this.prisma.case.count({ where: { guildId } });
-        const byAction = await this.prisma.case.groupBy({
-            by: ["action"],
-            where: { guildId },
-            _count: true,
-        });
-        const byTarget = await this.prisma.case.groupBy({
-            by: ["targetId"],
-            where: { guildId, action: { in: ["warn", "ban", "kick", "timeout"] } },
-            _count: true,
-        });
+        const totalRows = await this.db.select({ n: count() }).from(caseTable).where(eq(caseTable.guildId, guildId));
+        const byAction = await this.db.select({ action: caseTable.action, n: count() }).from(caseTable)
+            .where(eq(caseTable.guildId, guildId)).groupBy(caseTable.action);
+        const byTarget = await this.db.select({ targetId: caseTable.targetId, n: count() }).from(caseTable)
+            .where(and(
+                eq(caseTable.guildId, guildId),
+                // warn/ban/kick/timeout only, mirroring the previous filter
+                sql`${caseTable.action} IN ('warn','ban','kick','timeout')`,
+            )).groupBy(caseTable.targetId);
         return {
-            total,
-            byAction: Object.fromEntries(byAction.map(r => [r.action, r._count])),
-            byTargetCount: Object.fromEntries(byTarget.map(r => [r.targetId, r._count])),
+            total: Number(totalRows[0]?.n ?? 0),
+            byAction: Object.fromEntries(byAction.map(r => [r.action, Number(r.n)])),
+            byTargetCount: Object.fromEntries(byTarget.map(r => [r.targetId, Number(r.n)])),
         };
     }
 }

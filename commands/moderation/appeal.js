@@ -16,11 +16,8 @@ export default {
         const reason = interaction.options.getString("reason");
 
         // Verify the case exists and is a ban targeting this user
-        const case_ = await interaction.client.prisma.case.findFirst({
-            where: { guildId: interaction.guild.id, caseNumber, targetId: interaction.user.id, action: "ban" },
-        });
-
-        if (!case_) {
+        const case_ = await moderation.getCaseApi(interaction.guild.id, caseNumber);
+        if (!case_ || case_.targetId !== interaction.user.id || case_.action !== "ban") {
             return interaction.reply({ embeds: [error("Not Found", "No ban case found for you with that number.")], flags: MessageFlags.Ephemeral });
         }
 

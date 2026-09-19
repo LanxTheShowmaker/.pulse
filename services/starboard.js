@@ -1,18 +1,30 @@
 import { EmbedBuilder } from "@discordjs/builders";
+import { eq, and } from "drizzle-orm";
+import { starboardConfig, starboardEntry } from "../db/schema/index.js";
+import { one } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 
 export class StarboardService {
-    constructor(prisma, client) {
-        this.prisma = prisma;
+    constructor(db, client) {
+        this.db = db;
         this.client = client;
+    }
+
+    async getConfig(guildId) {
+        return one(await this.db.select().from(starboardConfig).where(eq(starboardConfig.guildId, guildId)).limit(1));
+    }
+
+    async findEntry(guildId, originalId) {
+        return one(await this.db.select().from(starboardEntry)
+            .where(and(eq(starboardEntry.guildId, guildId), eq(starboardEntry.originalId, originalId))).limit(1));
     }
 
     async handleReactionAdd(reaction, user) {
         if (user.bot) return;
         if (!reaction.message.guild) return;
 
-        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: reaction.message.guild.id } });
+        const config = await this.getConfig(reaction.message.guild.id);
         if (!config) return;
         if (reaction.emoji.name !== config.emoji) return;
 
@@ -23,9 +35,7 @@ export class StarboardService {
         const ch = message.guild.channels.cache.get(config.channelId);
         if (!ch?.isTextBased()) return;
 
-        const existing = await this.prisma.starboardEntry.findUnique({
-            where: { guildId_originalId: { guildId: message.guild.id, originalId: message.id } },
-        });
+        const existing = await this.findEntry(message.guild.id, message.id);
 
         if (existing) {
             // Update existing starboard post
@@ -34,10 +44,7 @@ export class StarboardService {
                 const embed = this.buildEmbed(message, stars);
                 await starMsg.edit({ embeds: [embed] }).catch(() => {});
             }
-            await this.prisma.starboardEntry.update({
-                where: { id: existing.id },
-                data: { starCount: stars },
-            }).catch(() => {});
+            await this.db.update(starboardEntry).set({ starCount: stars }).where(eq(starboardEntry.id, existing.id)).catch(() => {});
             return;
         }
 
@@ -49,13 +56,11 @@ export class StarboardService {
         });
         if (!sent) return;
 
-        await this.prisma.starboardEntry.create({
-            data: {
-                guildId: message.guild.id,
-                originalId: message.id,
-                starboardId: sent.id,
-                starCount: stars,
-            },
+        await this.db.insert(starboardEntry).values({
+            guildId: message.guild.id,
+            originalId: message.id,
+            starboardId: sent.id,
+            starCount: stars,
         });
     }
 
@@ -63,15 +68,13 @@ export class StarboardService {
         if (user.bot) return;
         if (!reaction.message.guild) return;
 
-        const config = await this.prisma.starboardConfig.findUnique({ where: { guildId: reaction.message.guild.id } });
+        const config = await this.getConfig(reaction.message.guild.id);
         if (!config) return;
         if (reaction.emoji.name !== config.emoji) return;
 
         const message = reaction.message;
 
-        const entry = await this.prisma.starboardEntry.findUnique({
-            where: { guildId_originalId: { guildId: message.guild.id, originalId: message.id } },
-        });
+        const entry = await this.findEntry(message.guild.id, message.id);
         if (!entry) return;
 
         const newCount = reaction.count ?? 0;
@@ -82,7 +85,7 @@ export class StarboardService {
             if (ch) {
                 await ch.messages.delete(entry.starboardId).catch(() => {});
             }
-            await this.prisma.starboardEntry.delete({ where: { id: entry.id } }).catch(() => {});
+            await this.db.delete(starboardEntry).where(eq(starboardEntry.id, entry.id)).catch(() => {});
             return;
         }
 
@@ -95,10 +98,7 @@ export class StarboardService {
                 await starMsg.edit({ embeds: [embed] }).catch(() => {});
             }
         }
-        await this.prisma.starboardEntry.update({
-            where: { id: entry.id },
-            data: { starCount: newCount },
-        }).catch(() => {});
+        await this.db.update(starboardEntry).set({ starCount: newCount }).where(eq(starboardEntry.id, entry.id)).catch(() => {});
     }
 
     buildEmbed(message, stars) {
