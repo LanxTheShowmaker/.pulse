@@ -7,6 +7,19 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Session {
+    id        String   @id @default(uuid())
+    tokenHash String   @unique
+    userId    String
+    guildId   String?
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([userId])
+    @@index([expiresAt])
+}
+
 model GuildConfig {
   guildId             String   @id
   logChannelId        String?
