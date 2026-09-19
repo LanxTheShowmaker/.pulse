@@ -7,7 +7,7 @@ import cookieParser from "cookie-parser";
 import { createServices } from "../core/services.js";
 import { logger } from "../core/logger.js";
 import crypto from "crypto";
-import http from "http";
+import https from "https";
 
 const expressApp = express();
 expressApp.set("trust proxy", 1);
@@ -72,7 +72,7 @@ function discordOAuthURL(state) {
 function discordTokenExchange(code) {
     return new Promise((resolve, reject) => {
         const params = new URLSearchParams({ client_id: DISCORD_CLIENT_ID, client_secret: DISCORD_CLIENT_SECRET, grant_type: "authorization_code", code, redirect_uri: DISCORD_REDIRECT_URI });
-        const req = http.request("https://discord.com/api/oauth2/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { resolve(JSON.parse(d)); } catch (e) { reject(new Error("token parse")); } }); });
+        const req = https.request("https://discord.com/api/oauth2/token", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { resolve(JSON.parse(d)); } catch (e) { reject(new Error("token parse")); } }); });
         req.on("error", reject);
         req.write(params.toString());
         req.end();
@@ -81,14 +81,14 @@ function discordTokenExchange(code) {
 
 function fetchDiscordUser(t) {
     return new Promise((r, j) => {
-        const req = http.request("https://discord.com/api/users/@me", { headers: { Authorization: "Bearer " + t } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { r(JSON.parse(d)); } catch (e) { j(new Error("user")); } }); });
+        const req = https.request("https://discord.com/api/users/@me", { headers: { Authorization: "Bearer " + t } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { r(JSON.parse(d)); } catch (e) { j(new Error("user")); } }); });
         req.on("error", j); req.end();
     });
 }
 
 function fetchDiscordGuilds(t) {
     return new Promise((r, j) => {
-        const req = http.request("https://discord.com/api/users/@me/guilds", { headers: { Authorization: "Bearer " + t } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { r(JSON.parse(d)); } catch (e) { j(new Error("guilds")); } }); });
+        const req = https.request("https://discord.com/api/users/@me/guilds", { headers: { Authorization: "Bearer " + t } }, (res) => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { r(JSON.parse(d)); } catch (e) { j(new Error("guilds")); } }); });
         req.on("error", j); req.end();
     });
 }
