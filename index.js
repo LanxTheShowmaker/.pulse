@@ -95,7 +95,7 @@ async function main() {
             try {
                 const { startServer } = await import("./dashboard/index.js");
                 dashboardServer = await startServer();
-                logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9876}`);
+                logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
                 break;
             } catch (e) {
                 if (e.code === 'EADDRINUSE' && retries < maxRetries - 1) {
