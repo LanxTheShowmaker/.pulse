@@ -24,7 +24,7 @@ const globalLimiter = rateLimit({
 expressApp.use(helmet());
 expressApp.use(express.json({ limit: "10kb" }));
 expressApp.use(express.urlencoded({ extended: true, limit: "10kb" }));
-expressApp.use(cookieParser());
+expressApp.use(cookieParser(process.env.SESSION_SECRET));
 expressApp.use(globalLimiter);
 
 const prismaServices = createServices(prisma);
