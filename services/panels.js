@@ -98,15 +98,12 @@ export class PanelService {
 
     async restoreAll() {
         const panels = await this.db.select().from(panel).where(eq(panel.enabled, true));
+        const results = await Promise.allSettled(panels.map((p) => this.repost(p.guildId, p.panelType)));
         let restored = 0;
-        for (const p of panels) {
-            try {
-                await this.repost(p.guildId, p.panelType);
-                restored++;
-            } catch (e) {
-                logger.error("panels", `restore failed for ${p.panelType}`, e.message);
-            }
-        }
+        results.forEach((r, i) => {
+            if (r.status === "fulfilled") restored++;
+            else logger.error("panels", `restore failed for ${panels[i].panelType}`, r.reason?.message);
+        });
         return restored;
     }
 

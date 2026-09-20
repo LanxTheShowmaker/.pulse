@@ -1,4 +1,4 @@
-import { eq, and, asc, count } from "drizzle-orm";
+import { eq, and, asc, count, sql } from "drizzle-orm";
 import { achievement, userAchievement } from "../db/schema/index.js";
 import { one } from "../db/util.js";
 import { logger } from "../core/logger.js";
@@ -63,17 +63,21 @@ export class AchievementService {
     }
 
     async ensureDefinitions(guildId) {
-        for (const def of BUILTIN_ACHIEVEMENTS) {
-            // Atomic upsert: concurrent callers (fire-and-forget increments)
-            // must not collide on duplicate inserts.
-            await this.db.insert(achievement).values({
-                guildId, key: def.key, name: def.name,
-                description: def.description ?? null, icon: def.icon ?? null,
-                category: def.category ?? "general",
-                rewards: JSON.stringify(def.rewards ?? {}),
-                conditions: JSON.stringify(def.conditions),
-            }).onDuplicateKeyUpdate({ set: { key: def.key } });
-        }
+        // Bulk diff: one indexed SELECT, then a single batched upsert for
+        // only the missing definitions. The old per-definition loop cost
+        // 26+ queries per call and fired on every XP/economy event.
+        const existing = await this.db.select({ key: achievement.key }).from(achievement)
+            .where(eq(achievement.guildId, guildId));
+        const have = new Set(existing.map((r) => r.key));
+        const missing = BUILTIN_ACHIEVEMENTS.filter((def) => !have.has(def.key));
+        if (!missing.length) return;
+        await this.db.insert(achievement).values(missing.map((def) => ({
+            guildId, key: def.key, name: def.name,
+            description: def.description ?? null, icon: def.icon ?? null,
+            category: def.category ?? "general",
+            rewards: JSON.stringify(def.rewards ?? {}),
+            conditions: JSON.stringify(def.conditions),
+        }))).onDuplicateKeyUpdate({ set: { key: sql`values(${achievement.key})` } });
     }
 
     async increment(guildId, userId, field, amount = 1) {

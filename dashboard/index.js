@@ -39,12 +39,14 @@ expressApp.use(cookieParser(process.env.SESSION_SECRET));
 expressApp.use(globalLimiter);
 
 // ── Bot services ────────────────────────────────────────
-// Reuse the live Discord client when the dashboard runs inside the bot
-// (root sets globalThis._client before importing this module). Standalone
-// imports fall back to a stub: DB reads work, Discord-touching mutations
+// Reuse the live bot's service instances when running inside the bot
+// (root sets globalThis._client.services before importing this module).
+// Building a second set would duplicate background jobs (e.g. giveaway
+// tick/save intervals) and split the settings cache. Standalone imports
+// fall back to their own set: DB reads work, Discord-touching mutations
 // fail gracefully instead of crashing.
 const botClient = globalThis._client ?? {};
-const botServices = createServices(botClient);
+const botServices = botClient.services ?? createServices(botClient);
 const { tickets, moderation, logging, settings } = botServices;
 const deps = { tickets, moderation, logging, settings };
 
@@ -54,7 +56,7 @@ expressApp.use(createAuthRouter());
 
 // Public frontend assets only (CSS/JS). HTML shells are served
 // exclusively through sendFile routes so server source, .env and
-// server source, .env and database files can never be exposed as static files.
+// database files can never be exposed as static files.
 expressApp.use("/css", express.static(join(PUBLIC_DIR, "css")));
 expressApp.use("/js", express.static(join(PUBLIC_DIR, "js")));
 
@@ -82,13 +84,18 @@ expressApp.use(errorHandler);
 export default expressApp;
 
 export async function startServer() {
-    const { verifyDatabase } = await import("../db/index.js");
-    try {
-        await verifyDatabase();
-        logger.info("db", "Dashboard MySQL connected.");
-    } catch (e) {
-        logger.error("db", "Dashboard MySQL connection failed", e);
-        throw e;
+    // When running inside the bot, the DB is already verified + migrated by
+    // core/services.js initDatabase() before login. Only standalone
+    // executions (no globalThis._client) need an explicit pool check.
+    if (!globalThis._client) {
+        const { verifyDatabase } = await import("../db/index.js");
+        try {
+            await verifyDatabase();
+            logger.info("db", "Dashboard MySQL connected.");
+        } catch (e) {
+            logger.error("db", "Dashboard MySQL connection failed", e);
+            throw e;
+        }
     }
 
     return new Promise((resolve, reject) => {
@@ -97,5 +104,6 @@ export async function startServer() {
             resolve();
         });
         server.on("error", reject);
+        resolve(server);
     });
 }

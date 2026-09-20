@@ -39,16 +39,22 @@ async function main() {
 
     client.services = createServices(client);
     globalThis._client = client;
-    await initDatabase();
 
-    client.commands = await loadCommands();
+    // Run DB initialize + module registry loads concurrently: dynamic
+    // imports compile on first load, so 40+ sequential imports were the
+    // dominant boot cost. Everything here is independent of everything else.
+    const [commands, rawHandlers, events] = await Promise.all([
+        loadCommands(),
+        loadHandlers(),
+        loadEvents(),
+        initDatabase(),
+    ]);
+    client.commands = commands;
 
-    const handlers = await loadHandlers();
-    for (const [id, handler] of handlers) {
+    for (const [id, handler] of rawHandlers) {
         client.components.set(id, handler);
     }
 
-    const events = await loadEvents();
     for (const evt of events) {
         if (evt.once) client.once(evt.name, (...args) => evt.execute(...args, client));
         else client.on(evt.name, (...args) => evt.execute(...args, client));
@@ -74,8 +80,19 @@ async function main() {
     await client.login(token);
     logger.info("bootstrap", `.pulse online as ${client.user?.tag ?? "unknown"}`);
 
-    // Restore persistent panels
-    const restored = await client.services.panelService?.restoreAll().catch(() => 0);
+    // Restore persistent panels while the dashboard boots, so neither
+    // blocks the other.
+    const [dashboard, restored] = await Promise.all([
+        startDashboardWithRetry().catch((e) => {
+            logger.error("bootstrap", "Failed to start dashboard server", e);
+            return null;
+        }),
+        client.services.panelService?.restoreAll().catch(() => 0),
+    ]);
+    dashboardServer = dashboard;
+    if (dashboardServer) {
+        logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
+    }
     if (restored) logger.info("bootstrap", `restored ${restored} persistent panel(s)`);
 
     // Auto-close ticket checker — polls every 60s
@@ -84,32 +101,25 @@ async function main() {
             logger.error("tickets", `auto-close check failed: ${e.message}`);
         });
     }, 60_000);
+}
 
-    // Start dashboard server
-    try {
-        let retries = 0;
-        const maxRetries = 5;
-        const retryDelay = 2000;
-        
-        while (retries < maxRetries) {
-            try {
-                const { startServer } = await import("./dashboard/index.js");
-                dashboardServer = await startServer();
-                logger.info("bootstrap", `.pulse dashboard listening on 0.0.0.0:${process.env.DASHBOARD_PORT || 9875}`);
-                break;
-            } catch (e) {
-                if (e.code === 'EADDRINUSE' && retries < maxRetries - 1) {
-                    retries++;
-                    logger.warn("bootstrap", `Dashboard port in use, retry ${retries}/${maxRetries}...`);
-                    await new Promise(r => setTimeout(r, retryDelay));
-                } else {
-                    logger.error("bootstrap", "Failed to start dashboard server", e);
-                    throw e;
-                }
+async function startDashboardWithRetry() {
+    const maxRetries = 5;
+    const retryDelay = 2000;
+
+    for (let retries = 0; ; ) {
+        try {
+            const { startServer } = await import("./dashboard/index.js");
+            return await startServer();
+        } catch (e) {
+            if (e.code === "EADDRINUSE" && retries < maxRetries - 1) {
+                retries++;
+                logger.warn("bootstrap", `Dashboard port in use, retry ${retries}/${maxRetries}...`);
+                await new Promise(r => setTimeout(r, retryDelay));
+            } else {
+                throw e;
             }
         }
-    } catch (e) {
-        logger.error("bootstrap", "Failed to start dashboard server after retries", e);
     }
 }
 

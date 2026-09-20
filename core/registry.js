@@ -25,19 +25,28 @@ export async function loadCommands() {
 
     let files;
     try { files = await walk(dir); } catch { return commands; }
+    files.sort();
 
-    for (const file of files) {
-        if (HELPER_FILES.has(basename(file))) continue;
+    // Import in parallel for faster boot; results stay in file order so
+    // duplicate handling is deterministic.
+    const loaded = await Promise.all(files.map(async (file) => {
+        if (HELPER_FILES.has(basename(file))) return null;
         try {
             const mod = await import(pathToFileURL(file).href);
-            const cmd = mod.default ?? mod;
-            if (!cmd?.data?.name) { logger.warn("registry", `skip ${file} — no data.name`); continue; }
-            if (commands.has(cmd.data.name)) { logger.warn("registry", `duplicate: ${cmd.data.name}`); continue; }
-            commands.set(cmd.data.name, cmd);
+            return { file, cmd: mod.default ?? mod };
         } catch (e) {
             logger.error("registry", `failed: ${file}`, e.message);
-            failed++;
+            return { file, failed: true };
         }
+    }));
+
+    for (const item of loaded) {
+        if (!item) continue;
+        if (item.failed) { failed++; continue; }
+        const { file, cmd } = item;
+        if (!cmd?.data?.name) { logger.warn("registry", `skip ${file} — no data.name`); continue; }
+        if (commands.has(cmd.data.name)) { logger.warn("registry", `duplicate: ${cmd.data.name}`); continue; }
+        commands.set(cmd.data.name, cmd);
     }
 
     logger.info("registry", `commands loaded: ${commands.size}, failed: ${failed}`);
@@ -51,20 +60,26 @@ export async function loadEvents() {
 
     let files;
     try { files = await walk(dir); } catch { return events; }
+    files.sort();
 
-    for (const file of files) {
+    const loaded = await Promise.all(files.map(async (file) => {
         try {
             const mod = await import(pathToFileURL(file).href);
-            const evt = mod.default ?? mod;
-            if (!evt?.name || typeof evt.execute !== "function") {
-                logger.warn("registry", `skip ${file} — no name/execute`);
-                continue;
-            }
-            events.push(evt);
+            return { file, evt: mod.default ?? mod };
         } catch (e) {
             logger.error("registry", `failed: ${file}`, e.message);
-            failed++;
+            return { file, failed: true };
         }
+    }));
+
+    for (const item of loaded) {
+        if (item.failed) { failed++; continue; }
+        const { file, evt } = item;
+        if (!evt?.name || typeof evt.execute !== "function") {
+            logger.warn("registry", `skip ${file} — no name/execute`);
+            continue;
+        }
+        events.push(evt);
     }
 
     logger.info("registry", `events loaded: ${events.length}, failed: ${failed}`);
@@ -78,27 +93,33 @@ export async function loadHandlers() {
 
     let files;
     try { files = await walk(dir); } catch { return handlers; }
+    files.sort();
 
-    for (const file of files) {
+    const loaded = await Promise.all(files.map(async (file) => {
         try {
             const mod = await import(pathToFileURL(file).href);
-            const exported = mod.default ?? mod;
-
-            // Support both: default export is a Map, or export { handlers: [...] }
-            if (exported instanceof Map) {
-                for (const [key, val] of exported) handlers.set(key, val);
-            } else if (Array.isArray(exported)) {
-                for (const h of exported) {
-                    if (h.id && h.execute) handlers.set(h.id, h.execute);
-                }
-            } else if (typeof exported === "object") {
-                for (const [key, val] of Object.entries(exported)) {
-                    if (typeof val === "function") handlers.set(key, val);
-                }
-            }
+            return { file, exported: mod.default ?? mod };
         } catch (e) {
             logger.error("registry", `handler failed: ${file}`, e.message);
-            failed++;
+            return { file, failed: true };
+        }
+    }));
+
+    for (const item of loaded) {
+        if (item.failed) { failed++; continue; }
+        const { file, exported } = item;
+
+        // Support both: default export is a Map, or export { handlers: [...] }
+        if (exported instanceof Map) {
+            for (const [key, val] of exported) handlers.set(key, val);
+        } else if (Array.isArray(exported)) {
+            for (const h of exported) {
+                if (h.id && h.execute) handlers.set(h.id, h.execute);
+            }
+        } else if (typeof exported === "object") {
+            for (const [key, val] of Object.entries(exported)) {
+                if (typeof val === "function") handlers.set(key, val);
+            }
         }
     }
 
