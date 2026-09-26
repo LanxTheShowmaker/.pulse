@@ -762,14 +762,14 @@ export default {
 
             // Cooldown check
             if (type?.cooldown && type.cooldown > 0) {
-            const lastClosed = one(await db.select().from(ticket)
-                .where(and(
-                    eq(ticket.guildId, i.guild.id),
-                    eq(ticket.openerId, i.user.id),
-                    eq(ticket.typeId, type.id),
-                    eq(ticket.status, "CLOSED"),
-                ))
-                .orderBy(desc(ticket.closedAt)).limit(1));
+                const lastClosed = one(await db.select().from(ticket)
+                    .where(and(
+                        eq(ticket.guildId, i.guild.id),
+                        eq(ticket.openerId, i.user.id),
+                        eq(ticket.typeId, type.id),
+                        eq(ticket.status, "CLOSED"),
+                    ))
+                    .orderBy(desc(ticket.closedAt)).limit(1));
                 if (lastClosed?.closedAt) {
                     const elapsed = Date.now() - lastClosed.closedAt.getTime();
                     if (elapsed < type.cooldown) {
@@ -981,14 +981,14 @@ export default {
 
             // Cooldown check
             if (type?.cooldown && type.cooldown > 0) {
-            const lastClosed = one(await db.select().from(ticket)
-                .where(and(
-                    eq(ticket.guildId, i.guild.id),
-                    eq(ticket.openerId, i.user.id),
-                    eq(ticket.typeId, type.id),
-                    eq(ticket.status, "CLOSED"),
-                ))
-                .orderBy(desc(ticket.closedAt)).limit(1));
+                const lastClosed = one(await db.select().from(ticket)
+                    .where(and(
+                        eq(ticket.guildId, i.guild.id),
+                        eq(ticket.openerId, i.user.id),
+                        eq(ticket.typeId, type.id),
+                        eq(ticket.status, "CLOSED"),
+                    ))
+                    .orderBy(desc(ticket.closedAt)).limit(1));
                 if (lastClosed?.closedAt) {
                     const elapsed = Date.now() - lastClosed.closedAt.getTime();
                     if (elapsed < type.cooldown) {

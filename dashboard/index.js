@@ -101,9 +101,8 @@ export async function startServer() {
     return new Promise((resolve, reject) => {
         const server = expressApp.listen(process.env.DASHBOARD_PORT || 9875, "0.0.0.0", () => {
             logger.info("dashboard", ".pulse dashboard listening on 0.0.0.0:" + (process.env.DASHBOARD_PORT || 9875));
-            resolve();
+            resolve(server);
         });
         server.on("error", reject);
-        resolve(server);
     });
 }

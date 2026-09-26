@@ -16,14 +16,6 @@ async function main() {
     if (!token) { logger.error("bootstrap", "DISCORD_TOKEN missing"); process.exit(1); }
     if (!process.env.DATABASE_URL) { logger.error("bootstrap", "DATABASE_URL missing (expected mysql://user:pass@host:port/db)"); process.exit(1); }
 
-    // OAuth2 configuration
-    const oauth2 = {
-        clientId: process.env.OAUTH2_CLIENT_ID || "",
-        clientSecret: process.env.OAUTH2_CLIENT_SECRET || "",
-        redirectUri: process.env.OAUTH2_REDIRECT_URI || "",
-        scopes: process.env.OAUTH2_SCOPTS ? process.env.OAUTH2_SCOPTS.split(",") : ["identify", "guilds"],
-    };
-
     const client = new PulseClient({
         intents: [
             GatewayIntentBits.Guilds,

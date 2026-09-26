@@ -37,7 +37,22 @@ export function getDb() {
 // Verify connectivity with a trivial query. Throws on failure.
 export async function verifyDatabase() {
     getPool();
-    await db.execute(sql`SELECT 1`);
+    try {
+        await db.execute(sql`SELECT 1`);
+    } catch (e) {
+        const hint = describeDatabaseUrl(process.env.DATABASE_URL);
+        const code = e?.code ? ` (${e.code})` : "";
+        throw new Error(`MySQL connection failed${code} [${hint}]: ${e?.message ?? e}. Is MySQL running and does the database exist?`);
+    }
+}
+
+function describeDatabaseUrl(url) {
+    try {
+        const u = new URL((url ?? "").replace(/^"|"$/g, ""));
+        return `${u.username || "(no user)"}@${u.hostname || "?"}:${u.port || "3306"}${u.pathname || ""}`;
+    } catch {
+        return "(unparseable DATABASE_URL)";
+    }
 }
 
 export { schema };

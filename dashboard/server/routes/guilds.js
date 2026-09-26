@@ -20,7 +20,8 @@ export function createGuildsRouter(deps) {
     const router = Router();
     const db = getDb();
 
-    router.get("/api/user", async (req, res) => {        try {
+    router.get("/api/user", async (req, res) => {
+        try {
             const s = one(await db.select().from(session).where(eq(session.id, req.session?.id)).limit(1));
             if (!s) return res.status(401).json({ error: "Not authenticated." });
             res.json({ id: s.userId, guildId: s.guildId, expiresAt: s.expiresAt });
