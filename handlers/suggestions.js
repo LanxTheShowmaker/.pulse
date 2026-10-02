@@ -1,6 +1,4 @@
 import { MessageFlags } from "discord.js";
-import { Theme, Brand } from "../ui/theme.js";
-import { EmbedBuilder } from "@discordjs/builders";
 import { error, success } from "../ui/embeds.js";
 
 export default [

@@ -11,9 +11,9 @@ This document describes the technical architecture of .pulse (Pulse Variant 2), 
 ### Entry Point
 
 ```
-src/core/bootstrap.js
+index.js
 ├── Environment validation (DISCORD_TOKEN, etc.)
-├── Prisma Client initialization (WAL mode, busy timeout)
+├── Database initialization (MySQL connection verify + migrations)
 ├── Discord Client creation (PulseClient)
 ├── Service container creation (createServices)
 ├── Command loading (loadCommands)
@@ -27,22 +27,22 @@ src/core/bootstrap.js
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| **PulseClient** | `src/core/client.js` | Extended Discord.js Client with services, commands, components collections |
-| **Registry** | `src/core/registry.js` | Auto-discovers and loads commands/events |
-| **Services** | `src/core/services.js` | Creates all 23 services with explicit dependencies |
-| **Logger** | `src/core/logger.js` | Structured logging with levels (debug/info/warn/error) |
-| **Permissions** | `src/core/services.js` | isStaff, isModerator, isIgnored helpers |
+| **PulseClient** | `core/client.js` | Extended Discord.js Client with services, commands, components collections |
+| **Registry** | `core/registry.js` | Auto-discovers and loads commands/events |
+| **Services** | `core/services.js` | Creates all 23 services with explicit dependencies |
+| **Logger** | `core/logger.js` | Structured logging with levels (debug/info/warn/error) |
+| **Permissions** | `core/services.js` | isStaff, isModerator, isIgnored helpers |
 
 ### Service Layer
 
 Services are created **once** at startup via `createServices(client)`. Each service receives explicit dependencies through constructor injection:
 
 ```js
-const settings = new SettingsService(prisma, client);
-const cases = new CasesService(prisma);
-const logging = new LoggingService(prisma, client);
-const moderation = new ModerationService(prisma, cases, logging, client);
-const automod = new AutomodService(prisma, client, settings, logging);
+const settings = new SettingsService(db, client);
+const cases = new CasesService(db);
+const logging = new LoggingService(db, client);
+const moderation = new ModerationService(db, cases, logging, audit, client);
+const automod = new AutoModService(db, client, settings, logging);
 // ... 18 more services
 ```
 
@@ -54,7 +54,7 @@ const automod = new AutomodService(prisma, client, settings, logging);
 
 ### Command System
 
-Commands are auto-discovered from `src/commands/**/*.js`:
+Commands are auto-discovered from `commands/**/*.js`:
 
 ```js
 export default {
@@ -62,9 +62,11 @@ export default {
     category: string,              // Required for help
     execute(interaction): Promise<void>,  // Required
     autocomplete?: (interaction) => Promise<void>,  // Optional
-    componentHandlers?: Record<string, Function>  // Optional
 }
 ```
+
+Component (button/select/modal) handlers live in `handlers/*.js`, not on the
+command itself.
 
 Commands are loaded at startup, serialized for validation, and registered with Discord.
 
@@ -88,7 +90,7 @@ Commands are loaded at startup, serialized for validation, and registered with D
 
 ### Event System
 
-Events are auto-discovered from `src/events/**/*.js`:
+Events are auto-discovered from `events/**/*.js`:
 
 ```js
 export default {
@@ -124,8 +126,8 @@ Examples:
 - `help:category:moderation`
 
 **Registration:**
-- Commands declare `componentHandlers` object
-- Registered at startup in `bootstrap.js`
+- Handlers are exported from `handlers/*.js` (as a Map, array, or plain object)
+- Registered at startup in `index.js`
 - No dynamic registration during runtime
 
 **Resolution:**
@@ -147,10 +149,10 @@ function resolveComponent(client, customId) {
 
 ### Database Layer
 
-**ORM:** Prisma Client
-- Single `PrismaClient` instance
-- SQLite with WAL mode, busy timeout=5000ms, synchronous=NORMAL
+**ORM:** Drizzle ORM (MySQL)
+- Single `drizzle-orm` instance over a `mysql2` connection pool
 - Connection lifecycle: init at startup, disconnect on shutdown
+- Migrations: hand-written idempotent SQL in `db/migrate.js`
 
 **Key Models:**
 - `GuildConfig` — Per-server settings, modules, roles, channels
@@ -169,9 +171,9 @@ function resolveComponent(client, customId) {
 - `Giveaway` / `Suggestion` / `StarboardConfig` / `Afk` / `LevelConfig` / `EconomyConfig` / `AuditLog` / `Achievement` / `UserAchievement` / `AutomationRule` / `Backup` / `RaidIncident` / `XpStreak`
 
 **Connection Management:**
-- Init at startup (WAL mode, pragmas)
+- Init at startup (`initDatabase` verifies the connection and migrates)
 - Disconnect on graceful shutdown (SIGINT/SIGTERM)
-- Single Prisma instance shared across all services
+- Single drizzle instance shared across all services
 
 ---
 
@@ -192,7 +194,7 @@ User clicks "Confirm Ban"
         ↓
 component handler → client.services.moderation.ban(guild, target, moderator, reason, deleteDays)
         ↓
-moderation.record() → CasesService.create() → Prisma Case.create()
+moderation.record() → CasesService.create() → drizzle insert into Case
         ↓
 logging.logCase() → sends to mod log channel
         ↓
@@ -242,7 +244,7 @@ User submits modal → createTicket()
         ↓
 uniqueChannelName() → guild.channels.create()
         ↓
-TicketService.create() → Prisma Ticket.create()
+TicketService.create() → drizzle insert into Ticket
         ↓
 welcome embed + ticket controls (claim, close, add, remove, transcript, priority, status)
         ↓
@@ -268,10 +270,10 @@ log to mod channel
 - Native Discord components (no embed hacks)
 - Accessibility-friendly (screen readers)
 
-### Why SQLite + WAL?
-- Zero-config for most deployments
-- WAL mode handles concurrent reads/writes
-- Prisma handles migrations reliably
+### Why MySQL?
+- Standard, well-supported relational database with mature tooling
+- Handles concurrent writes safely (no single-writer SQLite bottleneck)
+- Drizzle provides type-safe queries and predictable SQL
 
 ### Why No Silent Catches?
 - `.catch(() => {})` hides real problems
@@ -283,14 +285,13 @@ log to mod channel
 ## Scaling Considerations
 
 ### Current Limits
-- SQLite: Good for ~100-500 guilds
 - Single Node process: ~1000 guilds with proper sharding
 
 ### Future Scaling Path
-1. **PostgreSQL** — Swap Prisma datasource, same models
+1. **PostgreSQL** - Swap the Drizzle driver, same schema definitions
 2. **Sharding** — Multiple bot processes, shared DB
 3. **Redis** — Caching layer for settings, prefixes
-4. **Dashboard** — Separate web service, same Prisma schema
+4. **Dashboard** - Separate web service, same DB schema
 
 ---
 

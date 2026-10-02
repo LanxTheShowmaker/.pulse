@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { PermissionFlagsBits, MessageFlags } from "discord.js";
+import { PermissionFlagsBits } from "discord.js";
 import { EmbedBuilder } from "@discordjs/builders";
-import { success, error, panel, stat } from "../../ui/embeds.js";
+import { error, panel } from "../../ui/embeds.js";
 import { ephemeral } from "../moderation/shared.js";
 import { Theme } from "../../ui/theme.js";
 
@@ -58,7 +58,7 @@ export default {
 
                 await interaction.deferReply();
 
-                const result = await giveaways.create(interaction.guild, channel, interaction.user, prize, winners, endsAt);
+                await giveaways.create(interaction.guild, channel, interaction.user, prize, winners, endsAt);
                 const embed = new EmbedBuilder()
                     .setColor(Theme.warn)
                     .setTitle("🎉 Giveaway Created")

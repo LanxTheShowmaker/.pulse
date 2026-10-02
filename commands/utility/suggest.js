@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags, ButtonStyle, PermissionFlagsBits } from "discord.js";
+import { ButtonStyle, PermissionFlagsBits } from "discord.js";
 import { panel } from "../../ui/embeds.js";
 import { row, button } from "../../ui/components.js";
 

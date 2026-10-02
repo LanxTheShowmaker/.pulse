@@ -1,4 +1,4 @@
-import { MessageFlags, ChannelType, ButtonStyle, PermissionFlagsBits, TextInputStyle } from "discord.js";
+import { MessageFlags, ChannelType, ButtonStyle, TextInputStyle } from "discord.js";
 import { EmbedBuilder } from "@discordjs/builders";
 import { eq, and, desc, ne, count } from "drizzle-orm";
 import { ticketType, ticket } from "../db/schema/index.js";
@@ -160,7 +160,7 @@ export default {
     //  CONFIG: CATEGORY
     // ═══════════════════════════════════════
 
-    "ticket:cfg:category": async (i, client) => {
+    "ticket:cfg:category": async (i, _client) => {
         const categories = i.guild.channels.cache
             .filter(c => c.type === ChannelType.GuildCategory)
             .map(c => ({ label: c.name, value: c.id }))
@@ -185,7 +185,7 @@ export default {
     //  CONFIG: LOG CHANNEL
     // ═══════════════════════════════════════
 
-    "ticket:cfg:log": async (i, client) => {
+    "ticket:cfg:log": async (i, _client) => {
         const channels = i.guild.channels.cache
             .filter(c => c.type === ChannelType.GuildText)
             .map(c => ({ label: `#${c.name}`, value: c.id }))
@@ -650,7 +650,7 @@ export default {
     //  CONFIG: PANEL
     // ═══════════════════════════════════════
 
-    "ticket:cfg:panel": async (i, client) => {
+    "ticket:cfg:panel": async (i, _client) => {
         const embed = new EmbedBuilder()
             .setColor(Theme.panel)
             .setTitle("Panel Management")
@@ -666,7 +666,7 @@ export default {
         await i.update({ embeds: [embed], components });
     },
 
-    "ticket:cfg:panel:deploy": async (i, client) => {
+    "ticket:cfg:panel:deploy": async (i, _client) => {
         const channels = i.guild.channels.cache
             .filter(c => c.type === ChannelType.GuildText)
             .map(c => ({ label: `#${c.name}`, value: c.id }))
@@ -706,7 +706,7 @@ export default {
     //  CONFIG: SETTINGS
     // ═══════════════════════════════════════
 
-    "ticket:cfg:settings": async (i, client) => {
+    "ticket:cfg:settings": async (i, _client) => {
         const embed = new EmbedBuilder()
             .setColor(Theme.panel)
             .setTitle("Ticket Settings")
@@ -1219,7 +1219,7 @@ export default {
     //  TICKET WORKSPACE: NOTE
     // ═══════════════════════════════════════
 
-    "ticket:ws:note:": async (i, client) => {
+    "ticket:ws:note:": async (i, _client) => {
         const ticketId = i.customId.split(":")[3];
         const m = modal("Add Internal Note", `ticket:ws:note:submit:${ticketId}`, [
             { id: "content", label: "Note (staff-only)", required: true, style: TextInputStyle.Paragraph, maxLength: 1000, placeholder: "Internal context for other staff..." },
@@ -1250,7 +1250,7 @@ export default {
     //  TICKET WORKSPACE: ADD USER
     // ═══════════════════════════════════════
 
-    "ticket:ws:adduser:": async (i, client) => {
+    "ticket:ws:adduser:": async (i, _client) => {
         const ticketId = i.customId.split(":")[3];
         const m = modal("Add User", `ticket:ws:adduser:submit:${ticketId}`, [
             { id: "userid", label: "User ID", required: true, placeholder: "Discord user ID" },
@@ -1258,7 +1258,7 @@ export default {
         await i.showModal(m);
     },
 
-    "ticket:ws:adduser:submit:": async (i, client) => {
+    "ticket:ws:adduser:submit:": async (i, _client) => {
         try {
             const userId = (i.components.getTextInputValue("userid") || "").trim();
             if (!userId || !/^\d{17,20}$/.test(userId)) {
@@ -1285,7 +1285,7 @@ export default {
     //  TICKET WORKSPACE: REMOVE USER
     // ═══════════════════════════════════════
 
-    "ticket:ws:rmuser:": async (i, client) => {
+    "ticket:ws:rmuser:": async (i, _client) => {
         const ticketId = i.customId.split(":")[3];
         const m = modal("Remove User", `ticket:ws:rmuser:submit:${ticketId}`, [
             { id: "userid", label: "User ID", required: true, placeholder: "Discord user ID" },
@@ -1293,7 +1293,7 @@ export default {
         await i.showModal(m);
     },
 
-    "ticket:ws:rmuser:submit:": async (i, client) => {
+    "ticket:ws:rmuser:submit:": async (i, _client) => {
         try {
             const userId = (i.components.getTextInputValue("userid") || "").trim();
             if (!userId || !/^\d{17,20}$/.test(userId)) {

@@ -135,7 +135,7 @@ export default {
         await interaction.reply({ embeds: [embed] });
     },
 
-    async handleModules(interaction, settings, config) {
+    async handleModules(interaction, settings, _config) {
         const module = interaction.options.getString("module");
         const enabled = interaction.options.getBoolean("enabled");
 
@@ -199,7 +199,7 @@ export default {
         });
     },
 
-    async handlePrefix(interaction, settings, config) {
+    async handlePrefix(interaction, settings, _config) {
         const prefix = interaction.options.getString("prefix");
         if (prefix.length > 5) return ephemeral(interaction, "Prefix must be 5 characters or less.");
 

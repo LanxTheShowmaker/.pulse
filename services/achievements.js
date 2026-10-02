@@ -1,7 +1,6 @@
 import { eq, and, asc, count, sql } from "drizzle-orm";
 import { achievement, userAchievement } from "../db/schema/index.js";
 import { one } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 const BUILTIN_ACHIEVEMENTS = [
     // Economy

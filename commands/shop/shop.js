@@ -130,7 +130,7 @@ export default {
         const role = interaction.options.getRole("role");
         const stock = interaction.options.getInteger("stock");
 
-        const item = await shop.addItem(interaction.guild.id, name, description, price, role?.id, null, stock === -1 ? null : stock);
+        await shop.addItem(interaction.guild.id, name, description, price, role?.id, null, stock === -1 ? null : stock);
         const stockText = stock === -1 || stock === null ? "∞" : stock;
         await interaction.reply({
             embeds: [success("Item Added", `**${name}**\nPrice: ${price} coins\nStock: ${stockText}${role ? `\nRole: <@&${role.id}>` : ""}`)],

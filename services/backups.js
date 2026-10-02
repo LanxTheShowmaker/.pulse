@@ -1,7 +1,6 @@
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import { backup } from "../db/schema/index.js";
 import { clean, one, uuid } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 export class BackupService {
     constructor(db, client, settings) {

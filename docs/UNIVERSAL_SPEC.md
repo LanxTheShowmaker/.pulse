@@ -13,7 +13,7 @@
 
 **Target**: Discord servers requiring professional moderation and community management  
 **Architecture**: Single runtime, single command system, single event system, single service layer  
-**Deployment**: Self-hosted (Node.js 20+, SQLite via Prisma)
+**Deployment**: Self-hosted (Node.js 20+, MySQL via Drizzle ORM)
 
 ---
 
@@ -47,7 +47,7 @@
 - **Leaderboards**: Per-guild and global
 
 ### 2.5 Configuration
-- **Modules**: Toggleable feature modules (13 modules)
+- **Modules**: Toggleable feature modules (10 modules)
 - **Log Channels**: Mod log, general log, welcome, goodbye
 - **Staff Roles**: Staff, moderator, ignored roles/users/channels
 - **Prefix**: Per-server custom prefix
@@ -169,7 +169,7 @@ async execute(...args, client) {
 | `guildCreate` | Initial setup |
 
 ### 4.3 Event Registration
-- Events loaded from `src/events/**/*.js`
+- Events loaded from `events/**/*.js`
 - Registered once at startup via `registry.js`
 - No duplicate listeners — enforced by registry
 
@@ -178,7 +178,7 @@ async execute(...args, client) {
 ## 5. Service Contracts
 
 ### 5.1 Service Container
-Created once at startup via `createServices(client)`. Returns object with all services + `prisma`.
+Created once at startup via `createServices(client)`. Returns object with all services + `db`.
 
 ### 5.2 Core Services
 | Service | Responsibility |
@@ -229,7 +229,7 @@ Examples:
 
 ### 6.2 Component Registration
 - Commands declare `componentHandlers` object
-- Registered at startup in `bootstrap.js`
+- Registered at startup in `index.js`
 - No dynamic registration during runtime
 
 ### 6.3 Supported Components
@@ -244,10 +244,10 @@ Examples:
 
 ## 7. Database Layer
 
-### 7.1 ORM: Prisma Client
-- Single `PrismaClient` instance
-- SQLite with WAL mode, busy timeout, synchronous=NORMAL
+### 7.1 ORM: Drizzle ORM (MySQL)
+- Single `drizzle-orm` instance over a `mysql2` pool
 - Connection lifecycle: init at startup, disconnect on shutdown
+- Migrations are idempotent and run on every boot (`db/migrate.js`)
 
 ### 7.2 Key Models
 | Model | Purpose |
@@ -372,13 +372,13 @@ try {
 
 ### 12.1 Command Deployment
 - Source: `client.commands` Collection (same as runtime)
-- Script: `npm run deploy` → `src/core/deploy.js`
+- Script: `npm run deploy` → `core/deploy.js`
 - Supports: Guild-specific + global
 - Cleanup: Removes unregistered commands
 
 ### 12.2 Database Migration
-- `npm run prisma:migrate` (dev)
-- `npm run prisma:deploy` (production)
+- `npm run db:migrate` — creates/updates tables (idempotent)
+- Runs automatically at boot via `initDatabase()`
 
 ---
 
@@ -408,7 +408,7 @@ try {
 
 1. Load `.env` configuration
 2. Validate required environment variables
-3. Initialize Prisma Client (WAL, timeouts)
+3. Initialize the MySQL pool, verify the connection, run migrations
 4. Create `PulseClient` with intents/partials
 5. Create service container (`createServices`)
 6. Load commands (`loadCommands`)
@@ -425,7 +425,7 @@ try {
 
 1. Receive SIGINT/SIGTERM
 2. Log shutdown signal
-3. Disconnect Prisma
+3. Close the database pool
 4. Destroy Discord client
 5. Exit process
 
@@ -461,7 +461,7 @@ try {
 - Hosting-specific optimizations moved to deployment configs
 - Legacy branding (A.N.G.E.L., Wings, Cherub, Seraph) removed
 - Branch-aware command loading removed
-- Single entry point: `src/core/bootstrap.js`
+- Single entry point: `index.js`
 
 ### Breaking Changes
 - Package renamed: `angel` → `@pulse/bot`

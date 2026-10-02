@@ -1,5 +1,5 @@
 import { EmbedBuilder } from "@discordjs/builders";
-import { ChannelType, PermissionFlagsBits, MessageFlags, ButtonStyle } from "discord.js";
+import { ButtonStyle } from "discord.js";
 import { eq, and, desc, asc, count, avg, ne, inArray } from "drizzle-orm";
 import {
     ticket, ticketType, ticketNote, ticketHistory, ticketFormResponse,
@@ -8,7 +8,7 @@ import {
 import { clean, one, uuid } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
-import { button, row } from "../ui/components.js";
+import { button } from "../ui/components.js";
 
 const VALID_STATUSES = ["OPEN", "CLAIMED", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED"];
 const VALID_PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"];

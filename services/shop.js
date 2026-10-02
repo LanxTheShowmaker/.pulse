@@ -1,7 +1,6 @@
 import { eq, and, asc, sql, inArray } from "drizzle-orm";
 import { shopItem, shopInventory } from "../db/schema/index.js";
 import { clean, one, uuid } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 export class ShopService {
     constructor(db, client, economy) {

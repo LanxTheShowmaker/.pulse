@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { panel } from "../../ui/embeds.js";
-import { requireModerator, ephemeral } from "../moderation/shared.js";
 
 export default {
     category: "utility",

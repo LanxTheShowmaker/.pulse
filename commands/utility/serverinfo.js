@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags, ChannelType } from "discord.js";
+import { ChannelType } from "discord.js";
 import { panel, stat } from "../../ui/embeds.js";
 
 export default {

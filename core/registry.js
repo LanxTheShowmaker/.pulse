@@ -107,7 +107,7 @@ export async function loadHandlers() {
 
     for (const item of loaded) {
         if (item.failed) { failed++; continue; }
-        const { file, exported } = item;
+        const { exported } = item;
 
         // Support both: default export is a Map, or export { handlers: [...] }
         if (exported instanceof Map) {

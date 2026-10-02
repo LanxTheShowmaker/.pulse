@@ -101,7 +101,6 @@ export class ModerationService {
         await this.audit.log(guildId, moderator.id, target.id, "timeout", "moderation", { caseNumber: case_.caseNumber, reason, duration: duration?.text });
 
         if (member) {
-            const until = duration?.ms ? new Date(Date.now() + duration.ms) : null;
             await member.timeout(duration?.ms ?? 60_000, `Case #${case_.caseNumber}: ${reason ?? "No reason provided"}`).catch(e => {
                 logger.error("moderation", "timeout failed", e.message);
                 return null;
@@ -121,14 +120,16 @@ export class ModerationService {
 
     buildModEmbed(action, target, moderator, reason, caseNumber, duration) {
         const color = action === "Banned" ? Theme.danger : action === "Timed out" ? Theme.warn : Theme.accent;
+        const fields = [
+            { name: "Target", value: `<@${target.id}> (${target.tag ?? target.user?.tag ?? "unknown"})`, inline: true },
+            { name: "Moderator", value: `<@${moderator.id}>`, inline: true },
+            { name: "Case", value: `#${caseNumber}`, inline: true },
+        ];
+        if (duration) fields.push({ name: "Duration", value: String(duration), inline: true });
         return new EmbedBuilder()
             .setColor(color)
             .setTitle(`${action}`)
-            .addFields(
-                { name: "Target", value: `<@${target.id}> (${target.tag ?? target.user?.tag ?? "unknown"})`, inline: true },
-                { name: "Moderator", value: `<@${moderator.id}>`, inline: true },
-                { name: "Case", value: `#${caseNumber}`, inline: true },
-            )
+            .addFields(fields)
             .setDescription(reason ?? "No reason provided")
             .setFooter({ text: Brand.footer })
             .setTimestamp();

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { success, error, panel, stat } from "../../ui/embeds.js";
+import { success, error } from "../../ui/embeds.js";
 
 export default {
     category: "moderation",

@@ -1,5 +1,3 @@
-import { ButtonStyle } from "discord.js";
-import { row, button } from "../ui/components.js";
 import { panel } from "../ui/embeds.js";
 
 const CHOICES = ["rock", "paper", "scissors"];

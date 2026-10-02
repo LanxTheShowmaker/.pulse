@@ -1,7 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { afk } from "../db/schema/index.js";
 import { one } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 export class AfkService {
     constructor(db, client) {

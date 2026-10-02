@@ -26,10 +26,11 @@ expressApp.set("trust proxy", 1);
 // ── Rate limiting (after trust proxy) ───────────────────
 const globalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
-    standardHeaders: true,
+    // express-rate-limit v8 renamed `max` to `limit`.
+    limit: 100,
+    standardHeaders: "draft-7",
     legacyHeaders: false,
-    message: "Too many requests, please try again later.",
+    message: "Too many requests, please try after the rate limit resets.",
 });
 
 expressApp.use(helmet());

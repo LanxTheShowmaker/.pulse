@@ -1,9 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, canModerate, ephemeral, confirmAction, parseDuration } from "./shared.js";
-import { success, info, panel, stat } from "../../ui/embeds.js";
-import { row, button } from "../../ui/components.js";
-import { Theme, Brand } from "../../ui/theme.js";
+import { success, panel, stat } from "../../ui/embeds.js";
 
 export default {
     category: "moderation",
@@ -207,7 +205,7 @@ export default {
         await interaction.editReply({ content: "", embeds: [embed] });
     },
 
-    async handleUnban(interaction, moderation) {
+    async handleUnban(interaction, _moderation) {
         const userId = interaction.options.getString("user-id");
         const reason = interaction.options.getString("reason");
 
@@ -225,7 +223,7 @@ export default {
         await interaction.editReply({ content: "", embeds: [success("Unbanned", `<@${userId}> has been unbanned.`)] });
     },
 
-    async handleUntimeout(interaction, moderation) {
+    async handleUntimeout(interaction, _moderation) {
         const target = interaction.options.getUser("target");
         const reason = interaction.options.getString("reason");
 

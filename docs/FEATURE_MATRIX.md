@@ -7,10 +7,10 @@
 | **Core Runtime** | ✅ | ✅ (256MB heap) | ✅ (4GB heap, Pi pragmas) | ✅ Single universal |
 | **Command System** | ✅ Full | ✅ Filtered heavy | ✅ Full | ✅ All commands load |
 | **Event System** | ✅ | ✅ | ✅ | ✅ Canonical contracts |
-| **Services** | ✅ 28 services | ✅ 28 services | ✅ 28 services + Pi pragmas | ✅ 28 services |
-| **Database** | ✅ SQLite WAL | ✅ SQLite WAL | ✅ SQLite WAL + Pi pragmas | ✅ SQLite WAL + configurable |
+| **Services** | ✅ 23 services | ✅ 23 services | ✅ 23 services | ✅ 23 services |
+| **Database** | ✅ MySQL/Drizzle | ✅ MySQL/Drizzle | ✅ MySQL/Drizzle | ✅ MySQL/Drizzle |
 | **UI System** | ✅ Components V2 | ✅ Components V2 | ✅ Components V2 | ✅ Components V2 |
-| **Entry Point** | bootstrap.js | index.js → bootstrap.js | bootstrap.js | bootstrap.js |
+| **Entry Point** | index.js | index.js | index.js | index.js |
 
 ## Feature Inventory
 
@@ -32,8 +32,8 @@
 | Mod Center | ✅ | main | Interactive case browser |
 | Mod Stats | ✅ | main | Per-moderator stats |
 | Auto-escalation | ✅ | main | Threshold-based |
-| Raid Protection | ✅ | main | Separate service |
-| Fortress | ✅ | main | Server lockdown |
+| Raid Protection | ❌ | — | Not implemented (schema tables only) |
+| Fortress | ❌ | — | Not implemented (schema tables only) |
 
 ### Tickets
 | Feature | Status | Source | Notes |
@@ -59,7 +59,7 @@
 | Words Filter | ✅ | main | Custom word list |
 | Regex Filter | ✅ | main | Custom patterns |
 | Duplicate Detection | ✅ | main | Exact match |
-| Raid Detection | ✅ | main | Join spike |
+| Raid Detection | ❌ | — | Not implemented |
 | Exemptions | ✅ | main | Roles, channels, users |
 | Escalation | ✅ | main | Auto-warn/timeout/kick/ban |
 
@@ -91,7 +91,7 @@
 ### Configuration
 | Feature | Status | Source | Notes |
 |---------|--------|--------|-------|
-| Module Toggle | ✅ | main | 13 modules |
+| Module Toggle | ✅ | main | 10 modules |
 | Log Channels | ✅ | main | Mod log, general, welcome, goodbye |
 | Staff Roles | ✅ | main | Staff + moderator + ignored |
 | Prefix | ✅ | main | Per-guild |
@@ -187,7 +187,7 @@
 |---------|--------|--------|
 | `getBranch()` | cherub | Remove - runtime branch detection |
 | `isHeavyCommand()` | cherub | Remove - all commands load |
-| `index.js` entry | cherub | Remove - use bootstrap.js |
+| `index.js` entry | cherub | Remove - single entry point |
 | `--max-old-space-size` | cherub | Move to deployment config |
 | Pi pragmas | seraph | Make configurable |
 | `setup-pi.sh` | seraph | Move to deployment docs |

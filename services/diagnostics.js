@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { logger } from "../core/logger.js";
 
 export class DiagnosticsService {
     constructor(db, client) {

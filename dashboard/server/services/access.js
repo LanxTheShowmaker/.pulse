@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { ticket, ticketType } from "../../../db/schema/index.js";
 import { one } from "../../../db/util.js";
 import { logger } from "../../../core/logger.js";

@@ -1,7 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { levelConfig, xp } from "../db/schema/index.js";
 import { selectRows, clean, one } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 function xpForLevel(level) {
     return Math.floor(100 * Math.pow(1.15, level));

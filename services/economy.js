@@ -1,7 +1,6 @@
 import { eq, and, desc, sql } from "drizzle-orm";
 import { economy, economyConfig, economyTransaction } from "../db/schema/index.js";
 import { clean, one, uuid } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 const COOLDOWNS = {
     daily:  86_400_000,

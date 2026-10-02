@@ -1,6 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, SelectMenuBuilder, ModalBuilder, TextInputBuilder } from "@discordjs/builders";
 import { ButtonStyle, TextInputStyle } from "discord.js";
-import { Theme } from "./theme.js";
 
 export function button(label, customId, style = ButtonStyle.Primary, disabled = false) {
     return new ButtonBuilder().setLabel(label).setCustomId(customId).setStyle(style).setDisabled(disabled);

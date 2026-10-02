@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { PermissionFlagsBits, MessageFlags } from "discord.js";
+import { MessageFlags } from "discord.js";
 import { success, error } from "../../ui/embeds.js";
 
 const OWNER_ID = process.env.OWNER_ID;

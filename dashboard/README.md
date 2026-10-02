@@ -47,14 +47,14 @@ dashboard/
 
 Only `/css` and `/js` are served as static files (public assets).
 Every HTML shell is served through an explicit `sendFile` route so
-server source, `.env` and Prisma files can never be exposed.
+server source, `.env` and database files can never be exposed.
 
 ## Rules
 
 - Backend data comes from the existing bot services (`tickets`,
-  `moderation`, `logging`, `settings`) and the real Prisma schema.
-  No invented relations (e.g. never `include: { TicketType }` —
-  resolve `typeId` with an explicit `ticketType.findUnique`).
+  `moderation`, `logging`, `settings`) and the real Drizzle schema
+  in `../db/schema`. No invented relations (e.g. never join a
+  `ticketType` row without an explicit lookup on `typeId`).
 - `DashboardGuild` rows snapshot the manageable Discord guilds at
   OAuth login (identify+guilds scopes only). Access tokens are never
   stored. Bot presence is always re-checked live, never trusted.

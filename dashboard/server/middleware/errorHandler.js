@@ -14,7 +14,7 @@ export function notFound(req, res) {
 }
 
 // 500: log full diagnostics server-side, safe message to the client.
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res, _next) {
     logger.error(
         "dashboard",
         `error on ${req.method} ${req.path} user=${req.userId || "-"} guild=${req.params?.guildId || req.guildId || "-"}`,

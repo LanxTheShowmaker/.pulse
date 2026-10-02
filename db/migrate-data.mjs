@@ -2,12 +2,17 @@
 // Copies every row from the legacy SQLite database into MySQL.
 // Safe to re-run: tables that already contain rows are skipped.
 // The SQLite file is never modified.
+// Defaults to the legacy ./prisma/pulse.db; override with an argument
+// or the LEGACY_SQLITE_PATH environment variable.
 import "dotenv/config";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { getDb, closeDatabase } from "./index.js";
 import * as schema from "./schema/index.js";
 
-const SQLITE_PATH = process.argv[2] || "C:/Users/ultim/Documents/WingzBot/prisma/pulse.db";
+const SQLITE_PATH = process.argv[2]
+    || process.env.LEGACY_SQLITE_PATH
+    || path.resolve(import.meta.dirname, "..", "prisma", "pulse.db");
 const TNAME = Symbol.for("drizzle:Name");
 
 function isColumn(v) {

@@ -1,6 +1,6 @@
 // Economy, leveling and presence tables. Mirrors Prisma models 1:1.
-import { mysqlTable, text, int, boolean, real, primaryKey, uniqueIndex, index } from "drizzle-orm/mysql-core";
-import { uuidPk, str191, txt, txtDef, createdAt, updatedAt, ts } from "./_common.js";
+import { mysqlTable, text, int, primaryKey, uniqueIndex, index } from "drizzle-orm/mysql-core";
+import { uuidPk, str191, txt, createdAt, updatedAt, ts } from "./_common.js";
 
 export const xp = mysqlTable("Xp", {
     guildId: str191("guildId").notNull(),

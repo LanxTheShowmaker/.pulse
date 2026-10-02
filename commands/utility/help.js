@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
 import { panel } from "../../ui/embeds.js";
-import { Theme } from "../../ui/theme.js";
 
 const CATEGORY_META = {
     moderation: { icon: "🔨", label: "Moderation" },
@@ -34,7 +33,7 @@ export default {
 
         // Build category map from registered commands
         const categories = {};
-        for (const [name, cmd] of commands) {
+        for (const [, cmd] of commands) {
             const cat = cmd.category || "utility";
             if (!categories[cat]) categories[cat] = [];
             categories[cat].push(cmd);

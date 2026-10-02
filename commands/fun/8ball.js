@@ -1,5 +1,4 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
 import { panel } from "../../ui/embeds.js";
 
 const RESPONSES = [

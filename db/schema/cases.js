@@ -1,6 +1,6 @@
 // Moderation case tracking. Mirrors the Prisma models 1:1.
 import { mysqlTable, text, int, bigint, boolean, uniqueIndex, index } from "drizzle-orm/mysql-core";
-import { uuidPk, str191, txt, txtDef, createdAt, updatedAt, ts } from "./_common.js";
+import { uuidPk, str191, txt, createdAt, updatedAt, ts } from "./_common.js";
 
 export const case_ = mysqlTable("Case", {
     id: int("id").primaryKey().autoincrement(),

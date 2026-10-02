@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
 import { requireModerator, ephemeral } from "../moderation/shared.js";
-import { panel, success, error, stat } from "../../ui/embeds.js";
+import { panel, success, stat } from "../../ui/embeds.js";
 
 const DETECTOR_LIST = [
     { name: "spam",      label: "Spam Detection",     desc: "Multiple messages in short time" },
@@ -217,7 +217,7 @@ export default {
         const fake = { content, mentions: { users: { size: (content.match(/@/g) || []).length } } };
 
         const DETECTOR_FNS = {
-            spam:       (m, c) => false,
+            spam:       (_m, _c) => false,
             words:      (m, c) => (c.words?.list ?? []).some(w => m.content.toLowerCase().includes(w.toLowerCase())),
             links:      (m) => /https?:\/\/[^\s]+/i.test(m.content),
             invites:    (m) => /discord\.gg\/|discordapp\.com\/invite\//i.test(m.content),

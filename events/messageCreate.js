@@ -86,11 +86,11 @@ export default {
                         const idx = args.indexOf(name);
                         return idx >= 0 ? args[idx + 1] : null;
                     },
-                    getUser: (name) => null,
-                    getChannel: (name) => null,
-                    getRole: (name) => null,
-                    getInteger: (name) => null,
-                    getBoolean: (name) => null,
+getUser: (_name) => null,
+                getChannel: (_name) => null,
+                getRole: (_name) => null,
+                getInteger: (_name) => null,
+                getBoolean: (_name) => null,
                 },
                 reply: async (opts) => {
                     replyMsg = await message.reply(typeof opts === "string" ? { content: opts } : opts);

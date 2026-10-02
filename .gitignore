@@ -5,10 +5,6 @@ node_modules/
 *.log
 dist/
 *.js.map
-prisma/pulse.db
-prisma/pulse.db-journal
-prisma/pulse.db-wal
-prisma/pulse.db-shm
 *.db
 *.db-journal
 *.db-wal

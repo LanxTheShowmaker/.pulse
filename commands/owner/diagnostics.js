@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags, PermissionFlagsBits } from "discord.js";
-import { panel, stat } from "../../ui/embeds.js";
+import { panel } from "../../ui/embeds.js";
 import { Theme } from "../../ui/theme.js";
 
 export default {

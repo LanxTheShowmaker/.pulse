@@ -4,8 +4,8 @@ import { EmbedBuilder } from "@discordjs/builders";
 import { eq, and, ne, count } from "drizzle-orm";
 import { ticket, ticketType } from "../../db/schema/index.js";
 import { one } from "../../db/util.js";
-import { success, error, panel, stat } from "../../ui/embeds.js";
-import { button, selectMenu, row } from "../../ui/components.js";
+import { success, error, panel } from "../../ui/embeds.js";
+import { button, row } from "../../ui/components.js";
 import { Theme, Brand } from "../../ui/theme.js";
 
 export default {

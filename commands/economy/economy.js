@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { PermissionFlagsBits, MessageFlags } from "discord.js";
-import { success, error, panel, info } from "../../ui/embeds.js";
-import { EconomyService, COOLDOWNS, WORK_JOBS, CRIME_OPTIONS, SLOT_SYMBOLS, formatMs } from "../../services/economy.js";
+import { success, error, panel } from "../../ui/embeds.js";
+import { COOLDOWNS, formatMs } from "../../services/economy.js";
 
 const E = {
     wallet: "Wallet",

@@ -1,4 +1,3 @@
-import { ChannelType } from "discord.js";
 import { eq, desc } from "drizzle-orm";
 import { guildConfig, auditLog } from "../db/schema/index.js";
 import { one } from "../db/util.js";

@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
 import { MessageFlags } from "discord.js";
-import { panel, stat } from "../../ui/embeds.js";
-import { Theme } from "../../ui/theme.js";
+import { panel } from "../../ui/embeds.js";
 
 const CATEGORY_ICONS = {
     economy: "💰",

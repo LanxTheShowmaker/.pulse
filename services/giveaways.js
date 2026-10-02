@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { EmbedBuilder, ButtonBuilder, ActionRowBuilder } from "@discordjs/builders";
-import { MessageFlags, ButtonStyle } from "discord.js";
+import { ButtonStyle } from "discord.js";
 import { Theme, Brand } from "../ui/theme.js";
 import { logger } from "../core/logger.js";
 

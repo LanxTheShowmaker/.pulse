@@ -3,8 +3,8 @@ import { MessageFlags, PermissionFlagsBits } from "discord.js";
 import { eq } from "drizzle-orm";
 import { poll } from "../../db/schema/index.js";
 import { one } from "../../db/util.js";
-import { panel, stat, success, error } from "../../ui/embeds.js";
-import { Theme, Brand } from "../../ui/theme.js";
+import { panel, success, error } from "../../ui/embeds.js";
+import { Theme } from "../../ui/theme.js";
 
 const NUMBERS = ["1\u20E3", "2\u20E3", "3\u20E3", "4\u20E3", "5\u20E3", "6\u20E3", "7\u20E3", "8\u20E3", "9\u20E3", "\uD83D\uDD1F"];
 

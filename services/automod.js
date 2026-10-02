@@ -1,4 +1,3 @@
-import { logger } from "../core/logger.js";
 
 const DETECTORS = {
     spam:       { label: "Spam",        check: (m, c) => { const t = c.spam?.threshold ?? 5; return m._spamCount >= t; } },
@@ -8,7 +7,7 @@ const DETECTORS = {
     caps:       { label: "Caps Lock",    check: (m, c) => { const t = c.caps?.threshold ?? 70; const letters = m.content.replace(/[^a-zA-Z]/g, ""); return letters.length > 10 && (m.content.replace(/[^A-Z]/g, "").length / letters.length) * 100 >= t; } },
     mentions:   { label: "Mass Mentions", check: (m, c) => { const t = c.mentions?.threshold ?? 5; return m.mentions.users.size >= t; } },
     emoji:      { label: "Emoji Spam",   check: (m, c) => { const t = c.emoji?.threshold ?? 10; const emojis = m.content.match(/\p{Emoji_Presentation}/gu); return emojis && emojis.length >= t; } },
-    duplicate:  { label: "Duplicate Text", check: (m, c) => { const w = c.duplicate?.window ?? 30; return m._isDuplicate; } },
+    duplicate:  { label: "Duplicate Text", check: (m) => Boolean(m._isDuplicate) },
 };
 
 export class AutoModService {

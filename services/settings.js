@@ -1,25 +1,6 @@
 import { eq } from "drizzle-orm";
 import { guildConfig } from "../db/schema/index.js";
 import { clean, one } from "../db/util.js";
-import { logger } from "../core/logger.js";
-
-const DEFAULTS = {
-    logChannelId: null,
-    modLogChannelId: null,
-    welcomeChannelId: null,
-    goodbyeChannelId: null,
-    ticketCategoryId: null,
-    ticketLogChannelId: null,
-    staffRoleIds: "[]",
-    moderatorRoleIds: "[]",
-    ignoredChannelIds: "[]",
-    ignoredRoleIds: "[]",
-    ignoredUserIds: "[]",
-    modules: "{}",
-    automod: "{}",
-    orders: "{}",
-    prefix: "!",
-};
 
 export class SettingsService {
     constructor(db, client) {

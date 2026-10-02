@@ -79,9 +79,9 @@ Deployment differences are now **configuration**, not code:
 
 | Variant | Configuration |
 |---------|---------------|
-| **Standard** | Default Node.js heap, standard SQLite pragmas |
-| **Low-Resource** | `--max-old-space-size=256`, aggressive SQLite pragmas |
-| **Home Server (Pi 5)** | `--max-old-space-size=4096`, tuned SQLite pragmas (64MB cache, 256MB mmap) |
+| **Standard** | Default Node.js heap |
+| **Low-Resource** | `--max-old-space-size=256` |
+| **Home Server (Pi 5)** | `--max-old-space-size=4096`, tuned MySQL server buffers |
 
 See deployment documentation for details.
 
@@ -91,13 +91,15 @@ See deployment documentation for details.
 
 If you were on a historical branch:
 
-1. **Pull latest `master`** — contains universal implementation
-2. **Update `.env`** — ensure `DISCORD_TOKEN` and `DATABASE_URL`
-3. **Run migrations** — `npm run prisma:deploy`
+1. **Pull latest `test`** — contains the universal implementation
+2. **Update `.env`** — ensure `DISCORD_TOKEN` and `DATABASE_URL` (MySQL)
+3. **Run migrations** — `npm run db:migrate`
 4. **Deploy commands** — `npm run deploy`
 5. **Start** — `npm run start`
 
-No data migration needed — Prisma schema is compatible.
+Coming from the old Prisma + SQLite setup? The schema moved to Drizzle ORM on
+MySQL, so the tables must be created in MySQL. Copy any existing data across
+with `node db/migrate-data.mjs <path-to-legacy.db>`.
 
 ---
 

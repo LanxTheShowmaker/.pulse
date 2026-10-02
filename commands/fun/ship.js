@@ -1,7 +1,5 @@
 import { SlashCommandBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
 import { panel, progressBar } from "../../ui/embeds.js";
-import { Theme } from "../../ui/theme.js";
 
 export default {
     category: "fun",

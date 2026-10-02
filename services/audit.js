@@ -1,7 +1,6 @@
 import { eq, and, desc, count } from "drizzle-orm";
 import { auditLog } from "../db/schema/index.js";
 import { clean, one, uuid } from "../db/util.js";
-import { logger } from "../core/logger.js";
 
 export class AuditService {
     constructor(db, client) {

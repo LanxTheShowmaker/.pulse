@@ -5,7 +5,6 @@
 
     function cardHtml(g) {
         const ui = window.Pulse.ui;
-        const icons = window.Pulse.icons;
         const icon = g.icon
             ? `<span class="server-icon"><img src="${ui.esc(g.icon)}" alt="" loading="lazy"></span>`
             : `<span class="server-icon" aria-hidden="true">${ui.esc((g.name || "S").slice(0, 2).toUpperCase())}</span>`;

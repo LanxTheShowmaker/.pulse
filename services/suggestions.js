@@ -1,10 +1,8 @@
 import { EmbedBuilder } from "@discordjs/builders";
-import { MessageFlags } from "discord.js";
 import { eq, and, desc, count } from "drizzle-orm";
 import { suggestion } from "../db/schema/index.js";
 import { clean, one, uuid } from "../db/util.js";
 import { Theme, Brand } from "../ui/theme.js";
-import { logger } from "../core/logger.js";
 
 const STATUS = {
     PENDING: "⏳ Pending",

@@ -1,4 +1,3 @@
-import { logger } from "../core/logger.js";
 
 // ─── Knowledge Base ───────────────────────────────────────────────
 // Each category has weighted keywords, phrases, and patterns.
@@ -168,7 +167,7 @@ export class TriageEngine {
         };
     }
 
-    detectCategory(text, words) {
+    detectCategory(text, _words) {
         const scores = {};
 
         for (const [cat, config] of Object.entries(CATEGORIES)) {
@@ -266,7 +265,7 @@ export class TriageEngine {
         return Math.max(-1, Math.min(1, score / Math.max(words.length / 3, 1)));
     }
 
-    detectUrgency(text, words) {
+    detectUrgency(text, _words) {
         for (const [level, config] of Object.entries(URGENCY)) {
             // Keywords
             for (const kw of config.keywords) {
@@ -284,7 +283,7 @@ export class TriageEngine {
         return "low";
     }
 
-    generateSuggestions(category, urgency, sentiment, context) {
+    generateSuggestions(category, urgency, sentiment, _context) {
         const suggestions = [];
 
         // Response template
@@ -338,5 +337,3 @@ export class TriageEngine {
         return this.stats.get(guildId) || { categories: {}, urgencies: {}, total: 0 };
     }
 }
-
-export const triage = new TriageEngine();
