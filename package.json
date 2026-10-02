@@ -7,13 +7,16 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
+    "dashboard": "node dashboard/serve.js",
+    "dashboard:dev": "node --watch dashboard/serve.js",
     "deploy": "node core/deploy.js",
     "db:migrate": "node db/run-migrate.mjs",
+    "db:check": "node db/check.mjs",
     "lint": "eslint .",
-    "test": "node --test **/*.test.js"
+    "test": "node --test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.19.0"
   },
   "dependencies": {
     "@discordjs/builders": "^0.16.0",
@@ -22,16 +25,16 @@
     "@discordjs/rest": "3.0.0-pr-11602.1789066132-275cd4b42",
     "@discordjs/util": "2.0.0-pr-11602.1789066132-275cd4b42",
     "@discordjs/ws": "3.0.0-pr-11602.1789066132-275cd4b42",
+    "cookie-parser": "^1.4.7",
     "discord.js": "15.0.0-pr-11602.1789066132-275cd4b42",
-    "dotenv": "^16.4.5",
-    "drizzle-orm": "^0.45.2",
-    "mysql2": "^3.24.4",
-    "express": "^4.21.2",
-    "helmet": "^8.0.0",
-    "express-rate-limit": "^7.4.0",
-    "cookie-parser": "^1.4.6"
+    "dotenv": "^18.0.5",
+    "drizzle-orm": "^0.45.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "mysql2": "^3.24.5"
   },
   "devDependencies": {
-    "eslint": "^8.57.0"
+    "eslint": "^10.11.0"
   }
 }
