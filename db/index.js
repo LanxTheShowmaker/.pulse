@@ -25,6 +25,7 @@ export function getPool() {
         if (!parsed || !/^mysql:$/.test(parsed.protocol) || !parsed.pathname.replace(/^\//, "")) {
             throw new Error(
                 `DATABASE_URL is not a valid MySQL URL: ${raw}\n`
+                + `  ${explainBadUrl(raw)}\n`
                 + "  expected format: mysql://user:password@host:port/database\n"
                 + "  (quotes around the value are stripped automatically)",
             );
@@ -64,6 +65,27 @@ export async function verifyDatabase() {
             `  ${diagnose(root?.code, root?.sqlState)}`,
         );
     }
+}
+
+// Name the specific mistake when we recognise it. The most common one by far
+// is a leftover Prisma/SQLite path ("./pulse.db", "file:./dev.db") carried over
+// from before the MySQL migration, which otherwise fails as a bare "Invalid URL".
+function explainBadUrl(raw) {
+    if (/\.(db|sqlite3?)$/i.test(raw) || /^(file:)?\.\.?\//.test(raw)) {
+        return 'this looks like the old Prisma/SQLite path. .pulse now requires MySQL — '
+            + 'use mysql://user:password@host:port/database';
+    }
+    if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(raw)) {
+        return 'a host:port pair is not enough — it needs the mysql:// scheme and a database name';
+    }
+    if (/^mysql:\/\//i.test(raw)) {
+        if (/^mysql:\/\/[^@/]*@[^/]*\/?$/i.test(raw) || !/^mysql:\/\/[^@/]*@[^/]+\/.+/i.test(raw)) {
+            return "it starts with mysql:// but is missing the database name "
+                + "(mysql://user:password@host:port/database)";
+        }
+        return "it starts with mysql:// but could not be parsed — check the host and port";
+    }
+    return "it must start with mysql://";
 }
 
 // Drizzle wraps driver errors, so the actionable code (ECONNREFUSED,

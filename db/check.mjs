@@ -4,7 +4,7 @@
 // "Failed query: SELECT 1".
 import "dotenv/config";
 import mysql from "mysql2/promise";
-import { closeDatabase, verifyDatabase } from "./index.js";
+import { closeDatabase, getPool, verifyDatabase } from "./index.js";
 
 const raw = (process.env.DATABASE_URL ?? "").trim().replace(/^["']|["']$/g, "");
 
@@ -23,7 +23,12 @@ try {
 
 if (!parsed || !/^mysql:$/.test(parsed.protocol) || !parsed.pathname.replace(/^\//, "")) {
     console.error(`DATABASE_URL is not a valid MySQL URL: ${raw}`);
-    console.error("  expected format: mysql://user:password@host:port/database");
+    // getPool() owns the detailed diagnosis; reuse it for one consistent message.
+    try {
+        getPool();
+    } catch (e) {
+        console.error(e.message.split("\n").slice(1).map(l => "  " + l.trim()).join("\n"));
+    }
     process.exit(1);
 }
 
